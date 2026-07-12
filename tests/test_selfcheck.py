@@ -178,7 +178,12 @@ def test_calc_freshness_states_and_mins():
     finally:
         f.close()
     try:
-        r = subprocess.run(["node", f.name], capture_output=True, text=True)
+        # calcFreshness 的时区往返（fmtBeijing）依赖本地时区，仅在 UTC+8（北京）下正确；
+        # CI runner 为 UTC 会导致 8 小时偏移、新鲜度误判 stale。显式固定 TZ=Asia/Shanghai
+        # 让子进程模拟生产环境时区，避免测试在 UTC 环境下脆弱失败。
+        node_env = dict(os.environ)
+        node_env["TZ"] = "Asia/Shanghai"
+        r = subprocess.run(["node", f.name], capture_output=True, text=True, env=node_env)
     finally:
         os.unlink(f.name)
     assert r.returncode == 0, "node 执行 calcFreshness 失败：\n%s\n%s" % (r.stdout, r.stderr)
