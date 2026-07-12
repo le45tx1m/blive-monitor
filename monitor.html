@@ -1366,113 +1366,151 @@ body {
 }
 
 /* ===== New Works Grid ===== */
+/* ===== 新作品监控卡片 — 横向列表行布局 ===== */
 .blm-works-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: var(--spacing-md);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 .blm-work-card {
-  background: var(--color-bg-surface);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  transition: all 0.22s cubic-bezier(0.25, 0.1, 0.25, 1);
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+  padding: 12px;
+  background: var(--color-bg-card, #16161a);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 14px;
+  transition: all 0.2s ease;
   position: relative;
 }
 .blm-work-card:hover {
-  border-color: var(--color-border-default);
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+  background: var(--color-bg-surface-hover, #1c1c22);
+  border-color: rgba(255,255,255,0.1);
 }
-.blm-work-card:active { transform: scale(0.98); }
+.blm-work-card:active { transform: scale(0.995); }
 .blm-work-card.paused { opacity: 0.55; }
 
-.blm-work-select-wrap {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  z-index: 10;
-}
+/* 复选框 — 自定义样式 */
+.blm-work-select-wrap { align-self: center; flex-shrink: 0; margin-right: -4px; }
 .blm-work-select {
-  width: 18px;
-  height: 18px;
-  accent-color: var(--brand-primary);
-  cursor: pointer;
-  margin: 0;
-}
-
-.blm-work-thumb {
-  width: 100%;
-  aspect-ratio: 3/4;
-  background: linear-gradient(135deg, var(--color-bg-surface-elevated), var(--color-bg-surface-raised));
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  width: 22px; height: 22px;
+  border: 2px solid rgba(255,255,255,0.25);
+  border-radius: 6px;
+  appearance: none; -webkit-appearance: none;
+  cursor: pointer; transition: all 0.15s ease;
+  background: transparent; flex-shrink: 0;
   position: relative;
-  text-decoration: none;
+}
+.blm-work-select:hover { border-color: #fe2c55; }
+.blm-work-select:checked { background: #fe2c55; border-color: #fe2c55; }
+.blm-work-select:checked::after {
+  content: ''; position: absolute; left: 6px; top: 2px;
+  width: 6px; height: 10px;
+  border: solid white; border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.blm-work-select:disabled { opacity: 0.3; cursor: not-allowed; }
+
+/* 头像区域 — 48px 圆角方形，带平台角标 */
+.blm-work-thumb {
+  width: 48px; height: 48px;
+  flex-shrink: 0;
+  border-radius: 10px;
   overflow: hidden;
+  position: relative;
+  display: flex; align-items: center; justify-content: center;
+  text-decoration: none;
+  background: linear-gradient(135deg, #2a2a32, #1a1a20);
 }
 .blm-work-cover { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-.blm-work-thumb-placeholder { color: var(--color-text-quaternary); font-size: 32px; }
-.blm-work-platform-tag {
-  position: absolute; top: 8px; left: 8px;
-  padding: 2px 8px; border-radius: var(--radius-full);
-  font-size: var(--font-size-tiny); font-weight: var(--font-weight-semibold);
-  backdrop-filter: blur(8px);
-  z-index: 5;
+.blm-work-thumb-placeholder { color: rgba(255,255,255,0.35); font-size: 18px; font-weight: 600; }
+/* 平台角标 — 左下角小标签，不再大面积遮挡头像 */
+.blm-platform-badge {
+  position: absolute; bottom: -2px; left: -4px;
+  padding: 1px 6px; border-radius: 4px;
+  font-size: 8px; font-weight: 600; line-height: 1.3;
+  color: white; z-index: 5; white-space: nowrap;
 }
-.blm-work-platform-tag.bilibili { background: rgba(0, 212, 245, 0.9); color: #000; }
-.blm-work-platform-tag.douyin { background: rgba(254, 44, 85, 0.9); color: white; }
+.blm-platform-badge.douyin { background: #fe2c55; }
+.blm-platform-badge.bilibili { background: #00d4f5; color: #000; }
 
-.blm-work-info { padding: var(--spacing-sm) var(--spacing-md); display: flex; flex-direction: column; gap: 2px; }
+/* 信息区 — 昵称行 + 操作行 */
+.blm-work-info {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column; justify-content: center;
+  gap: 10px; padding: 0;
+}
 .blm-work-author {
-  font-size: var(--font-size-caption); font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  display: flex; align-items: center; gap: 4px;
+  font-size: 15px; font-weight: 500;
+  color: var(--color-text-primary, #fff);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  display: flex; align-items: center; gap: 6px;
 }
 .blm-work-desc {
-  font-size: var(--font-size-tiny); color: var(--color-text-secondary);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.blm-work-footer {
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 4px; margin-top: 4px;
-}
-.blm-work-time { font-size: var(--font-size-tiny); color: var(--color-text-tertiary); }
-.blm-work-link {
-  display: inline-flex;
-  align-items: center;
-  padding: 3px 8px;
-  background: var(--color-douyin-bg);
-  color: var(--color-douyin);
-  border-radius: var(--radius-sm);
-  font-size: var(--font-size-tiny);
-  font-weight: var(--font-weight-medium);
-  text-decoration: none;
-  transition: all 0.15s ease;
-  white-space: nowrap;
-}
-.blm-work-link:hover { opacity: 0.8; }
-.blm-work-actions {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-}
-.blm-work-actions .blm-icon-btn-sm {
-  width: 24px;
-  height: 24px;
-  font-size: 11px;
+  font-size: 12px; color: rgba(255,255,255,0.45);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
-/* 视图切换（卡片 / 横条） */
+/* 操作行 */
+.blm-work-footer {
+  display: flex; align-items: center; gap: 10px; margin-top: 0;
+}
+.blm-work-time { font-size: 11px; color: rgba(255,255,255,0.45); flex-shrink: 0; }
+/* 主操作按钮 — 半透红 pill */
+.blm-work-link {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 6px 14px;
+  background: rgba(254,44,85,0.12);
+  color: #fe2c55; border: none; border-radius: 9999px;
+  font-size: 12px; font-weight: 500;
+  text-decoration: none; transition: all 0.2s ease;
+  white-space: nowrap; cursor: pointer;
+}
+.blm-work-link:hover { background: rgba(254,44,85,0.22); }
+/* "更多" 按钮（⋯） */
+.blm-more-btn {
+  background: transparent; border: none;
+  color: rgba(255,255,255,0.45);
+  width: 28px; height: 28px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: all 0.15s ease;
+  flex-shrink: 0; padding: 0;
+  font-size: 16px; line-height: 1;
+}
+.blm-more-btn:hover { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.7); }
+
+/* 更多弹出菜单 */
+.blm-more-menu {
+  display: none; position: absolute; right: 0; top: 100%;
+  margin-top: 4px; min-width: 140px; padding: 4px;
+  background: var(--color-bg-elevated, #1e1e24);
+  border: 1px solid rgba(255,255,255,0.1); border-radius: 10px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.35);
+  z-index: 200;
+  animation: blmFadeIn 0.12s ease;
+}
+.blm-more-menu.show { display: block; }
+@keyframes blmFadeIn { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:translateY(0)} }
+.blm-more-item {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; padding: 8px 12px;
+  border: none; background: transparent;
+  color: rgba(255,255,255,0.7);
+  font-size: 13px; font-weight: 400;
+  border-radius: 8px; cursor: pointer;
+  text-align: left; transition: all 0.12s ease; white-space: nowrap;
+}
+.blm-more-item:hover { background: rgba(255,255,255,0.06); color: #fff; }
+.blm-more-item.danger:hover { background: rgba(255,69,58,0.12); color: #ff453a; }
+.blm-more-divider { height: 1px; background: rgba(255,255,255,0.06); margin: 2px 8px; }
+
+/* 视图切换（保留兼容，默认横条=新设计） */
 .blm-section-header-right { display: flex; align-items: center; gap: var(--spacing-sm); }
 .blm-view-toggle {
   display: inline-flex;
   background: var(--color-bg-surface-elevated);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
-  padding: 2px;
-  gap: 2px;
+  border-radius: var(--radius-md); padding: 2px; gap: 2px;
 }
 .blm-view-btn {
   border: none; background: transparent; cursor: pointer;
@@ -1486,55 +1524,22 @@ body {
 .blm-view-btn:hover { color: var(--color-text-primary); }
 .blm-view-btn.active { background: var(--brand-primary); color: #fff; }
 
-/* 横条（list）布局：紧凑水平行，缩略图在左、信息在右，一屏容纳更多 */
-.blm-works-grid.list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-sm);
+/* 计数徽标 */
+.posts-count-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 20px; height: 20px; padding: 0 6px;
+  background: rgba(254,44,85,0.12);
+  color: #fe2c55; border-radius: 9999px;
+  font-size: 13px; font-weight: 600;
 }
-.blm-works-grid.list .blm-work-card {
-  display: flex;
-  flex-direction: row;
-  align-items: stretch;
-  overflow: hidden;
-}
-.blm-works-grid.list .blm-work-select-wrap {
-  position: static;
-  align-self: center;
-  margin: 0 var(--spacing-sm);
-  flex: 0 0 auto;
-}
-.blm-works-grid.list .blm-work-thumb {
-  width: 88px;
-  flex: 0 0 88px;
-  aspect-ratio: 1 / 1;
-  border-radius: 0;
-}
-.blm-works-grid.list .blm-work-info {
-  flex: 1 1 auto;
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--spacing-md);
-  padding: var(--spacing-sm) var(--spacing-md);
-  min-width: 0;
-}
-.blm-works-grid.list .blm-work-author {
-  font-size: var(--font-size-body);
-  white-space: nowrap;
-}
-.blm-works-grid.list .blm-work-desc {
-  flex: 1 1 auto;
-  min-width: 0;
-  margin: 0;
-}
-.blm-works-grid.list .blm-work-footer {
-  margin-top: 0;
-  flex: 0 0 auto;
-}
-@media (max-width: 520px) {
-  .blm-works-grid.list .blm-work-desc { display: none; }
-  .blm-works-grid.list .blm-work-thumb { width: 64px; flex-basis: 64px; }
+
+/* 新作品卡片响应式 */
+@media (max-width: 380px) {
+  .blm-work-card { gap: 10px; padding: 10px; }
+  .blm-work-thumb { width: 40px; height: 40px; border-radius: 8px; }
+  .blm-work-author { font-size: 14px; }
+  .blm-work-link { padding: 5px 10px; font-size: 11px; }
+  .blm-platform-badge { font-size: 7px; padding: 0 5px; }
 }
 
 /* ===== Bottom Tab Bar ===== */
@@ -2653,8 +2658,6 @@ function renderPosts(){
     var time=ago(tt.latest_ct);
     var needCookie=tt.need_cookie; // 稳定走 count 退化（风控/未登录）时由 CI 标记
     var rmArg=JSON.stringify({id:r.id});
-    var platformTag='<span class="blm-work-platform-tag douyin">抖音</span>';
-    var placeholder='<svg class="blm-work-thumb-placeholder" width="40" height="40" viewBox="0 0 24 24" fill="none"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>';
     var coverImg=tt.latest_cover?'<img class="blm-work-cover" src="'+e(tt.latest_cover)+'" alt="" onerror="this.remove()">':'';
     var titleLine=name, descLine='', linkLine=link, linkLabel='查看作品 →';
     if(aid && !String(aid).startsWith('count:')){
@@ -2673,24 +2676,38 @@ function renderPosts(){
     var _selP=(typeof selected!=='undefined' && selected.hasOwnProperty(_postKey))?' checked':'';
     var selHtmlP='<label class="blm-work-select-wrap"><input type="checkbox" class="blm-work-select" data-key="'+e(_postKey)+'"'+(_pausePost?' disabled':'')+_selP+' onchange="toggleRoomSelect(\''+e(_postKey)+'\',this)"></label>';
     var editArg=JSON.stringify({id:r.id,platform:'douyin'});
-    var actionsP=
-      '<div class="blm-work-actions">'+
-        '<button class="blm-icon-btn-sm blm-room-detail" title="详情" onclick="openRoomDetail(\'douyin|'+e(id)+'\')">ⓘ</button>'+
-        '<button class="blm-icon-btn-sm" title="编辑" onclick=\'editRoom('+editArg+')\'>✎</button>'+
-        (hasApi?'<button class="blm-icon-btn-sm danger" title="移除监控" onclick=\'removePostRoom('+rmArg+')\'>✕</button>':'')+
+    var rmArg=JSON.stringify({id:r.id});
+    /* 头像占位符：取昵称首字，无昵称则用首字母 */
+    var _headChar = (titleLine && titleLine !== id) ? titleLine.charAt(0) : (id ? id.charAt(0).toUpperCase() : '?');
+    var placeholder='<span class="blm-work-thumb-placeholder">'+e(_headChar)+'</span>';
+    var coverImg=tt.latest_cover?'<img class="blm-work-cover" src="'+e(tt.latest_cover)+'" alt="" onerror="this.remove()">':'';
+    /* 平台角标 — 左下角小标签 */
+    var platformBadge='<span class="blm-platform-badge douyin">抖音</span>';
+
+    /* 更多菜单（⋯）— 含详情 / 编辑 / 移除 */
+    var _menuId = 'pmenu_'+String(r.id);
+    var actionsP =
+      '<button class="blm-more-btn" onclick="event.stopPropagation();togglePostMenu(\''+_menuId+'\')" aria-label="更多操作">⋮</button>' +
+      '<div class="blm-more-menu" id="'+_menuId+'">'+
+        '<button class="blm-more-item" onclick="openRoomDetail(\'douyin|'+e(id)+'\');closeAllPostMenus()">📋 详情</button>'+
+        '<button class="blm-more-item" onclick=\'editRoom('+editArg+');closeAllPostMenus()\'>✎ 编辑备注</button>'+
+        (hasApi?'<div class="blm-more-divider"></div><button class="blm-more-item danger" onclick=\'removePostRoom('+rmArg+');closeAllPostMenus()\'>🗑 移除监控</button>':'')+
       '</div>';
+
     h+='<div class="blm-work-card'+(r.enabled===false?' paused':'')+'">'+
          selHtmlP+
-         '<a class="blm-work-thumb" href="'+linkLine+'" target="_blank">'+placeholder+coverImg+platformTag+'</a>'+
+         '<div class="blm-work-thumb" style="position:relative;">'+
+           placeholder + coverImg +
+           platformBadge +
+         '</div>'+
          '<div class="blm-work-info">'+
-           '<div class="blm-work-author">'+e(titleLine)+_pauseBadgePost+'</div>'+
-           '<div class="blm-work-desc">'+e(descLine)+'</div>'+
+           /* 上行：昵称 + 时间标记 */
+           '<div class="blm-work-author">'+e(titleLine)+_pauseBadgePost+(time && time!=='刚刚'?('<span style="font-size:11px;color:rgba(255,255,255,0.35);font-weight:400;flex-shrink:0">'+e(time)+'</span>'):'')+'</div>'+
+           /* 下行：操作按钮行 */
            '<div class="blm-work-footer">'+
-             '<span class="blm-work-time">'+time+'</span>'+
-             '<div style="display:flex;align-items:center;gap:4px">'+
-               '<a class="blm-work-link" href="'+linkLine+'" target="_blank">'+linkLabel+'</a>'+
-               actionsP+
-             '</div>'+
+             '<a class="blm-work-link" href="'+linkLine+'" target="_blank">'+linkLabel+' ›</a>'+
+             '<div style="flex:1"></div>'+
+             actionsP+
            '</div>'+
          '</div>'+
        '</div>';
@@ -2699,8 +2716,27 @@ function renderPosts(){
   try{ updateBatchBar(); }catch(_e){}
 }
 
-/* 新作监控：卡片 / 横条 视图切换（偏好持久化到 localStorage，默认卡片=原布局，无回归） */
-var postsView = (function(){ try { return localStorage.getItem('blm_posts_view') || 'grid'; } catch(e){ return 'grid'; } })();
+/* 新作品卡片 "更多" 菜单（⋯）— 单例切换 + 点击外部关闭 */
+function togglePostMenu(menuId){
+  var el=document.getElementById(menuId);
+  if(!el) return;
+  var wasOpen=el.classList.contains('show');
+  closeAllPostMenus();
+  if(!wasOpen) el.classList.add('show');
+}
+function closeAllPostMenus(){
+  var ms=document.querySelectorAll('.blm-more-menu.show');
+  for(var i=0;i<ms.length;i++) ms[i].classList.remove('show');
+}
+/* 点击页面其他区域时自动关闭所有更多菜单 */
+document.addEventListener('click', function(ev){
+  if(!ev.target.closest('.blm-more-btn') && !ev.target.closest('.blm-more-menu')){
+    closeAllPostMenus();
+  }
+});
+
+/* 新作监控：视图切换（偏好持久化到 localStorage） */
+var postsView = (function(){ try { return localStorage.getItem('blm_posts_view') || 'list'; } catch(e){ return 'list'; } })();
 function setPostsView(v){
   postsView = (v === 'list') ? 'list' : 'grid';
   try { localStorage.setItem('blm_posts_view', postsView); } catch(e){}
