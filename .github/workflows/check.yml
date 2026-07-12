@@ -114,12 +114,69 @@ jobs:
           done
           rm -rf "$TMPD"
           # 状态文件被 .gitignore 忽略，用 -f 强制纳入版本控制；notify_dedup.json 为去重账本，同样需持久化
-          # status.json 为本轮检测产出，必须一并提交（否则前端读到旧状态）
-          git add -f state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json status.json summary_state.json assets/covers
-          # 每次运行更新时间戳，保证仓库持续有活动（防 60 天自动停用 schedule）
-          date -u +"%Y-%m-%dT%H:%M:%SZ" > .keepalive
-          git add .keepalive
-          git commit -m "📡 update state [skip ci]" || true
+          # status.json 由脚本每轮重写（含 updated/time 等易变时间戳）。前端新鲜度由 Pages 每次部署时从
+          # 工作区拷贝最新 status.json 保证（见 Build Pages 步骤），故 git 提交只在「meaningful 内容变化」时
+          # 纳入 status.json，忽略纯时间戳变动，避免每 5 分钟空推一条 commit。
+          git add -f state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json summary_state.json assets/covers
+          # status.json：仅当其 meaningful 内容（去掉 updated 与每房间 time/live_duration）相比 HEAD 变化才提交
+          python3 - <<'PY'
+import json, subprocess
+def strip(d):
+    if not isinstance(d, dict):
+        return d
+    d = {k: v for k, v in d.items() if k != 'updated'}
+    rooms = d.get('rooms')
+    if isinstance(rooms, list):
+        for r in rooms:
+            if isinstance(r, dict):
+                r.pop('time', None)
+                r.pop('live_duration', None)
+    return d
+def load(p):
+    try:
+        return json.load(open(p))
+    except Exception:
+        return None
+cur = strip(load('status.json'))
+try:
+    head = strip(json.loads(subprocess.check_output(['git', 'show', 'HEAD:status.json'])))
+except Exception:
+    head = None
+if cur != head:
+    subprocess.run(['git', 'add', '-f', 'status.json'])
+PY
+          # 防刷屏：仅当状态文件真有变化才提交；否则跳过 push，避免每 5 分钟空推一条 commit。
+          # 保活（防 60 天自动停用 schedule）改为：距上次 keepalive 超过 30 天才更新时间戳并轻量提交一次。
+          if git diff --cached --quiet; then
+            echo "状态无变化，跳过提交"
+            # 仅当超过 30 天未保活时才更新 .keepalive 时间戳（轻量保活，不刷屏）
+            NEED_KEEPALIVE=false
+            if [ -f .keepalive ]; then
+              LAST=$(date -d "$(cat .keepalive)" +%s 2>/dev/null || echo 0)
+              NOW=$(date -u +%s)
+              if [ "$LAST" != "0" ] && [ $((NOW - LAST)) -gt 2592000 ]; then NEED_KEEPALIVE=true; fi
+            else
+              NEED_KEEPALIVE=true
+            fi
+            if [ "$NEED_KEEPALIVE" = "true" ]; then
+              date -u +"%Y-%m-%dT%H:%M:%SZ" > .keepalive
+              git add .keepalive
+              git commit -m "📡 keepalive [skip ci]" || true
+              for i in 1 2; do
+                git push origin HEAD:master 2>&1 && break
+                git fetch origin master 2>&1 || true
+                git reset --hard origin/master 2>/dev/null || true
+                date -u +"%Y-%m-%dT%H:%M:%SZ" > .keepalive
+                git add .keepalive
+                git commit -m "📡 keepalive [skip ci]" || true
+              done || echo "keepalive push failed"
+            fi
+          else
+            # 每次运行更新时间戳，保证仓库持续有活动（防 60 天自动停用 schedule）
+            date -u +"%Y-%m-%dT%H:%M:%SZ" > .keepalive
+            git add .keepalive
+            git commit -m "📡 update state [skip ci]" || true
+          fi
           # 推送：基于远端 master 提交，应为快进。若失败（远端又推进了），重试
           for i in 1 2; do
             git push origin HEAD:master 2>&1 && break
@@ -136,6 +193,10 @@ jobs:
             done
             rm -rf "$TMPD"
             git add -f state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json status.json summary_state.json assets/covers
+            # 重试也仅在状态真变时才提交，避免为无变化空推
+            if git diff --cached --quiet; then echo "重试：状态无变化，跳过"; break; fi
+            date -u +"%Y-%m-%dT%H:%M:%SZ" > .keepalive
+            git add .keepalive
             git commit -m "📡 update state [skip ci]" || true
           done || echo "push failed (状态将在下一次 run 自动对齐，去重账本兜底防刷屏)"
 
