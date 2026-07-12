@@ -103,12 +103,14 @@
   },
   "douyin_74597663503": {
     "sec_uid": "MS4wLjABAAAAhKMh_lUoSsPbEhBHyeTC5OzBJIOWYIYWXUqw5q_cdLbBzrWUFvFmepcpSlezkkTQ",
-    "latest_aweme_id": "count:3",
-    "latest_ct": 3,
-    "mode": "count",
-    "latest_count": 3,
+    "latest_aweme_id": "7661540406228533669",
+    "latest_ct": 0,
+    "mode": "api",
+    "latest_count": 0,
     "nickname": "D.my",
-    "need_cookie": true
+    "latest_desc": "喂，快给我刷牙，这是命令",
+    "latest_type": "视频",
+    "latest_url": "https://www.douyin.com/video/7661540406228533669"
   },
   "douyin_dy571881": {
     "sec_uid": "MS4wLjABAAAAyCaNA3LEhCAViVcLn86e6YwyW8-GkDAWMPj_3n_pz00",
