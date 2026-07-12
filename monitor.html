@@ -450,6 +450,13 @@ body {
   border: 1px solid rgba(255, 159, 10, 0.2);
 }
 .blm-btn-warning:hover { background: rgba(255, 159, 10, 0.18); }
+.blm-btn-danger {
+  background: rgba(255, 77, 79, 0.12);
+  color: #ff4d4f;
+  border: 1px solid rgba(255, 77, 79, 0.25);
+}
+.blm-btn-danger:hover { background: rgba(255, 77, 79, 0.2); }
+.blm-btn-danger:active { transform: scale(0.98); }
 
 /* ===== Add Room (collapsible) ===== */
 .blm-add-wrap { margin-bottom: var(--spacing-sm); }
@@ -1806,6 +1813,7 @@ body {
           <button class="blm-btn" onclick="selectAllInView('live')">全选</button>
           <button class="blm-btn blm-btn-warning" onclick="pauseSelected()">暂停选中</button>
           <button class="blm-btn blm-btn-primary" onclick="resumeSelected()">恢复选中</button>
+          <button class="blm-btn blm-btn-danger" onclick="deleteSelected()">删除选中</button>
           <span id="batchCount" class="blm-batch-count">已选 0</span>
         </div>
 
@@ -1909,6 +1917,7 @@ body {
           <button class="blm-btn" onclick="selectAllInView('posts')">全选</button>
           <button class="blm-btn blm-btn-warning" onclick="pauseSelected()">暂停选中</button>
           <button class="blm-btn blm-btn-primary" onclick="resumeSelected()">恢复选中</button>
+          <button class="blm-btn blm-btn-danger" onclick="deleteSelected()">删除选中</button>
           <span id="batchCountPosts" class="blm-batch-count">已选 0</span>
         </div>
 
@@ -4583,6 +4592,40 @@ function resumeSelected(){
     selected={}; renderLive(); renderPosts(); updateBatchBar();
     toast('已恢复选中房间', true);
   }).catch(function(err){ toast(err&&err.message||'批量恢复失败', false); });
+}
+/** 批量删除选中：直播 rooms.json 与 新作 post_rooms.json 各自移除匹配项（各一次原子写回）。 */
+function deleteSelected(){
+  if(!getGhToken()){ toast('请先到「配置」页设置 Token', false); show('config'); return; }
+  var keys=Object.keys(selected);
+  if(!keys.length){ toast('请先勾选房间', false); return; }
+  // 按列表归类：selected key 形如 platform|id
+  var liveKeys={}, postIds={};
+  keys.forEach(function(k){
+    var p=k.split('|'); var platform=p[0], id=p[1];
+    if(rooms.some(function(r){ return r.platform===platform && String(r.id)===String(id); })) liveKeys[k]=true;
+    if(postRooms.some(function(r){ return String(r.id)===String(id); })) postIds[String(id)]=true;
+  });
+  var liveN=Object.keys(liveKeys).length, postN=Object.keys(postIds).length;
+  if(!liveN && !postN){ toast('勾选项不在任何监控列表', false); return; }
+  var total=keys.length;
+  if(!window.confirm('确定删除选中的 '+total+' 个监控？此操作不可撤销。')) return;
+  var jobs=[];
+  if(liveN){
+    jobs.push(ghWriteWithRetry('rooms.json', function(rs){
+      var next=rs.filter(function(r){ return !liveKeys[r.platform+'|'+String(r.id)]; });
+      return {rooms:next, changed: next.length!==rs.length};
+    }).then(function(res){ rooms=res.rooms; }));
+  }
+  if(postN){
+    jobs.push(ghWriteWithRetry('post_rooms.json', function(rs){
+      var next=rs.filter(function(r){ return !postIds[String(r.id)]; });
+      return {rooms:next, changed: next.length!==rs.length};
+    }).then(function(res){ postRooms=res.rooms; }));
+  }
+  Promise.all(jobs).then(function(){
+    selected={}; renderLive(); renderPosts(); updateBatchBar(); updateStatRooms(); updateStatPosts();
+    toast('已删除选中房间', true);
+  }).catch(function(err){ toast(err&&err.message||'批量删除失败', false); });
 }
 /** 显示/隐藏批量条并刷新计数（live/posts 两个视图均更新）。 */
 function updateBatchBar(){
