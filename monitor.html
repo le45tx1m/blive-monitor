@@ -1366,17 +1366,17 @@ body {
 }
 
 /* ===== New Works Grid ===== */
-/* ===== 新作品监控卡片 — 横向列表行布局 ===== */
+/* ===== 新作品监控卡片 — 横向列表行布局（紧凑比例）===== */
 .blm-works-grid {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;              /* 行间距收窄 */
 }
 .blm-work-card {
   display: flex;
   align-items: stretch;
-  gap: 12px;
-  padding: 12px;
+  gap: 10px;             /* 子元素间距收窄 */
+  padding: 10px 12px;    /* 内边距收窄 */
   background: var(--color-bg-card, #16161a);
   border: 1px solid rgba(255,255,255,0.06);
   border-radius: 14px;
@@ -1393,7 +1393,7 @@ body {
 /* 复选框 — 自定义样式 */
 .blm-work-select-wrap { align-self: center; flex-shrink: 0; margin-right: -4px; }
 .blm-work-select {
-  width: 22px; height: 22px;
+  width: 20px; height: 20px;        /* 稍微缩小 */
   border: 2px solid rgba(255,255,255,0.25);
   border-radius: 6px;
   appearance: none; -webkit-appearance: none;
@@ -1411,19 +1411,18 @@ body {
 }
 .blm-work-select:disabled { opacity: 0.3; cursor: not-allowed; }
 
-/* 头像区域 — 48px 圆角方形，带平台角标 */
+/* 头像区域 — 44px 圆角方形，带平台角标 */
 .blm-work-thumb {
-  width: 48px; height: 48px;
+  width: 44px; height: 44px;        /* 从48→44 */
   flex-shrink: 0;
   border-radius: 10px;
   overflow: hidden;
   position: relative;
   display: flex; align-items: center; justify-content: center;
   text-decoration: none;
-  background: linear-gradient(135deg, #2a2a32, #1a1a20);
 }
-.blm-work-cover { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-.blm-work-thumb-placeholder { color: rgba(255,255,255,0.35); font-size: 18px; font-weight: 600; }
+.blm-work-cover { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.85; }  /* 封面半透明，让渐变透出来 */
+.blm-work-thumb-placeholder { color: rgba(255,255,255,0.35); font-size: 16px; font-weight: 600; }  /* 字号缩小 */
 /* 平台角标 — 左下角小标签，不再大面积遮挡头像 */
 .blm-platform-badge {
   position: absolute; bottom: -2px; left: -4px;
@@ -1434,14 +1433,16 @@ body {
 .blm-platform-badge.douyin { background: #fe2c55; }
 .blm-platform-badge.bilibili { background: #00d4f5; color: #000; }
 
-/* 信息区 — 昵称行 + 操作行 */
+/* 信息区 — 昵称行 + 操作行（紧凑） */
 .blm-work-info {
   flex: 1; min-width: 0;
   display: flex; flex-direction: column; justify-content: center;
-  gap: 10px; padding: 0;
+  gap: 6px;           /* 从10→6 */
+  padding: 0;
 }
 .blm-work-author {
-  font-size: 15px; font-weight: 500;
+  font-size: 14px;     /* 从15→14 */
+  font-weight: 500;    /* 从500保持 */
   color: var(--color-text-primary, #fff);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   display: flex; align-items: center; gap: 6px;
@@ -1451,18 +1452,18 @@ body {
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
-/* 操作行 */
+/* 操作行（紧凑） */
 .blm-work-footer {
-  display: flex; align-items: center; gap: 10px; margin-top: 0;
+  display: flex; align-items: center; gap: 8px; margin-top: 0;
 }
-.blm-work-time { font-size: 11px; color: rgba(255,255,255,0.45); flex-shrink: 0; }
-/* 主操作按钮 — 半透红 pill */
+.blm-work-time { font-size: 11px; color: rgba(255,255,255,0.35); flex-shrink: 0; }
+/* 主操作按钮 — 半透红 pill（紧凑） */
 .blm-work-link {
-  display: inline-flex; align-items: center; gap: 4px;
-  padding: 6px 14px;
+  display: inline-flex; align-items: center; gap: 3px;
+  padding: 5px 12px;       /* 从6/14→5/12 */
   background: rgba(254,44,85,0.12);
   color: #fe2c55; border: none; border-radius: 9999px;
-  font-size: 12px; font-weight: 500;
+  font-size: 12px; font-weight: 500;   /* 保持 */
   text-decoration: none; transition: all 0.2s ease;
   white-space: nowrap; cursor: pointer;
 }
@@ -1533,20 +1534,21 @@ body {
   font-size: 13px; font-weight: 600;
 }
 
-/* 新作品卡片响应式 */
+/* 新作品卡片响应式（紧凑） */
 @media (max-width: 380px) {
-  .blm-work-card { gap: 10px; padding: 10px; }
-  .blm-work-thumb { width: 40px; height: 40px; border-radius: 8px; }
-  .blm-work-author { font-size: 14px; }
-  .blm-work-link { padding: 5px 10px; font-size: 11px; }
-  .blm-platform-badge { font-size: 7px; padding: 0 5px; }
+  .blm-work-card { gap: 8px; padding: 8px 10px; }
+  .blm-work-thumb { width: 38px; height: 38px; border-radius: 8px; }
+  .blm-work-author { font-size: 13px; }
+  .blm-work-link { padding: 4px 10px; font-size: 11px; }
+  .blm-platform-badge { font-size: 7px; padding: 0 4px; bottom: -1px; left: -3px; }
+  .blm-posts-mini-search { display: none; }   /* 超窄屏隐藏搜索 */
 }
 
-/* ===== 新作监控 — 顶部导航栏（对齐设计稿） ===== */
+/* ===== 新作监控 — 顶部导航栏（对齐设计稿，紧凑）===== */
 .blm-posts-nav {
   position: sticky; top: 0; z-index: 20;
   display: flex; align-items: center; justify-content: space-between;
-  height: 48px; padding: 0 16px;
+  height: 44px; padding: 0 16px;
   background: var(--color-bg-base, #0a0a0c);
   border-bottom: 1px solid rgba(255,255,255,0.06);
 }
@@ -1573,7 +1575,7 @@ body {
 /* 全选控制栏 */
 .blm-posts-selectall {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 12px 16px;
+  padding: 10px 16px;
   border-bottom: 1px solid rgba(255,255,255,0.06);
 }
 .blm-posts-selectall label {
@@ -1581,10 +1583,26 @@ body {
 }
 .blm-posts-selectall .blm-work-select { margin: 0; }
 .blm-posts-selectall .lbl { font-size: 14px; color: rgba(255,255,255,0.7); }
+/* 迷你搜索（嵌入全选行右侧） */
+.blm-posts-mini-search {
+  display: flex; align-items: center; gap: 4px;
+  background: rgba(255,255,255,0.06); border: none; border-radius: 8px;
+  padding: 4px 8px; width: 100px; transition: width 0.2s ease;
+}
+.blm-posts-mini-search:focus-within { width: 140px; background: rgba(255,255,255,0.09); }
+.blm-posts-mini-search input {
+  background: transparent; border: none; outline: none;
+  color: #fff; font-size: 12px; width: 100%; min-width: 0;
+}
+.blm-posts-mini-search input::placeholder { color: rgba(255,255,255,0.3); }
+.blm-posts-clear-btn {
+  background: transparent; border: none; color: rgba(255,255,255,0.35);
+  cursor: pointer; font-size: 11px; padding: 0 2px; line-height: 1; flex-shrink: 0;
+}
 .blm-posts-batch-btn {
   font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.7);
   background: transparent; border: none; cursor: pointer;
-  padding: 4px 8px; border-radius: 6px; transition: all 0.15s ease;
+  padding: 5px 8px; border-radius: 6px; transition: all 0.15s ease; white-space: nowrap;
 }
 .blm-posts-batch-btn:hover { color: #fff; background: rgba(255,255,255,0.06); }
 
@@ -2007,32 +2025,26 @@ body {
           <div class="blm-posts-nav-count" id="postsCount">0</div>
         </div>
 
-        <!-- 全选控制栏（设计稿：全选 + 批量管理） -->
+        <!-- 全选控制栏（设计稿：全选 + 搜索 + 添加 + 批量 — 一行搞定） -->
         <div class="blm-posts-selectall">
           <label>
             <input type="checkbox" class="blm-work-select" id="postsSelectAll" onchange="toggleSelectAllPosts(this.checked)">
             <span class="lbl">全选</span>
           </label>
-          <button class="blm-posts-batch-btn" onclick="toggleBatchBarPosts()">批量管理</button>
+          <div style="display:flex;align-items:center;gap:6px">
+            <!-- 紧凑搜索 -->
+            <div class="blm-posts-mini-search">
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" style="flex-shrink:0;opacity:0.5"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.6"/><path d="M11 11l3 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+              <input id="postsSearch" type="search" placeholder="搜索…" oninput="onPostsSearch(this.value)">
+              <button class="blm-posts-clear-btn" title="清除" onclick="this.previousElementSibling.value='';onPostsSearch('');this.style.display='none'" style="display:none">✕</button>
+            </div>
+            <button class="blm-posts-batch-btn" onclick="togglePostAddForm()">＋</button>
+            <button class="blm-posts-batch-btn" onclick="toggleBatchBarPosts()">批量</button>
+          </div>
         </div>
 
-        <div class="blm-search-bar">
-          <svg class="blm-search-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.6"/>
-            <path d="M11 11l3 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-          </svg>
-          <input id="postsSearch" type="search" placeholder="搜索 备注名/抖音号/昵称…" oninput="onPostsSearch(this.value)">
-          <button class="blm-room-remove" title="清除搜索" onclick="document.getElementById('postsSearch').value='';onPostsSearch('')">✕</button>
-        </div>
-
-        <!-- 阶段二 2b B2：标签筛选（与 q 搜索 AND 叠加） -->
-        <div class="blm-filter-bar" id="postsTagBar"></div>
-
-        <!-- Add Post -->
-        <div class="blm-add-actions" style="display:flex;gap:var(--spacing-sm);margin:var(--spacing-sm) 0;">
-          <button class="blm-add-room-btn" onclick="togglePostAddForm()" style="flex:1">＋ 添加抖音号</button>
-          <button class="blm-add-room-btn" onclick="togglePostBatchAdd()" id="postBatchToggleBtn" style="width:auto;padding:var(--spacing-md) var(--spacing-lg);">📋 批量</button>
-        </div>
+        <!-- 标签筛选（折叠态，有标签时才显示） -->
+        <div class="blm-filter-bar" id="postsTagBar" style="margin-bottom:8px"></div>
         <div id="postAddWrap">
           <div class="blm-add-form" id="postAddForm" style="display:none">
             <input id="postAddId" class="blm-input" placeholder="抖音号 / sec_uid（粘贴 sec_uid 可立即生效）" autocomplete="off">
