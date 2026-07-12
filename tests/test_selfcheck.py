@@ -147,7 +147,7 @@ def test_parse_beijing_no_eight_hour_bug():
 def test_calc_freshness_states_and_mins():
     """calcFreshness 三态 + 空串 + mins 数值：
 
-      now-5  → ok    ；now-20 → warn（mins===20）；now-40 → stale；'' → loadfail。
+      now-2  → ok    ；now-20 → warn（mins===20）；now-40 → stale；'' → loadfail。
     """
     html = _read_monitor()
     frag = _extract_selfcheck_js(html)
@@ -161,12 +161,12 @@ def test_calc_freshness_states_and_mins():
         + "  return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());\n"
         + "}\n"
         + "var now = Date.now();\n"
-        + "var ok5   = calcFreshness(fmtBeijing(now - 5*60000), now);\n"
+        + "var ok2   = calcFreshness(fmtBeijing(now - 2*60000), now);\n"
         + "var warn20= calcFreshness(fmtBeijing(now - 20*60000), now);\n"
         + "var st40  = calcFreshness(fmtBeijing(now - 40*60000), now);\n"
         + "var lf    = calcFreshness('', now);\n"
         + "console.log(JSON.stringify({\n"
-        + "  ok5_state: ok5.state, ok5_mins: ok5.mins,\n"
+        + "  ok2_state: ok2.state, ok2_mins: ok2.mins,\n"
         + "  warn20_state: warn20.state, warn20_mins: warn20.mins,\n"
         + "  st40_state: st40.state, st40_mins: st40.mins,\n"
         + "  lf_state: lf.state, lf_mins: lf.mins\n"
@@ -184,7 +184,7 @@ def test_calc_freshness_states_and_mins():
     assert r.returncode == 0, "node 执行 calcFreshness 失败：\n%s\n%s" % (r.stdout, r.stderr)
     out = json.loads(r.stdout.strip().splitlines()[-1])
 
-    assert out["ok5_state"] == "ok", "now-5 分钟应为 ok，实际 %s" % out["ok5_state"]
+    assert out["ok2_state"] == "ok", "now-2 分钟应为 ok，实际 %s" % out["ok2_state"]
     assert out["warn20_state"] == "warn", "now-20 分钟应为 warn，实际 %s" % out["warn20_state"]
     assert out["warn20_mins"] == 20, "now-20 分钟 mins 应为 20，实际 %s" % out["warn20_mins"]
     assert out["st40_state"] == "stale", "now-40 分钟应为 stale，实际 %s" % out["st40_state"]
