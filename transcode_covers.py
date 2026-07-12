@@ -69,6 +69,11 @@ def _sha256(path: str) -> Optional[str]:
         return None
 
 
+def _cover_base(url: str) -> str:
+    """封面源 URL 归一化：path 标识图片本身，query 签名可能每次变化，仅比 path 判断是否为同一张图。"""
+    return (url or "").split("?")[0]
+
+
 def transcode_all(
     tracking: Dict[str, dict],
     manifest: Dict[str, dict],
@@ -100,15 +105,36 @@ def transcode_all(
             # 无封面源（如 count 退化模式 / 尚未抓到作品）→ 跳过
             continue
         total += 1
+        # 已是仓库内 raw URL（上一轮已成功转存）：无需重复下载，
+        # 仅确保 manifest 记录一致（含源 URL），避免下轮误判为“需重新下载”。
+        if src.startswith("https://raw.githubusercontent.com"):
+            rec = dict(manifest.get(key, {}))
+            if rec.get("cover_url") != src:
+                rec["aweme_id"] = t.get("latest_aweme_id")
+                rec["cover_url"] = src
+                manifest[key] = rec
+                changed += 1
+            continue
         aweme_id = t.get("latest_aweme_id")
         cover_path = os.path.join(abs_covers, f"{key}.jpg")
         prev = manifest.get(key, {})
-        # 差异判定：封面文件缺失，或最新 aweme_id 相对 manifest 变更
-        need = (not os.path.exists(cover_path)) or (prev.get("aweme_id") != aweme_id)
+        # 差异判定：封面文件缺失 / 最新 aweme_id 变更 / 封面源 URL 变更
+        # （同一作品封面“晚到”或 URL 刷新时，aweme_id 未变但源 URL 已变，必须重新下载，
+        #  否则只把 latest_cover 指针改回 raw、却不更新图片，导致封面永远停在旧图）。
+        need = (
+            (not os.path.exists(cover_path))
+            or (prev.get("aweme_id") != aweme_id)
+            or (_cover_base(prev.get("cover_url", "")) != _cover_base(src))
+        )
         if need:
             if download_cover(src, cover_path):
-                rewrite_latest_cover(t, _raw_url(owner, repo, branch, covers_dir, key))
-                manifest[key] = {"aweme_id": aweme_id, "sha256": _sha256(cover_path)}
+                raw = _raw_url(owner, repo, branch, covers_dir, key)
+                rewrite_latest_cover(t, raw)
+                manifest[key] = {
+                    "aweme_id": aweme_id,
+                    "sha256": _sha256(cover_path),
+                    "cover_url": src,
+                }
                 changed += 1
                 downloaded += 1
             else:
