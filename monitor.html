@@ -1461,6 +1461,79 @@ body {
   font-size: 11px;
 }
 
+/* 视图切换（卡片 / 横条） */
+.blm-section-header-right { display: flex; align-items: center; gap: var(--spacing-sm); }
+.blm-view-toggle {
+  display: inline-flex;
+  background: var(--color-bg-surface-elevated);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  padding: 2px;
+  gap: 2px;
+}
+.blm-view-btn {
+  border: none; background: transparent; cursor: pointer;
+  color: var(--color-text-tertiary);
+  font-size: 15px; line-height: 1;
+  width: 30px; height: 28px;
+  border-radius: var(--radius-sm);
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: all .15s ease;
+}
+.blm-view-btn:hover { color: var(--color-text-primary); }
+.blm-view-btn.active { background: var(--brand-primary); color: #fff; }
+
+/* 横条（list）布局：紧凑水平行，缩略图在左、信息在右，一屏容纳更多 */
+.blm-works-grid.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+.blm-works-grid.list .blm-work-card {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  overflow: hidden;
+}
+.blm-works-grid.list .blm-work-select-wrap {
+  position: static;
+  align-self: center;
+  margin: 0 var(--spacing-sm);
+  flex: 0 0 auto;
+}
+.blm-works-grid.list .blm-work-thumb {
+  width: 88px;
+  flex: 0 0 88px;
+  aspect-ratio: 1 / 1;
+  border-radius: 0;
+}
+.blm-works-grid.list .blm-work-info {
+  flex: 1 1 auto;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+  padding: var(--spacing-sm) var(--spacing-md);
+  min-width: 0;
+}
+.blm-works-grid.list .blm-work-author {
+  font-size: var(--font-size-body);
+  white-space: nowrap;
+}
+.blm-works-grid.list .blm-work-desc {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+}
+.blm-works-grid.list .blm-work-footer {
+  margin-top: 0;
+  flex: 0 0 auto;
+}
+@media (max-width: 520px) {
+  .blm-works-grid.list .blm-work-desc { display: none; }
+  .blm-works-grid.list .blm-work-thumb { width: 64px; flex-basis: 64px; }
+}
+
 /* ===== Bottom Tab Bar ===== */
 .blm-tab-bar {
   position: fixed;
@@ -1867,7 +1940,13 @@ body {
             </svg>
             新作监控
           </h2>
-          <span class="blm-section-action" id="postsCount"></span>
+          <div class="blm-section-header-right">
+            <span class="blm-section-action" id="postsCount"></span>
+            <div class="blm-view-toggle" role="group" aria-label="布局切换">
+              <button type="button" class="blm-view-btn active" data-view="grid" onclick="setPostsView('grid')" title="卡片视图">▦</button>
+              <button type="button" class="blm-view-btn" data-view="list" onclick="setPostsView('list')" title="横条视图">▤</button>
+            </div>
+          </div>
         </div>
 
         <div class="blm-search-bar">
@@ -2410,6 +2489,7 @@ function show(t){
   /* P0-4：切视图时把两个搜索框的显示值同步为全局 q（单 q 跨 tab 共享，不丢搜索词） */
   var ls=document.getElementById('liveSearch'); if(ls) ls.value=q;
   var ps=document.getElementById('postsSearch'); if(ps) ps.value=q;
+  if(t==='posts') applyPostsView();   // 切到新作监控时同步布局偏好（含横条/卡片切换）
 }
 
 function fil(f){fl=f;var cs=document.querySelectorAll('.chip');cs[0].className='chip'+(f==='all'?' active':'');cs[1].className='chip'+(f==='bilibili'?' active':'');cs[2].className='chip'+(f==='douyin'?' active':'');renderLive();}
@@ -2614,6 +2694,22 @@ function renderPosts(){
   }
   body.innerHTML=h;
   try{ updateBatchBar(); }catch(_e){}
+}
+
+/* 新作监控：卡片 / 横条 视图切换（偏好持久化到 localStorage，默认卡片=原布局，无回归） */
+var postsView = (function(){ try { return localStorage.getItem('blm_posts_view') || 'grid'; } catch(e){ return 'grid'; } })();
+function setPostsView(v){
+  postsView = (v === 'list') ? 'list' : 'grid';
+  try { localStorage.setItem('blm_posts_view', postsView); } catch(e){}
+  applyPostsView();
+}
+function applyPostsView(){
+  var body = document.getElementById('postsBody');
+  if(body) body.classList.toggle('list', postsView === 'list');
+  var btns = document.querySelectorAll('.blm-view-btn');
+  for(var i=0;i<btns.length;i++){
+    btns[i].classList.toggle('active', btns[i].getAttribute('data-view') === postsView);
+  }
 }
 
 /* 推送标记映射（status 兼容字段，新代码主要看 type） */
@@ -3943,6 +4039,7 @@ function ld(){
     renderDashboard();   // P0-7 仪表盘：数据载入即聚合渲染，切 tab 不重算
     maybeShowSummary();  // 阶段二 2a：跨日/跨周未生成则展示摘要卡
     loadPhase2UI();      // 阶段二 2b：标签 chip / 静默镜像 / 通道路由 / 模板编辑器 / 批量条
+    applyPostsView();    // 新作监控：应用已保存的卡片/横条布局偏好
   }).catch(function(){
     document.getElementById('sdot').innerHTML='<span class="dot err"></span><span class="txt">加载失败</span>';
     // P0-1：总加载失败（无法读取 status.json）→ 健康条标红，指向网络 / Pages 部署
