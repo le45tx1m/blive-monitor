@@ -174,7 +174,8 @@
     "latest_ct": 0,
     "mode": "api",
     "latest_count": 0,
-    "latest_cover": "https://raw.githubusercontent.com/racheko-lab/blive-monitor/master/assets/covers/douyin_zhuizhuguang61.jpg"
+    "latest_cover": "https://raw.githubusercontent.com/racheko-lab/blive-monitor/master/assets/covers/douyin_zhuizhuguang61.jpg",
+    "latest_cover_cdn": "https://p26-sign.douyinpic.com/tos-cn-i-0813/o0QqAJPQAAA8A9JJgIFUUBCDgfmJGe4EAACCnQ~tplv-dy-cropcenter:300:400.png?lk3s=2aa63f9f&x-expires=1783890000&x-signature=jV3NyNhGt%2BA5wm4D9pWMnbVI83Y%3D&from=715538335&s=PackSourceEnum_DOUYIN_REFLOW&se=true&sh=300_400&sc=cover&biz_tag=aweme_video&l=20260712234744486CFE03E26B553A047F"
   },
   "douyin_llqq192": {
     "sec_uid": "MS4wLjABAAAAPBP113is5zbadFY77J3HQRZ72SDrhQZC3m6qQcOY5f0sI4M0suqH5QrUQKM3_iWi",

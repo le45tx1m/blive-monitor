@@ -828,6 +828,9 @@ def main() -> None:
                 # 让所有已监控账号在下次 CI 尽快显示真实封面，而非一直占位）
                 if aweme.get("cover"):
                     t["latest_cover"] = aweme["cover"]
+                    # 单独持久化 CDN 源 URL：latest_cover 会被 transcode 改写为仓库 raw URL，
+                    # 若不另存 CDN 源，新作品封面“晚到”时将无源可重新下载（见 于冬来 案例）。
+                    t["latest_cover_cdn"] = aweme["cover"]
             else:  # conf == "count"：推测，仅当作品数确实增加且已有基线才提示
                 if prev_mode and prev_mode != cur_mode:
                     # 模式切换（如从无 Cookie 计数推测切到有 Cookie 真实接口，或反之）：
@@ -1272,6 +1275,9 @@ def run_post_check(*, cfg_all: Dict[str, Any], persist: Any, now: Optional[Any] 
                     logger.info("  [%s] 去重跳过：作品 %s 已推送过，不重复", name, aweme["aweme_id"])
                 if aweme.get("cover"):
                     t["latest_cover"] = aweme["cover"]
+                    # 单独持久化 CDN 源 URL：latest_cover 会被 transcode 改写为仓库 raw URL，
+                    # 若不另存 CDN 源，新作品封面“晚到”时将无源可重新下载（见 于冬来 案例）。
+                    t["latest_cover_cdn"] = aweme["cover"]
             else:
                 if prev_mode and prev_mode != cur_mode:
                     notify = False

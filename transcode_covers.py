@@ -8,6 +8,9 @@
   manifest（``<covers_dir>/.manifest.json``，结构 ``{id:{aweme_id, sha256}}``）用于判定，
   避免每次 CI 重写同一封面导致仓库膨胀。
 - **下载失败不阻塞**：``download_cover`` 失败返回 ``False``，保留原 CDN URL，下轮重试。
+- **CDN 源持久化**：``check_new_posts`` 会把作品封面 CDN URL 另存到 ``latest_cover_cdn``
+  （``latest_cover`` 本会被改写为仓库 raw URL、源信息丢失）。本模块优先用 ``latest_cover_cdn``
+  作为下载源，使「新作品封面晚到 / 刷新」时能重新下载到最新封面，而非永远停在旧图。
 
 前端 ``monitor.html`` 已渲染 ``tt.latest_cover``（line ~2129 + ``onerror`` 兜底），
 本模块只改写该字段为仓库内 raw URL，前端零改动。
@@ -100,52 +103,57 @@ def transcode_all(
     for key, t in tracking.items():
         if not isinstance(t, dict):
             continue
-        src = t.get("latest_cover")
-        if not src or not isinstance(src, str):
-            # 无封面源（如 count 退化模式 / 尚未抓到作品）→ 跳过
+        raw_url = _raw_url(owner, repo, branch, covers_dir, key)
+        # 有效 CDN 源：优先用 check_new_posts 持久化下来的 latest_cover_cdn
+        # （latest_cover 会被本模块改写成仓库 raw URL、源信息丢失，故必须另存 CDN 源）。
+        # 兜底：若 latest_cover_cdn 缺失，但 latest_cover 仍是 CDN URL（尚未被改写），也可用。
+        cdn = t.get("latest_cover_cdn")
+        if not (isinstance(cdn, str) and cdn.startswith("http")):
+            src0 = t.get("latest_cover")
+            cdn = src0 if (isinstance(src0, str) and not src0.startswith("https://raw.githubusercontent.com")) else None
+        if not cdn:
+            # 既无 CDN 源、也无可用封面：若 latest_cover 已是 raw，仅防御性确保 manifest 一致；否则跳过
+            src0 = t.get("latest_cover")
+            if isinstance(src0, str) and src0.startswith("https://raw.githubusercontent.com"):
+                rec = dict(manifest.get(key, {}))
+                if rec.get("cover_url") != src0 or rec.get("aweme_id") != t.get("latest_aweme_id"):
+                    rec["aweme_id"] = t.get("latest_aweme_id")
+                    rec["cover_url"] = src0
+                    manifest[key] = rec
+                    changed += 1
             continue
         total += 1
-        # 已是仓库内 raw URL（上一轮已成功转存）：无需重复下载，
-        # 仅确保 manifest 记录一致（含源 URL），避免下轮误判为“需重新下载”。
-        if src.startswith("https://raw.githubusercontent.com"):
-            rec = dict(manifest.get(key, {}))
-            if rec.get("cover_url") != src:
-                rec["aweme_id"] = t.get("latest_aweme_id")
-                rec["cover_url"] = src
-                manifest[key] = rec
-                changed += 1
-            continue
         aweme_id = t.get("latest_aweme_id")
         cover_path = os.path.join(abs_covers, f"{key}.jpg")
         prev = manifest.get(key, {})
-        # 差异判定：封面文件缺失 / 最新 aweme_id 变更 / 封面源 URL 变更
-        # （同一作品封面“晚到”或 URL 刷新时，aweme_id 未变但源 URL 已变，必须重新下载，
-        #  否则只把 latest_cover 指针改回 raw、却不更新图片，导致封面永远停在旧图）。
+        # 重新下载判定：封面文件缺失 / 作品更新(latest_aweme_id 变更) / 尚无 manifest 记录 /
+        # 封面源 URL 变更（同一作品封面“晚到”或 URL 刷新，aweme_id 未变但源 URL 已变，
+        # 必须重新下载，否则只把 latest_cover 指针改回 raw、却不更新图片，导致封面永远停在旧图）。
         need = (
             (not os.path.exists(cover_path))
+            or (prev.get("aweme_id") is None)
             or (prev.get("aweme_id") != aweme_id)
-            or (_cover_base(prev.get("cover_url", "")) != _cover_base(src))
+            or (_cover_base(prev.get("cover_url", "")) != _cover_base(cdn))
         )
         if need:
-            if download_cover(src, cover_path):
-                raw = _raw_url(owner, repo, branch, covers_dir, key)
-                rewrite_latest_cover(t, raw)
+            if download_cover(cdn, cover_path):
+                # 仅改写 latest_cover 指针为仓库 raw URL；latest_cover_cdn 保持不变（下次仍可溯源刷新）
+                rewrite_latest_cover(t, raw_url)
                 manifest[key] = {
                     "aweme_id": aweme_id,
                     "sha256": _sha256(cover_path),
-                    "cover_url": src,
+                    "cover_url": cdn,
                 }
                 changed += 1
                 downloaded += 1
             else:
-                # 下载失败：保留原 CDN URL，下轮重试；不写入 manifest
+                # 下载失败：保留原 CDN 源，下轮重试；不写入 manifest
                 continue
         else:
             # 封面已存在且未变更：防御性确保 latest_cover 指向仓库 raw URL
             # （防止 check_new_posts.py 每轮回填 CDN URL 导致前端破图）
-            raw = _raw_url(owner, repo, branch, covers_dir, key)
-            if not str(t.get("latest_cover", "")).startswith(raw):
-                rewrite_latest_cover(t, raw)
+            if not str(t.get("latest_cover", "")).startswith(raw_url):
+                rewrite_latest_cover(t, raw_url)
                 changed += 1
     return {
         "tracking": tracking,

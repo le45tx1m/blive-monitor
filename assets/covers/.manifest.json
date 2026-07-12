@@ -2,5 +2,10 @@
   "douyin_81197422897": {
     "aweme_id": "7659466394198609830",
     "sha256": "5942e33a14715a15d3205a8f99f6325c99922c1e922d6b643adba718d389430f"
+  },
+  "douyin_zhuizhuguang61": {
+    "aweme_id": "7661612420268654474",
+    "sha256": "475425d850838bb45c1ce63c6caa49bda4abdc74a9824208661f034cc7d21373",
+    "cover_url": "https://p26-sign.douyinpic.com/tos-cn-i-0813/o0QqAJPQAAA8A9JJgIFUUBCDgfmJGe4EAACCnQ~tplv-dy-cropcenter:300:400.png?lk3s=2aa63f9f&x-expires=1783890000&x-signature=jV3NyNhGt%2BA5wm4D9pWMnbVI83Y%3D&from=715538335&s=PackSourceEnum_DOUYIN_REFLOW&se=true&sh=300_400&sc=cover&biz_tag=aweme_video&l=20260712234744486CFE03E26B553A047F"
   }
 }
