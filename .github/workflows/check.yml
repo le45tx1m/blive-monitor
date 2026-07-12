@@ -67,18 +67,35 @@ jobs:
         run: python3 check_status.py
 
       # 新作品监控（无头浏览器抓取用户主页，绕过抖音反爬；列表来自独立的 post_rooms.json）
+      # 降频：每 15 分钟一次（UTC 分钟为 15 的倍数时运行），与开播检测的 5 分钟解耦，
+      # 降低抖音 API 限流 / 风控压力。用「分钟取模」闸门而非 schedule 判断，
+      # 这样无论触发来自 GitHub 原生 schedule 还是外部 cron-job.org 的 workflow_dispatch 都生效。
       - name: Check new posts
         if: ${{ steps.postlist.outputs.enabled == 'true' }}
         env:
           BLIVE_CONFIG: ${{ secrets.BLIVE_CONFIG }}
           DOUYIN_COOKIE: ${{ secrets.DOUYIN_COOKIE }}
           ENABLE_POST_CHECK: "true"
-        run: python3 check_new_posts.py
+        run: |
+          # 新作品检测降频：仅当 UTC 分钟为 15 的倍数时运行（即每 15 分钟一次）
+          MIN=$(date -u +%-M)
+          if [ $((MIN % 15)) -ne 0 ]; then
+            echo "非新作品检测窗口（每 15 分钟一次，当前 UTC 分钟 $MIN），跳过"
+            exit 0
+          fi
+          python3 check_new_posts.py
 
       # D1：抖音新作封面转存（仅 post_rooms 非空时运行；差异提交避免仓库膨胀）
+      # 与「新作品检测」同窗口（每 15 分钟）：无新作时不必每 5 分钟转存
       - name: Transcode covers
         if: ${{ steps.postlist.outputs.enabled == 'true' }}
-        run:           python3 transcode_covers.py --owner racheko-lab --repo blive-monitor --branch master --covers-dir assets/covers
+        run: |
+          MIN=$(date -u +%-M)
+          if [ $((MIN % 15)) -ne 0 ]; then
+            echo "非新作品检测窗口（每 15 分钟一次，当前 UTC 分钟 $MIN），跳过封面转存"
+            exit 0
+          fi
+          python3 transcode_covers.py --owner racheko-lab --repo blive-monitor --branch master --covers-dir assets/covers
 
       # A1：定时摘要自动投递（在 history.json 已更新的同轮运行；失败不影响持久化/部署）
       - name: Auto-deliver summary
@@ -119,32 +136,9 @@ jobs:
           # 纳入 status.json，忽略纯时间戳变动，避免每 5 分钟空推一条 commit。
           git add -f state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json summary_state.json assets/covers
           # status.json：仅当其 meaningful 内容（去掉 updated 与每房间 time/live_duration）相比 HEAD 变化才提交
-          python3 - <<'PY'
-import json, subprocess
-def strip(d):
-    if not isinstance(d, dict):
-        return d
-    d = {k: v for k, v in d.items() if k != 'updated'}
-    rooms = d.get('rooms')
-    if isinstance(rooms, list):
-        for r in rooms:
-            if isinstance(r, dict):
-                r.pop('time', None)
-                r.pop('live_duration', None)
-    return d
-def load(p):
-    try:
-        return json.load(open(p))
-    except Exception:
-        return None
-cur = strip(load('status.json'))
-try:
-    head = strip(json.loads(subprocess.check_output(['git', 'show', 'HEAD:status.json'])))
-except Exception:
-    head = None
-if cur != head:
-    subprocess.run(['git', 'add', '-f', 'status.json'])
-PY
+          # 内联 heredoc（python3 - <<'PY'）会被 GitHub Actions 的 js-yaml 误判合并键而解析失败，
+          # 故抽取为独立脚本 tools/strip_status.py（与 96802b1 的「消除重复推送」同目标）。
+          python3 tools/strip_status.py
           # 防刷屏：仅当状态文件真有变化才提交；否则跳过 push，避免每 5 分钟空推一条 commit。
           # 保活（防 60 天自动停用 schedule）改为：距上次 keepalive 超过 30 天才更新时间戳并轻量提交一次。
           if git diff --cached --quiet; then
