@@ -1,37 +1,15 @@
 {
-  "douyin_dy571881": {
-    "sec_uid": "MS4wLjABAAAAyCaNA3LEhCAViVcLn86e6YwyW8-GkDAWMPj_3n_pz00",
-    "latest_aweme_id": "7661375114675506432",
+  "douyin_vHan09233": {
+    "sec_uid": "MS4wLjABAAAAUXBNFnWLvl9T8ylgAbD1auR_o5FL3dF7ic0KMYN9_88",
+    "latest_aweme_id": "7661552754426943049",
     "latest_ct": 0,
     "mode": "api",
     "latest_count": 0,
-    "latest_desc": "当上单VN绝活哥碰到The shy #shy",
+    "nickname": "韩冰",
+    "latest_desc": "我苦笑两声 得到一句笑的人是gay",
     "latest_type": "视频",
-    "latest_url": "https://www.douyin.com/video/7661375114675506432",
-    "nickname": "披萨解说"
-  },
-  "douyin_zhuizhuguang61": {
-    "sec_uid": "MS4wLjABAAAAz00i43aUgcvmD5vyZB2eMs6feBhlePqIoRapBCaAPjLwmBanhIAen9faTAkq3PHZ",
-    "latest_aweme_id": "7654788104709386739",
-    "latest_desc": "三十多年来、胖东来一路向好、主要就是围绕着公平自由爱的文化坚持各方面科学先进的制度建设和研究更科学的方法落实执行力的结果！",
-    "latest_type": "视频",
-    "latest_url": "https://www.douyin.com/video/7654788104709386739",
-    "nickname": "傻坏蛋于东来",
-    "latest_ct": 0,
-    "mode": "api",
-    "latest_count": 0,
-    "latest_cover": "https://raw.githubusercontent.com/racheko-lab/blive-monitor/master/assets/covers/douyin_zhuizhuguang61.jpg"
-  },
-  "douyin_woshixiaoqumt": {
-    "sec_uid": "MS4wLjABAAAAiAfQD9C7HmqM8S8cyZMOFy0jUEpiFQ5Vtr0VyWYzG7w",
-    "latest_aweme_id": "7661491501767930545",
-    "latest_ct": 0,
-    "mode": "api",
-    "latest_count": 0,
-    "nickname": "小曲开心",
-    "latest_desc": "？",
-    "latest_type": "视频",
-    "latest_url": "https://www.douyin.com/video/7661491501767930545"
+    "latest_url": "https://www.douyin.com/video/7661552754426943049",
+    "latest_cover": "https://p5-ex-gddgtc-sign.douyinpic.com/tos-cn-i-0813c001/ooQ7taUAp62fTFemMBICdpXCfAAEQA85QmBAk0~tplv-dy-cropcenter:300:400.png?lk3s=2aa63f9f&x-expires=1783864800&x-signature=dPrQDGz%2B8ZruoEVJtz%2BMmignD%2BE%3D&from=715538335&s=PackSourceEnum_DOUYIN_REFLOW&se=true&sh=300_400&sc=cover&biz_tag=aweme_video&l=20260712163327DECEDAB7C4A97D22D384"
   },
   "douyin_lelelelele0703": {
     "sec_uid": "MS4wLjABAAAA8VDhOD_J1ZJ5Tiw7iWSP8DyR_fsqD2mZHAxLKRnpLhAtp71KJf-X4DLOSMimT3n_",
@@ -42,53 +20,8 @@
     "latest_ct": 0,
     "nickname": "白日梦想嘉",
     "mode": "api",
-    "latest_count": 0
-  },
-  "douyin_93253035255": {
-    "sec_uid": "MS4wLjABAAAA3khMMxu6pl1ywocHJ2IXZuRfwrLKFaTEjX1hFKNuiLfEG5jgBh-_zbpo9q3HGMcp",
-    "latest_aweme_id": "7602651914580783798",
-    "latest_ct": 0,
-    "mode": "api",
     "latest_count": 0,
-    "nickname": "王辟谣-",
-    "latest_desc": "原来打个喷嚏可以变漂亮 #短发 #变装",
-    "latest_type": "视频",
-    "latest_url": "https://www.douyin.com/video/7602651914580783798"
-  },
-  "douyin_XiaoyaoDx": {
-    "sec_uid": "MS4wLjABAAAAbhVFeKXUZKEuMdK1agllHXZQVhdOkHsnXY_QTfKFmVQ",
-    "latest_aweme_id": "7659255579152725994",
-    "latest_desc": "#毛孩子拆家哪家强 #不养闲猫 音乐一响，结局易想",
-    "latest_type": "视频",
-    "latest_url": "https://www.douyin.com/video/7659255579152725994",
-    "latest_ct": 0,
-    "nickname": "小夭等雪",
-    "mode": "api",
-    "latest_count": 0,
-    "latest_cover": "https://raw.githubusercontent.com/racheko-lab/blive-monitor/master/assets/covers/douyin_XiaoyaoDx.jpg"
-  },
-  "douyin_vHan09233": {
-    "sec_uid": "MS4wLjABAAAAUXBNFnWLvl9T8ylgAbD1auR_o5FL3dF7ic0KMYN9_88",
-    "latest_aweme_id": "7660803649483846254",
-    "latest_ct": 0,
-    "mode": "api",
-    "latest_count": 0,
-    "nickname": "韩冰",
-    "latest_desc": "晒黑了",
-    "latest_type": "视频",
-    "latest_url": "https://www.douyin.com/video/7660803649483846254"
-  },
-  "douyin_81197422897": {
-    "sec_uid": "MS4wLjABAAAAaBxG5OhPShhY5L6dwkQqHjwJg6Tx70esLegv5Hc_ib6ZMfAJNAAWzLuHgnDZ5EsE",
-    "latest_aweme_id": "7659466394198609830",
-    "latest_ct": 0,
-    "mode": "api",
-    "latest_count": 0,
-    "latest_desc": "一定要出类拔萃吗 不可以吃饱就睡吗",
-    "latest_type": "视频",
-    "latest_url": "https://www.douyin.com/video/7659466394198609830",
-    "nickname": "整天白日梦",
-    "latest_cover": "https://raw.githubusercontent.com/racheko-lab/blive-monitor/master/assets/covers/douyin_81197422897.jpg"
+    "latest_cover": "https://p26-sign.douyinpic.com/tos-cn-i-0813/o8BiGYSvEw5ADhJChMPBfAbeF5AiAAjgAIm1Il~tplv-dy-cropcenter:300:400.png?lk3s=2aa63f9f&x-expires=1783864800&x-signature=LUGMBromjUlv5iN3pOZI5ioGks4%3D&from=715538335&s=PackSourceEnum_DOUYIN_REFLOW&se=true&sh=300_400&sc=cover&biz_tag=aweme_video&l=20260712163131FBC21E2DAD75A5226A91"
   },
   "douyin_601914453": {
     "sec_uid": "MS4wLjABAAAAnUH8aFBjvYfBviQaviYVeZ2Tyo0bekBXkmnaKyaHa2Q",
@@ -100,29 +33,52 @@
     "latest_desc": "健身房一周被搭讪七次 被问器械还有几组三次 占了别人器械两次 踢飞别人水杯两次#健身打卡",
     "latest_type": "视频",
     "latest_url": "https://www.douyin.com/video/7660007808596178939",
-    "latest_cover": "https://raw.githubusercontent.com/racheko-lab/blive-monitor/master/assets/covers/douyin_601914453.jpg"
+    "latest_cover": "https://p11-sign.douyinpic.com/tos-cn-i-0813c000-ce/oEBhEoiBAPfEn8MA01uNAY5IIAiY9eAJZBCrDw~tplv-dy-cropcenter:300:400.png?lk3s=2aa63f9f&x-expires=1783864800&x-signature=kHNFl7REeCsF7KCZbuT0gzkiEig%3D&from=715538335&s=PackSourceEnum_DOUYIN_REFLOW&se=true&sh=300_400&sc=cover&biz_tag=aweme_video&l=20260712163402AA89D6DFFF83CC249796"
   },
-  "douyin_llqq192": {
-    "sec_uid": "MS4wLjABAAAAPBP113is5zbadFY77J3HQRZ72SDrhQZC3m6qQcOY5f0sI4M0suqH5QrUQKM3_iWi",
-    "latest_aweme_id": "7660893159753551322",
+  "douyin_93253035255": {
+    "sec_uid": "MS4wLjABAAAA3khMMxu6pl1ywocHJ2IXZuRfwrLKFaTEjX1hFKNuiLfEG5jgBh-_zbpo9q3HGMcp",
+    "latest_aweme_id": "7602651914580783798",
     "latest_ct": 0,
     "mode": "api",
     "latest_count": 0,
-    "latest_desc": "#游戏天才且不考虑打职业 #严肃游戏 #无畏契约大神操作 #伪人枪法 #别惹怒一个游戏天才 其实我在录这个之前没有想到居然还有死亡回放",
+    "nickname": "王辟谣-",
+    "latest_desc": "原来打个喷嚏可以变漂亮 #短发 #变装",
     "latest_type": "视频",
-    "latest_url": "https://www.douyin.com/video/7660893159753551322",
-    "nickname": "栗子鸡"
+    "latest_url": "https://www.douyin.com/video/7602651914580783798",
+    "latest_cover": "https://p3-sign.douyinpic.com/tos-cn-i-0813c000-ce/okCIfFC9nDpCgnAuCwAkAK6VEf1mrZEE3uIAgA~tplv-dy-cropcenter:300:400.png?lk3s=2aa63f9f&x-expires=1783864800&x-signature=TPikhOVQpB9O142wS5uWZixvYE0%3D&from=715538335&s=PackSourceEnum_DOUYIN_REFLOW&se=true&sh=300_400&sc=cover&biz_tag=aweme_video&l=202607121634359EBA3DC31D32F610DA84"
   },
-  "douyin_74597663503": {
-    "sec_uid": "MS4wLjABAAAAhKMh_lUoSsPbEhBHyeTC5OzBJIOWYIYWXUqw5q_cdLbBzrWUFvFmepcpSlezkkTQ",
-    "latest_aweme_id": "7661540406228533669",
+  "douyin_zhuizhuguang61": {
+    "sec_uid": "MS4wLjABAAAAz00i43aUgcvmD5vyZB2eMs6feBhlePqIoRapBCaAPjLwmBanhIAen9faTAkq3PHZ",
+    "latest_aweme_id": "7654788104709386739",
+    "latest_desc": "三十多年来、胖东来一路向好、主要就是围绕着公平自由爱的文化坚持各方面科学先进的制度建设和研究更科学的方法落实执行力的结果！",
+    "latest_type": "视频",
+    "latest_url": "https://www.douyin.com/video/7654788104709386739",
+    "nickname": "傻坏蛋于东来",
     "latest_ct": 0,
     "mode": "api",
     "latest_count": 0,
-    "nickname": "D.my",
-    "latest_desc": "喂，快给我刷牙，这是命令",
+    "latest_cover": "https://p3-sign.douyinpic.com/tos-cn-i-0813/oECPARGHWiAAWAaAE1iB0TftIAd7gKUEAC7bOe~tplv-dy-cropcenter:300:400.png?lk3s=2aa63f9f&x-expires=1783864800&x-signature=7%2Bnriejjly8W4TkFIh82lT%2FJYpc%3D&from=715538335&s=PackSourceEnum_DOUYIN_REFLOW&se=true&sh=300_400&sc=cover&biz_tag=aweme_video&l=20260712163100CF0FFDAF13B58812399D"
+  },
+  "douyin_woshixiaoqumt": {
+    "sec_uid": "MS4wLjABAAAAiAfQD9C7HmqM8S8cyZMOFy0jUEpiFQ5Vtr0VyWYzG7w",
+    "latest_aweme_id": "7661491501767930545",
+    "latest_ct": 0,
+    "mode": "api",
+    "latest_count": 0,
+    "nickname": "小曲开心",
+    "latest_desc": "？",
     "latest_type": "视频",
-    "latest_url": "https://www.douyin.com/video/7661540406228533669"
+    "latest_url": "https://www.douyin.com/video/7661491501767930545",
+    "latest_cover": "https://p3-sign.douyinpic.com/tos-cn-p-0015c000-ce/oQ3yEHfDnIp59SqAcKYI6UqxmBeAJEWpFCqIQw~tplv-dy-cropcenter:300:400.png?lk3s=2aa63f9f&x-expires=1783864800&x-signature=n9RQPrb%2F5Tdl8Z30hwnqa%2BIVNKo%3D&from=715538335&s=PackSourceEnum_DOUYIN_REFLOW&se=true&sh=300_400&sc=cover&biz_tag=aweme_video&l=20260712163346DA4EF5F71D2C652458DE"
+  },
+  "douyin_98078804724": {
+    "sec_uid": "MS4wLjABAAAAHW8TIoMaLugftULnmwyZtXKPRa5kq0mDZEFBOlGNri0xBcgB8pU39TQmKOuJ22_1",
+    "latest_aweme_id": "count:2",
+    "latest_ct": 2,
+    "mode": "count",
+    "latest_count": 2,
+    "nickname": "什么都知道",
+    "need_cookie": true
   },
   "douyin_FengBro": {
     "sec_uid": "MS4wLjABAAAAXrcPvX8QchAY5irWMAxU379DgfCBEOoztZoCcOUqi8I",
@@ -135,7 +91,64 @@
     "mode": "api",
     "latest_count": 0
   },
-  "douyin_98078804724": {
-    "sec_uid": "MS4wLjABAAAAHW8TIoMaLugftULnmwyZtXKPRa5kq0mDZEFBOlGNri0xBcgB8pU39TQmKOuJ22_1"
+  "douyin_81197422897": {
+    "sec_uid": "MS4wLjABAAAAaBxG5OhPShhY5L6dwkQqHjwJg6Tx70esLegv5Hc_ib6ZMfAJNAAWzLuHgnDZ5EsE",
+    "latest_aweme_id": "7659466394198609830",
+    "latest_ct": 0,
+    "mode": "api",
+    "latest_count": 0,
+    "latest_desc": "一定要出类拔萃吗 不可以吃饱就睡吗",
+    "latest_type": "视频",
+    "latest_url": "https://www.douyin.com/video/7659466394198609830",
+    "nickname": "整天白日梦",
+    "latest_cover": "https://p5-ex-gddgtc-sign.douyinpic.com/tos-cn-i-0813c001/owXSPLI2IGpCLeDAyAAAATBmIeIfVfCIRSQA5A~tplv-dy-cropcenter:300:400.png?lk3s=2aa63f9f&x-expires=1783864800&x-signature=uMx%2FS0nnwjA6%2Bg%2FmLn7CF3c9EKw%3D&from=715538335&s=PackSourceEnum_DOUYIN_REFLOW&se=true&sh=300_400&sc=cover&biz_tag=aweme_video&l=20260712163234DA4E77D73CC6132294EB"
+  },
+  "douyin_74597663503": {
+    "sec_uid": "MS4wLjABAAAAhKMh_lUoSsPbEhBHyeTC5OzBJIOWYIYWXUqw5q_cdLbBzrWUFvFmepcpSlezkkTQ",
+    "latest_aweme_id": "7661546145781035003",
+    "latest_ct": 0,
+    "mode": "api",
+    "latest_count": 0,
+    "nickname": "D.my",
+    "latest_desc": "",
+    "latest_type": "视频",
+    "latest_url": "https://www.douyin.com/video/7661546145781035003",
+    "latest_cover": "https://p3-sign.douyinpic.com/tos-cn-p-0015c000-ce/oMPPEnD4PBA6RahATai3Ee1A9AFwkBDKIkf6Ti~tplv-dy-cropcenter:300:400.png?lk3s=2aa63f9f&x-expires=1783864800&x-signature=nxc1XcMrgaly7zQrZZ9%2BdMlr5Qg%3D&from=715538335&s=PackSourceEnum_DOUYIN_REFLOW&se=true&sh=300_400&sc=cover&biz_tag=aweme_video&l=2026071216341768F9BBFA7BB5AC21730D"
+  },
+  "douyin_dy571881": {
+    "sec_uid": "MS4wLjABAAAAyCaNA3LEhCAViVcLn86e6YwyW8-GkDAWMPj_3n_pz00",
+    "latest_aweme_id": "7661375114675506432",
+    "latest_ct": 0,
+    "mode": "api",
+    "latest_count": 0,
+    "latest_desc": "当上单VN绝活哥碰到The shy #shy",
+    "latest_type": "视频",
+    "latest_url": "https://www.douyin.com/video/7661375114675506432",
+    "nickname": "披萨解说",
+    "latest_cover": "https://p11-sign.douyinpic.com/tos-cn-i-dy/b462e670995c48bcbb60506787942ce6~tplv-dy-cropcenter:300:400.png?lk3s=2aa63f9f&x-expires=1783864800&x-signature=Fj1fnMFEAVmrJRnClJK0KVpVZXE%3D&from=715538335&s=PackSourceEnum_DOUYIN_REFLOW&se=true&sh=300_400&sc=cover&biz_tag=aweme_video&l=202607121632067B445F33AE767223B152"
+  },
+  "douyin_llqq192": {
+    "sec_uid": "MS4wLjABAAAAPBP113is5zbadFY77J3HQRZ72SDrhQZC3m6qQcOY5f0sI4M0suqH5QrUQKM3_iWi",
+    "latest_aweme_id": "7660893159753551322",
+    "latest_ct": 0,
+    "mode": "api",
+    "latest_count": 0,
+    "latest_desc": "#游戏天才且不考虑打职业 #严肃游戏 #无畏契约大神操作 #伪人枪法 #别惹怒一个游戏天才 其实我在录这个之前没有想到居然还有死亡回放",
+    "latest_type": "视频",
+    "latest_url": "https://www.douyin.com/video/7660893159753551322",
+    "nickname": "栗子鸡",
+    "latest_cover": "https://p11-sign.douyinpic.com/tos-cn-i-0813/oAxIueh7CG5IRIiR4uLCAbQI2Ae7A6veDAIpAe~tplv-dy-cropcenter:300:400.png?lk3s=2aa63f9f&x-expires=1783864800&x-signature=2neRxp9OZiwMJ5%2F%2Blyj15REPECU%3D&from=715538335&s=PackSourceEnum_DOUYIN_REFLOW&se=true&sh=300_400&sc=cover&biz_tag=aweme_video&l=202607121632597B445F33AE767223B4E2"
+  },
+  "douyin_XiaoyaoDx": {
+    "sec_uid": "MS4wLjABAAAAbhVFeKXUZKEuMdK1agllHXZQVhdOkHsnXY_QTfKFmVQ",
+    "latest_aweme_id": "7659255579152725994",
+    "latest_desc": "#毛孩子拆家哪家强 #不养闲猫 音乐一响，结局易想",
+    "latest_type": "视频",
+    "latest_url": "https://www.douyin.com/video/7659255579152725994",
+    "latest_ct": 0,
+    "nickname": "小夭等雪",
+    "mode": "api",
+    "latest_count": 0,
+    "latest_cover": "https://p11-sign.douyinpic.com/tos-cn-p-0015/oo8DIVQiav0PABq358jFuAI4L9kAEwsbAJiHQ~tplv-dy-cropcenter:300:400.png?lk3s=2aa63f9f&x-expires=1783864800&x-signature=EcUaXZVqb%2BJ5sTJLe0%2BVBPcjg58%3D&from=715538335&s=PackSourceEnum_DOUYIN_REFLOW&se=true&sh=300_400&sc=cover&biz_tag=aweme_video&l=2026071216314916725FF8FBD78C0FF232"
   }
 }
