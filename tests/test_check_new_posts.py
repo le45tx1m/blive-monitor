@@ -273,6 +273,36 @@ def test_parse_aweme_list_populated():
     assert note["cover"] == "https://p1.douyin.com/note888.jpg"
 
 
+def test_extract_cover_mobile_video_cover():
+    # 移动端 v2 接口当前结构：封面在 video.cover（dict 含 url_list），无 origin_cover
+    w = {"video": {"cover": {"uri": "v0xxx", "url_list": ["https://p3-sign.douyinpic.com/cover.jpg"]}}}
+    assert cnp._extract_cover(w) == "https://p3-sign.douyinpic.com/cover.jpg"
+
+
+def test_extract_cover_video_cover_string():
+    # 个别响应 video.cover 为字符串直链
+    w = {"video": {"cover": "https://p9.douyinpic.com/direct.jpg"}}
+    assert cnp._extract_cover(w) == "https://p9.douyinpic.com/direct.jpg"
+
+
+def test_extract_cover_dynamic_cover_fallback():
+    # 仅有 dynamic_cover（无 origin/animated/cover）
+    w = {"video": {"dynamic_cover": {"url_list": ["https://p1.douyin.com/dyn.jpg"]}}}
+    assert cnp._extract_cover(w) == "https://p1.douyin.com/dyn.jpg"
+
+
+def test_extract_cover_images_note():
+    # 图文：images[0].url_list
+    w = {"images": [{"url_list": ["https://p1.douyin.com/note.jpg"]}]}
+    assert cnp._extract_cover(w) == "https://p1.douyin.com/note.jpg"
+
+
+def test_extract_cover_origin_cover_still_works():
+    # 桌面端旧结构仍兼容
+    w = {"video": {"origin_cover": {"url_list": ["https://p1.douyin.com/origin.jpg"]}}}
+    assert cnp._extract_cover(w) == "https://p1.douyin.com/origin.jpg"
+
+
 def test_parse_aweme_list_gated():
     # 风控：status_code 非 0 且无列表 -> 空
     assert cnp.parse_aweme_list(json.dumps({"status_code": 2151, "aweme_list": []})) == []

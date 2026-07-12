@@ -317,16 +317,27 @@ def resolve_sec_uid(context, entry_id: str) -> Optional[str]:
 # ==================== 解析辅助（纯函数，便于单测） ====================
 
 def _extract_cover(w: Dict[str, Any]) -> Optional[str]:
-    """从 aweme 作品对象提取封面 URL；视频取 origin_cover/animated_cover，图文取 images。无则返回 None。"""
+    """从 aweme 作品对象提取封面 URL。
+
+    视频封面字段随接口/版本变化：桌面端 API 多在 ``video.origin_cover`` /
+    ``video.animated_cover`` / ``video.dynamic_cover``（dict 含 ``url_list``），
+    移动端 v2 接口当前直接在 ``video.cover``（dict 含 ``url_list``，偶为字符串直链）。
+    图文取 ``images[0]``。无则返回 None。
+    """
     v = w.get("video") or {}
-    c = v.get("origin_cover") or v.get("animated_cover") or {}
-    urls = c.get("url_list") or []
-    if urls:
-        return urls[0]
+    for key in ("origin_cover", "animated_cover", "dynamic_cover", "cover"):
+        c = v.get(key)
+        if isinstance(c, dict):
+            urls = c.get("url_list") or []
+            if urls:
+                return urls[0]
+        elif isinstance(c, str) and c.startswith("http"):
+            return c
     imgs = w.get("images") or []
     if imgs:
         im = imgs[0] or {}
-        return (im.get("url_list") or [None])[0] or im.get("url")
+        if isinstance(im, dict):
+            return (im.get("url_list") or [None])[0] or im.get("url")
     return None
 
 
