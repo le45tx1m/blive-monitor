@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0A0A0F">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>直播 &amp; 新作监控</title>
 <style id="theme-vars">
 :root {
@@ -3826,6 +3829,7 @@ function submitPostAdd(){
         // 基于最新 sha 重试 ≤5 次，CI 那次 post_rooms 写回也会先合并远端最新，不再 409。
         triggerMonitor().catch(function(){});
       }
+      refreshSoon();   // 后端抓取昵称/封面需时间：安排延迟刷新自动呈现最新状态
     })
     .catch(function(err){
       // 最常见失败：409（base sha 过期）。原因几乎都是 CI 的 check.yml 刚 push 过
@@ -3846,7 +3850,7 @@ function removePostRoom(arg){
   }
   if(!window.confirm('确定移除监控「'+disp+'」？')) return;
   apiRemovePostRoom({id:id})
-    .then(function(res){ postRooms=res.rooms||[]; renderPosts(); updateStatPosts(); toast('已移除「'+disp+'」', true); })
+    .then(function(res){ postRooms=res.rooms||[]; renderPosts(); updateStatPosts(); toast('已移除「'+disp+'」', true); refreshSoon(); })
     .catch(function(err){ toast(err && err.message ? err.message : '移除失败', false); });
 }
 
@@ -3863,6 +3867,17 @@ function triggerMonitor(){
   }).then(function(res){
     if(!res.ok) throw new Error('触发检测失败（HTTP '+res.status+(res.data&&res.data.message?': '+res.data.message:'')+'）');
     return true;
+  });
+}
+
+/* 添加/删除后：后端 CI 需数十秒~数分钟抓取并写回，这里安排多次延迟全量刷新，
+   自动把最新昵称/封面/状态呈现在前端（对应“增删立即生效”的延迟刷新环节）。
+   仅 best-effort：单次刷新失败忽略，不阻塞交互。 */
+var _refreshTimers = [];
+function refreshSoon(){
+  [15000, 45000, 90000].forEach(function(ms){
+    var t = setTimeout(function(){ ld().catch(function(){}); }, ms);
+    _refreshTimers.push(t);
   });
 }
 
@@ -3958,7 +3973,7 @@ function removeRoom(arg){
     .then(function(res){
       /* 同上：用写回时计算出的新列表直接更新本地，避免 GET 缓存导致删除后仍需刷新才消失 */
       rooms=res.rooms||[]; renderLive(); updateStatRooms();
-      toast('已移除「'+disp+'」', true);
+      toast('已移除「'+disp+'」', true); refreshSoon();
     })
     .catch(function(err){ toast(err && err.message ? err.message : '移除失败', false); });
 }
@@ -4482,12 +4497,12 @@ function submitBatchBox(boxId, target){
     var ok = res.ok.map(function(r){ return { id: r.id, name: r.name, tags: r.tags||[] }; });
     var merged = mergeRooms(postRooms, ok);
     ghWriteWithRetry('post_rooms.json', function(rs){ var m = mergeRooms(rs, ok); return { rooms: m.rooms, changed: m.added > 0 }; })
-      .then(function(out){ postRooms = out.rooms; renderPosts(); updateStatPosts(); toast('已批量添加 ' + merged.added + ' 个抖音号' + (merged.skipped ? ('，跳过 ' + merged.skipped + ' 个已存在') : ''), true); box.value=''; triggerMonitor().catch(function(){}); })
+      .then(function(out){ postRooms = out.rooms; renderPosts(); updateStatPosts(); toast('已批量添加 ' + merged.added + ' 个抖音号' + (merged.skipped ? ('，跳过 ' + merged.skipped + ' 个已存在') : ''), true); box.value=''; triggerMonitor().catch(function(){}); refreshSoon(); })
       .catch(function(err){ toast(err && err.message ? err.message : '批量添加失败', false); });
   } else {
     var merged2 = mergeRooms(rooms, res.ok);
     ghWriteWithRetry('rooms.json', function(rs){ var m = mergeRooms(rs, res.ok); return { rooms: m.rooms, changed: m.added > 0 }; })
-      .then(function(out){ rooms = out.rooms; renderLive(); updateStatRooms(); toast('已批量添加 ' + merged2.added + ' 条' + (merged2.skipped ? ('，跳过 ' + merged2.skipped + ' 条已存在') : ''), true); box.value=''; triggerMonitor().catch(function(){}); })
+      .then(function(out){ rooms = out.rooms; renderLive(); updateStatRooms(); toast('已批量添加 ' + merged2.added + ' 条' + (merged2.skipped ? ('，跳过 ' + merged2.skipped + ' 条已存在') : ''), true); box.value=''; triggerMonitor().catch(function(){}); refreshSoon(); })
       .catch(function(err){ var msg = err && err.message ? err.message : '批量添加失败'; if(/409|conflict|冲突/i.test(msg)) msg = '并发写入冲突，请稍候几秒再点「批量加入」'; toast(msg, false); });
   }
 }
@@ -4721,7 +4736,7 @@ function deleteSelected(){
   }
   Promise.all(jobs).then(function(){
     selected={}; renderLive(); renderPosts(); updateBatchBar(); updateStatRooms(); updateStatPosts();
-    toast('已删除选中房间', true);
+    toast('已删除选中房间', true); refreshSoon();
   }).catch(function(err){ toast(err&&err.message||'批量删除失败', false); });
 }
 /** 显示/隐藏批量条并刷新计数（live/posts 两个视图均更新）。 */
