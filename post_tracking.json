@@ -1,17 +1,4 @@
 {
-  "douyin_FengBro": {
-    "sec_uid": "MS4wLjABAAAAXrcPvX8QchAY5irWMAxU379DgfCBEOoztZoCcOUqi8I",
-    "latest_aweme_id": "7660491790876851825",
-    "latest_desc": "峰哥在受首尔品尝韩牛烤肉 #韩国吃什么 #韩国美食推荐 #韩国特色美食",
-    "latest_type": "视频",
-    "latest_url": "https://www.douyin.com/video/7660491790876851825",
-    "nickname": "峰哥亡命天涯",
-    "latest_ct": 0,
-    "mode": "api",
-    "latest_count": 0,
-    "latest_cover": "https://raw.githubusercontent.com/racheko-lab/blive-monitor/master/assets/covers/douyin_FengBro.jpg",
-    "latest_cover_cdn": "https://p26-sign.douyinpic.com/tos-cn-i-0813c000-ce/owLAEJsnWIAedAFPXiiIPPACHwi3KCBB1EceAi~tplv-dy-cropcenter:300:400.png?lk3s=2aa63f9f&x-expires=1783976400&x-signature=A6Ps5AsFlgdZRy882m7YshncZiY%3D&from=715538335&s=PackSourceEnum_DOUYIN_REFLOW&se=true&sh=300_400&sc=cover&biz_tag=aweme_video&l=202607132316231D2167D7206C243D5DCD"
-  },
   "douyin_woshixiaoqumt": {
     "sec_uid": "MS4wLjABAAAAiAfQD9C7HmqM8S8cyZMOFy0jUEpiFQ5Vtr0VyWYzG7w",
     "latest_aweme_id": "7661491501767930545",
@@ -35,58 +22,57 @@
     "latest_url": "https://www.douyin.com/video/7659466394198609830",
     "nickname": "整天白日梦",
     "latest_cover": "https://raw.githubusercontent.com/racheko-lab/blive-monitor/master/assets/covers/douyin_81197422897.jpg",
-    "latest_cover_cdn": "https://p5-ex-gddgtc-sign.douyinpic.com/tos-cn-i-0813c001/owXSPLI2IGpCLeDAyAAAATBmIeIfVfCIRSQA5A~tplv-dy-cropcenter:300:400.png?lk3s=2aa63f9f&x-expires=1783976400&x-signature=BfP43Ff9Qr%2BxA83wlluAh0bxa7M%3D&from=715538335&s=PackSourceEnum_DOUYIN_REFLOW&se=true&sh=300_400&sc=cover&biz_tag=aweme_video&l=20260713230209A79DC83A08E94B3F84A1"
+    "latest_cover_cdn": "https://p3-sign.douyinpic.com/tos-cn-i-0813c001/owXSPLI2IGpCLeDAyAAAATBmIeIfVfCIRSQA5A~tplv-dy-cropcenter:300:400.png?lk3s=2aa63f9f&x-expires=1783976400&x-signature=GM%2Fo7RQBaxl19kELcu9e0LMFjPQ%3D&from=715538335&s=PackSourceEnum_DOUYIN_REFLOW&se=true&sh=300_400&sc=cover&biz_tag=aweme_video&l=20260713233227A60A991010FEA840F91B"
   },
-  "douyin_XiaoyaoDx": {
-    "sec_uid": "MS4wLjABAAAAbhVFeKXUZKEuMdK1agllHXZQVhdOkHsnXY_QTfKFmVQ",
-    "latest_aweme_id": "7659255579152725994",
-    "latest_desc": "#毛孩子拆家哪家强 #不养闲猫 音乐一响，结局易想",
-    "latest_type": "视频",
-    "latest_url": "https://www.douyin.com/video/7659255579152725994",
-    "latest_ct": 0,
-    "nickname": "小夭等雪",
-    "mode": "api",
-    "latest_count": 0,
-    "latest_cover": "https://raw.githubusercontent.com/racheko-lab/blive-monitor/master/assets/covers/douyin_XiaoyaoDx.jpg",
-    "latest_cover_cdn": "https://p26-sign.douyinpic.com/tos-cn-p-0015/oo8DIVQiav0PABq358jFuAI4L9kAEwsbAJiHQ~tplv-dy-cropcenter:300:400.png?lk3s=2aa63f9f&x-expires=1783976400&x-signature=4I8tHn0gmJPvGLiZOvjEFV3fVmk%3D&from=715538335&s=PackSourceEnum_DOUYIN_REFLOW&se=true&sh=300_400&sc=cover&biz_tag=aweme_video&l=20260713231817D4EE8D33A0B0713E237D"
-  },
-  "douyin_z1506018": {
-    "sec_uid": "MS4wLjABAAAAdRexxYmw-TTpN0tg4tQii6CCgx1NhASUCBMmQ29KWCE",
-    "latest_cover": "https://raw.githubusercontent.com/racheko-lab/blive-monitor/master/assets/covers/douyin_z1506018.jpg",
-    "latest_aweme_id": "7651170593060765135",
+  "douyin__verify_force": {
+    "sec_uid": "MS4wLjABAAAAz00i43aUgcvmD5vyZB2eMs6feBhlePqIoRapBCaAPjLwmBanhIAen9faTAkq3PHZ",
+    "latest_cover": "https://raw.githubusercontent.com/racheko-lab/blive-monitor/master/assets/covers/douyin__verify_force.jpg",
+    "latest_aweme_id": "7654788104709386739",
     "latest_ct": 0,
     "mode": "api",
     "latest_count": 0,
-    "nickname": "zek",
-    "latest_desc": "你的世界可以多一点我的痕迹吗",
+    "nickname": "傻坏蛋于东来",
+    "latest_desc": "三十多年来、胖东来一路向好、主要就是围绕着公平自由爱的文化坚持各方面科学先进的制度建设和研究更科学的方法落实执行力的结果！",
     "latest_type": "视频",
-    "latest_url": "https://www.douyin.com/video/7651170593060765135",
-    "latest_cover_cdn": "https://p3-sign.douyinpic.com/tos-cn-i-0813c000-ce/oMDPqAsw3A8iu4r0iIMAvwaaBPEAuBM5ziAA5~tplv-dy-cropcenter:300:400.png?lk3s=2aa63f9f&x-expires=1783976400&x-signature=jPEvLyC7KQdSnqNXzWNTBut8dNk%3D&from=715538335&s=PackSourceEnum_DOUYIN_REFLOW&se=true&sh=300_400&sc=cover&biz_tag=aweme_video&l=20260713231744E5DDD40ABA331D3E3219"
+    "latest_url": "https://www.douyin.com/video/7654788104709386739"
   },
-  "douyin_601914453": {
-    "sec_uid": "MS4wLjABAAAAnUH8aFBjvYfBviQaviYVeZ2Tyo0bekBXkmnaKyaHa2Q",
-    "latest_aweme_id": "7660007808596178939",
+  "douyin_zhuizhuguang61": {
+    "sec_uid": "MS4wLjABAAAAz00i43aUgcvmD5vyZB2eMs6feBhlePqIoRapBCaAPjLwmBanhIAen9faTAkq3PHZ",
+    "latest_aweme_id": "7661612420268654474",
+    "latest_desc": "三十多年来、时光在变、环境在变、人在变、只有在信仰的路上是永恒的！",
+    "latest_type": "视频",
+    "latest_url": "https://www.douyin.com/video/7661612420268654474",
+    "nickname": "傻坏蛋于东来",
     "latest_ct": 0,
     "mode": "api",
     "latest_count": 0,
-    "nickname": "再动我就毙了你",
-    "latest_desc": "健身房一周被搭讪七次 被问器械还有几组三次 占了别人器械两次 踢飞别人水杯两次#健身打卡",
-    "latest_type": "视频",
-    "latest_url": "https://www.douyin.com/video/7660007808596178939",
-    "latest_cover": "https://raw.githubusercontent.com/racheko-lab/blive-monitor/master/assets/covers/douyin_601914453.jpg",
-    "latest_cover_cdn": "https://p3-sign.douyinpic.com/tos-cn-i-0813c000-ce/oEBhEoiBAPfEn8MA01uNAY5IIAiY9eAJZBCrDw~tplv-dy-cropcenter:300:400.png?lk3s=2aa63f9f&x-expires=1783976400&x-signature=6%2F9OJ3PhpqbcqQPUkOSOTfrnj3U%3D&from=715538335&s=PackSourceEnum_DOUYIN_REFLOW&se=true&sh=300_400&sc=cover&biz_tag=aweme_video&l=2026071323180064191A688C170A3E78F5"
+    "latest_cover": "https://raw.githubusercontent.com/racheko-lab/blive-monitor/master/assets/covers/douyin_zhuizhuguang61.jpg",
+    "latest_cover_cdn": "https://p3-sign.douyinpic.com/tos-cn-i-0813/o0QqAJPQAAA8A9JJgIFUUBCDgfmJGe4EAACCnQ~tplv-dy-cropcenter:300:400.png?lk3s=2aa63f9f&x-expires=1783976400&x-signature=AuHruZc9XouQxzAhil8MjYoip7w%3D&from=715538335&s=PackSourceEnum_DOUYIN_REFLOW&se=true&sh=300_400&sc=cover&biz_tag=aweme_video&l=2026071323315413B534A3657C21421BE0"
   },
-  "douyin_dy571881": {
-    "sec_uid": "MS4wLjABAAAAyCaNA3LEhCAViVcLn86e6YwyW8-GkDAWMPj_3n_pz00",
-    "latest_aweme_id": "7661375114675506432",
+  "douyin_FengBro": {
+    "sec_uid": "MS4wLjABAAAAXrcPvX8QchAY5irWMAxU379DgfCBEOoztZoCcOUqi8I",
+    "latest_aweme_id": "7660491790876851825",
+    "latest_desc": "峰哥在受首尔品尝韩牛烤肉 #韩国吃什么 #韩国美食推荐 #韩国特色美食",
+    "latest_type": "视频",
+    "latest_url": "https://www.douyin.com/video/7660491790876851825",
+    "nickname": "峰哥亡命天涯",
     "latest_ct": 0,
     "mode": "api",
     "latest_count": 0,
-    "latest_desc": "当上单VN绝活哥碰到The shy #shy",
+    "latest_cover": "https://raw.githubusercontent.com/racheko-lab/blive-monitor/master/assets/covers/douyin_FengBro.jpg",
+    "latest_cover_cdn": "https://p3-sign.douyinpic.com/tos-cn-i-0813c000-ce/owLAEJsnWIAedAFPXiiIPPACHwi3KCBB1EceAi~tplv-dy-cropcenter:300:400.png?lk3s=2aa63f9f&x-expires=1783976400&x-signature=Lf0SRbWCwoAVlpUYYpljJF3WTrk%3D&from=715538335&s=PackSourceEnum_DOUYIN_REFLOW&se=true&sh=300_400&sc=cover&biz_tag=aweme_video&l=202607132332112DB3C6BBA254C83F21E1"
+  },
+  "douyin_llqq192": {
+    "sec_uid": "MS4wLjABAAAAPBP113is5zbadFY77J3HQRZ72SDrhQZC3m6qQcOY5f0sI4M0suqH5QrUQKM3_iWi",
+    "latest_aweme_id": "7660893159753551322",
+    "latest_ct": 0,
+    "mode": "api",
+    "latest_count": 0,
+    "latest_desc": "#游戏天才且不考虑打职业 #严肃游戏 #无畏契约大神操作 #伪人枪法 #别惹怒一个游戏天才 其实我在录这个之前没有想到居然还有死亡回放",
     "latest_type": "视频",
-    "latest_url": "https://www.douyin.com/video/7661375114675506432",
-    "nickname": "披萨解说",
-    "latest_cover": "https://raw.githubusercontent.com/racheko-lab/blive-monitor/master/assets/covers/douyin_dy571881.jpg"
+    "latest_url": "https://www.douyin.com/video/7660893159753551322",
+    "nickname": "栗子鸡",
+    "latest_cover": "https://raw.githubusercontent.com/racheko-lab/blive-monitor/master/assets/covers/douyin_llqq192.jpg"
   },
   "douyin_74597663503": {
     "sec_uid": "MS4wLjABAAAAhKMh_lUoSsPbEhBHyeTC5OzBJIOWYIYWXUqw5q_cdLbBzrWUFvFmepcpSlezkkTQ",
@@ -101,17 +87,55 @@
     "latest_cover": "https://raw.githubusercontent.com/racheko-lab/blive-monitor/master/assets/covers/douyin_74597663503.jpg",
     "latest_cover_cdn": "https://p3-sign.douyinpic.com/tos-cn-i-0813c000-ce/oAAJAzxp1hUQeF9ASCGSQI9fOqJ7IcLgA3PBeD~tplv-dy-cropcenter:300:400.png?lk3s=2aa63f9f&x-expires=1783947600&x-signature=HqKg2auTMyQU7rGYAaLMlpUi114%3D&from=715538335&s=PackSourceEnum_DOUYIN_REFLOW&se=true&sh=300_400&sc=cover&biz_tag=aweme_video&l=2026071315323845A623D137BD2A3C6E39"
   },
-  "douyin_lelelelele0703": {
-    "sec_uid": "MS4wLjABAAAA8VDhOD_J1ZJ5Tiw7iWSP8DyR_fsqD2mZHAxLKRnpLhAtp71KJf-X4DLOSMimT3n_",
-    "latest_aweme_id": "7659605960603761792",
-    "latest_desc": "我一直在寻找 可爱的微笑",
-    "latest_type": "视频",
-    "latest_url": "https://www.douyin.com/video/7659605960603761792",
+  "douyin_601914453": {
+    "sec_uid": "MS4wLjABAAAAnUH8aFBjvYfBviQaviYVeZ2Tyo0bekBXkmnaKyaHa2Q",
+    "latest_aweme_id": "7660007808596178939",
     "latest_ct": 0,
-    "nickname": "白日梦想嘉",
     "mode": "api",
     "latest_count": 0,
-    "latest_cover": "https://raw.githubusercontent.com/racheko-lab/blive-monitor/master/assets/covers/douyin_lelelelele0703.jpg"
+    "nickname": "再动我就毙了你",
+    "latest_desc": "健身房一周被搭讪七次 被问器械还有几组三次 占了别人器械两次 踢飞别人水杯两次#健身打卡",
+    "latest_type": "视频",
+    "latest_url": "https://www.douyin.com/video/7660007808596178939",
+    "latest_cover": "https://raw.githubusercontent.com/racheko-lab/blive-monitor/master/assets/covers/douyin_601914453.jpg",
+    "latest_cover_cdn": "https://p11-sign.douyinpic.com/tos-cn-i-0813c000-ce/oEBhEoiBAPfEn8MA01uNAY5IIAiY9eAJZBCrDw~tplv-dy-cropcenter:300:400.png?lk3s=2aa63f9f&x-expires=1783976400&x-signature=3DFl6TnbLILqIJQHLgSN8RLTyfk%3D&from=715538335&s=PackSourceEnum_DOUYIN_REFLOW&se=true&sh=300_400&sc=cover&biz_tag=aweme_video&l=2026071323334775EDF136D534BB3FD0C1"
+  },
+  "douyin_93253035255": {
+    "sec_uid": "MS4wLjABAAAA3khMMxu6pl1ywocHJ2IXZuRfwrLKFaTEjX1hFKNuiLfEG5jgBh-_zbpo9q3HGMcp",
+    "latest_aweme_id": "7602651914580783798",
+    "latest_ct": 0,
+    "mode": "api",
+    "latest_count": 0,
+    "nickname": "王辟谣-",
+    "latest_desc": "原来打个喷嚏可以变漂亮 #短发 #变装",
+    "latest_type": "视频",
+    "latest_url": "https://www.douyin.com/video/7602651914580783798",
+    "latest_cover": "https://raw.githubusercontent.com/racheko-lab/blive-monitor/master/assets/covers/douyin_93253035255.jpg",
+    "latest_cover_cdn": "https://p11-sign.douyinpic.com/tos-cn-i-0813c000-ce/okCIfFC9nDpCgnAuCwAkAK6VEf1mrZEE3uIAgA~tplv-dy-cropcenter:300:400.png?lk3s=2aa63f9f&x-expires=1783976400&x-signature=Z6iG6vJAd5xJv3AMd%2BnvacvhAZY%3D&from=715538335&s=PackSourceEnum_DOUYIN_REFLOW&se=true&sh=300_400&sc=cover&biz_tag=aweme_video&l=20260713233300744CEE7509E6564105B1"
+  },
+  "douyin_dy571881": {
+    "sec_uid": "MS4wLjABAAAAyCaNA3LEhCAViVcLn86e6YwyW8-GkDAWMPj_3n_pz00",
+    "latest_aweme_id": "7661375114675506432",
+    "latest_ct": 0,
+    "mode": "api",
+    "latest_count": 0,
+    "latest_desc": "当上单VN绝活哥碰到The shy #shy",
+    "latest_type": "视频",
+    "latest_url": "https://www.douyin.com/video/7661375114675506432",
+    "nickname": "披萨解说",
+    "latest_cover": "https://raw.githubusercontent.com/racheko-lab/blive-monitor/master/assets/covers/douyin_dy571881.jpg"
+  },
+  "douyin_misssiir": {
+    "sec_uid": "MS4wLjABAAAA_cAA24tPc4bGg5yD70IZixfOHC7nhN1P2xPcnnESsbaXc435nBQmKHoJLximwaVf",
+    "latest_cover": "https://raw.githubusercontent.com/racheko-lab/blive-monitor/master/assets/covers/douyin_misssiir.jpg",
+    "latest_aweme_id": "7661273815943741358",
+    "latest_ct": 0,
+    "mode": "api",
+    "latest_count": 0,
+    "nickname": "樱桃哥🍒（众包大王外卖技巧分享）",
+    "latest_desc": "永动机跑单法 正好跑完最后一单暴雨下来了#外卖技巧#外卖小哥#众包#外卖员",
+    "latest_type": "视频",
+    "latest_url": "https://www.douyin.com/video/7661273815943741358"
   },
   "douyin_98078804724": {
     "sec_uid": "MS4wLjABAAAAHW8TIoMaLugftULnmwyZtXKPRa5kq0mDZEFBOlGNri0xBcgB8pU39TQmKOuJ22_1",
@@ -134,66 +158,42 @@
     "latest_url": "https://www.douyin.com/video/7661552754426943049",
     "latest_cover": "https://raw.githubusercontent.com/racheko-lab/blive-monitor/master/assets/covers/douyin_vHan09233.jpg"
   },
-  "douyin_llqq192": {
-    "sec_uid": "MS4wLjABAAAAPBP113is5zbadFY77J3HQRZ72SDrhQZC3m6qQcOY5f0sI4M0suqH5QrUQKM3_iWi",
-    "latest_aweme_id": "7660893159753551322",
+  "douyin_XiaoyaoDx": {
+    "sec_uid": "MS4wLjABAAAAbhVFeKXUZKEuMdK1agllHXZQVhdOkHsnXY_QTfKFmVQ",
+    "latest_aweme_id": "7659255579152725994",
+    "latest_desc": "#毛孩子拆家哪家强 #不养闲猫 音乐一响，结局易想",
+    "latest_type": "视频",
+    "latest_url": "https://www.douyin.com/video/7659255579152725994",
     "latest_ct": 0,
+    "nickname": "小夭等雪",
     "mode": "api",
     "latest_count": 0,
-    "latest_desc": "#游戏天才且不考虑打职业 #严肃游戏 #无畏契约大神操作 #伪人枪法 #别惹怒一个游戏天才 其实我在录这个之前没有想到居然还有死亡回放",
-    "latest_type": "视频",
-    "latest_url": "https://www.douyin.com/video/7660893159753551322",
-    "nickname": "栗子鸡",
-    "latest_cover": "https://raw.githubusercontent.com/racheko-lab/blive-monitor/master/assets/covers/douyin_llqq192.jpg"
+    "latest_cover": "https://raw.githubusercontent.com/racheko-lab/blive-monitor/master/assets/covers/douyin_XiaoyaoDx.jpg",
+    "latest_cover_cdn": "https://p26-sign.douyinpic.com/tos-cn-p-0015/oo8DIVQiav0PABq358jFuAI4L9kAEwsbAJiHQ~tplv-dy-cropcenter:300:400.png?lk3s=2aa63f9f&x-expires=1783976400&x-signature=4I8tHn0gmJPvGLiZOvjEFV3fVmk%3D&from=715538335&s=PackSourceEnum_DOUYIN_REFLOW&se=true&sh=300_400&sc=cover&biz_tag=aweme_video&l=2026071323340464191A688C170A3EAC81"
   },
-  "douyin_93253035255": {
-    "sec_uid": "MS4wLjABAAAA3khMMxu6pl1ywocHJ2IXZuRfwrLKFaTEjX1hFKNuiLfEG5jgBh-_zbpo9q3HGMcp",
-    "latest_aweme_id": "7602651914580783798",
+  "douyin_z1506018": {
+    "sec_uid": "MS4wLjABAAAAdRexxYmw-TTpN0tg4tQii6CCgx1NhASUCBMmQ29KWCE",
+    "latest_cover": "https://raw.githubusercontent.com/racheko-lab/blive-monitor/master/assets/covers/douyin_z1506018.jpg",
+    "latest_aweme_id": "7651170593060765135",
     "latest_ct": 0,
     "mode": "api",
     "latest_count": 0,
-    "nickname": "王辟谣-",
-    "latest_desc": "原来打个喷嚏可以变漂亮 #短发 #变装",
+    "nickname": "zek",
+    "latest_desc": "你的世界可以多一点我的痕迹吗",
     "latest_type": "视频",
-    "latest_url": "https://www.douyin.com/video/7602651914580783798",
-    "latest_cover": "https://raw.githubusercontent.com/racheko-lab/blive-monitor/master/assets/covers/douyin_93253035255.jpg",
-    "latest_cover_cdn": "https://p26-sign.douyinpic.com/tos-cn-i-0813c000-ce/okCIfFC9nDpCgnAuCwAkAK6VEf1mrZEE3uIAgA~tplv-dy-cropcenter:300:400.png?lk3s=2aa63f9f&x-expires=1783976400&x-signature=JI66mU2VX8Heoxe9%2FI2yz9Llryg%3D&from=715538335&s=PackSourceEnum_DOUYIN_REFLOW&se=true&sh=300_400&sc=cover&biz_tag=aweme_video&l=2026071323171300D0BCE4A6EE193FD1BC"
+    "latest_url": "https://www.douyin.com/video/7651170593060765135",
+    "latest_cover_cdn": "https://p26-sign.douyinpic.com/tos-cn-i-0813c000-ce/oMDPqAsw3A8iu4r0iIMAvwaaBPEAuBM5ziAA5~tplv-dy-cropcenter:300:400.png?lk3s=2aa63f9f&x-expires=1783976400&x-signature=JTh4GXVyHaDk%2BvRgvdWN9I0Ux48%3D&from=715538335&s=PackSourceEnum_DOUYIN_REFLOW&se=true&sh=300_400&sc=cover&biz_tag=aweme_video&l=20260713233331FBD6ECBCB2D5E63E128B"
   },
-  "douyin_misssiir": {
-    "sec_uid": "MS4wLjABAAAA_cAA24tPc4bGg5yD70IZixfOHC7nhN1P2xPcnnESsbaXc435nBQmKHoJLximwaVf",
-    "latest_cover": "https://raw.githubusercontent.com/racheko-lab/blive-monitor/master/assets/covers/douyin_misssiir.jpg",
-    "latest_aweme_id": "7661273815943741358",
+  "douyin_lelelelele0703": {
+    "sec_uid": "MS4wLjABAAAA8VDhOD_J1ZJ5Tiw7iWSP8DyR_fsqD2mZHAxLKRnpLhAtp71KJf-X4DLOSMimT3n_",
+    "latest_aweme_id": "7659605960603761792",
+    "latest_desc": "我一直在寻找 可爱的微笑",
+    "latest_type": "视频",
+    "latest_url": "https://www.douyin.com/video/7659605960603761792",
     "latest_ct": 0,
+    "nickname": "白日梦想嘉",
     "mode": "api",
     "latest_count": 0,
-    "nickname": "樱桃哥🍒（众包大王外卖技巧分享）",
-    "latest_desc": "永动机跑单法 正好跑完最后一单暴雨下来了#外卖技巧#外卖小哥#众包#外卖员",
-    "latest_type": "视频",
-    "latest_url": "https://www.douyin.com/video/7661273815943741358"
-  },
-  "douyin_zhuizhuguang61": {
-    "sec_uid": "MS4wLjABAAAAz00i43aUgcvmD5vyZB2eMs6feBhlePqIoRapBCaAPjLwmBanhIAen9faTAkq3PHZ",
-    "latest_aweme_id": "7661612420268654474",
-    "latest_desc": "三十多年来、时光在变、环境在变、人在变、只有在信仰的路上是永恒的！",
-    "latest_type": "视频",
-    "latest_url": "https://www.douyin.com/video/7661612420268654474",
-    "nickname": "傻坏蛋于东来",
-    "latest_ct": 0,
-    "mode": "api",
-    "latest_count": 0,
-    "latest_cover": "https://raw.githubusercontent.com/racheko-lab/blive-monitor/master/assets/covers/douyin_zhuizhuguang61.jpg",
-    "latest_cover_cdn": "https://p3-sign.douyinpic.com/tos-cn-i-0813/o0QqAJPQAAA8A9JJgIFUUBCDgfmJGe4EAACCnQ~tplv-dy-cropcenter:300:400.png?lk3s=2aa63f9f&x-expires=1783972800&x-signature=SwQ5wehkadPI9QCi9RJAHkBtaB0%3D&from=715538335&s=PackSourceEnum_DOUYIN_REFLOW&se=true&sh=300_400&sc=cover&biz_tag=aweme_video&l=20260713224629AA79F67C063BD73BB4B9"
-  },
-  "douyin__verify_force": {
-    "sec_uid": "MS4wLjABAAAAz00i43aUgcvmD5vyZB2eMs6feBhlePqIoRapBCaAPjLwmBanhIAen9faTAkq3PHZ",
-    "latest_cover": "https://raw.githubusercontent.com/racheko-lab/blive-monitor/master/assets/covers/douyin__verify_force.jpg",
-    "latest_aweme_id": "7654788104709386739",
-    "latest_ct": 0,
-    "mode": "api",
-    "latest_count": 0,
-    "nickname": "傻坏蛋于东来",
-    "latest_desc": "三十多年来、胖东来一路向好、主要就是围绕着公平自由爱的文化坚持各方面科学先进的制度建设和研究更科学的方法落实执行力的结果！",
-    "latest_type": "视频",
-    "latest_url": "https://www.douyin.com/video/7654788104709386739"
+    "latest_cover": "https://raw.githubusercontent.com/racheko-lab/blive-monitor/master/assets/covers/douyin_lelelelele0703.jpg"
   }
 }
