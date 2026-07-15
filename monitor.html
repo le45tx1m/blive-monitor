@@ -9,6 +9,9 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>直播 &amp; 新作监控</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style id="theme-vars">
 :root {
   --brand-primary: #FF4D6A;
@@ -55,8 +58,8 @@
 
 
 
-  --font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "PingFang SC", "Helvetica Neue", "Microsoft YaHei", sans-serif;
-  --font-mono: "SF Mono", "JetBrains Mono", "Fira Code", "Cascadia Code", Menlo, Consolas, monospace;
+  --font-family: "Fira Sans", -apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-mono: "Fira Code", "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
 
   --font-size-display: 28px;
   --font-size-h1: 22px;
@@ -94,6 +97,16 @@
   --shadow-lg: 0 6px 24px rgba(0, 0, 0, 0.25);
   --shadow-glow-live: 0 0 10px var(--state-live-glow);
   --shadow-glow-primary: 0 0 16px rgba(255, 77, 106, 0.2);
+
+  /* ===== 设计升级：暗色阴影环 + 动效变量（依据 make-interfaces / ui-ux-pro-max） ===== */
+  --shadow-ring: 0 0 0 1px rgba(255, 255, 255, 0.08);
+  --shadow-ring-hover: 0 0 0 1px rgba(255, 255, 255, 0.14), 0 8px 24px rgba(0, 0, 0, 0.30);
+  --shadow-ring-strong: 0 0 0 1px rgba(255, 255, 255, 0.14);
+  --ring-focus: 0 0 0 2px var(--color-bg-body), 0 0 0 4px var(--brand-primary);
+  --motion-fast: 150ms;
+  --motion-base: 220ms;
+  --motion-enter: 420ms;
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
 
   --tab-bar-height: 62px;
   --header-height: 58px;
@@ -1773,7 +1786,125 @@ body {
 
 @media (min-width: 1280px) {
   /* 宽屏配置保持两栏更舒适 */
-}</style>
+}/* =========================================================
+   设计升级层 · Design System Polish
+   依据：frontend-design · ui-ux-pro-max · make-interfaces-feel-better
+   - 暗色阴影环替代 1px 实线边框（去除"方框网格感"）
+   - Fira 字体已在 :root 启用（监控台独特数据气质）
+   - 入场 stagger 动效 + 键盘焦点环 + 图片描边 + 统一按下 0.96
+   ========================================================= */
+
+/* --- 表面：阴影环替代实线边框（保留分隔线型 border 不动） --- */
+.blm-stat-card,
+.blm-search-bar,
+.blm-add-form,
+.blm-batch-add,
+.blm-room-card,
+.blm-log-summary-item,
+.blm-config-card,
+.blm-input,
+.blm-segmented,
+.blm-dash-card,
+.blm-dash-chart,
+.blm-work-card,
+.blm-modal-card,
+.stat-card {
+  border: none !important;
+  box-shadow: var(--shadow-ring);
+  transition: box-shadow var(--motion-fast) ease-out,
+              transform var(--motion-fast) ease-out,
+              background-color var(--motion-fast) ease-out;
+}
+
+/* hover：更亮的环 + 轻微抬升（阴影优于边框，暗色下自适应任意底色） */
+.blm-stat-card:hover,
+.blm-search-bar:hover,
+.blm-room-card:hover,
+.blm-log-summary-item:hover,
+.blm-config-card:hover,
+.blm-dash-card:hover,
+.blm-dash-chart:hover,
+.blm-work-card:hover { box-shadow: var(--shadow-ring-hover); }
+.blm-room-card:hover,
+.blm-work-card:hover { transform: translateY(-2px); }
+.blm-modal-card { box-shadow: var(--shadow-ring-strong), var(--shadow-lg); }
+
+/* --- 键盘焦点环（可访问性 + 精致感） --- */
+.blm-btn:focus-visible,
+.blm-icon-btn:focus-visible,
+.blm-icon-btn-sm:focus-visible,
+.blm-room-link:focus-visible,
+.blm-work-link:focus-visible,
+.blm-filter-chip:focus-visible,
+.chip:focus-visible,
+.lchip:focus-visible,
+.blm-input:focus-visible,
+.blm-view-btn:focus-visible,
+.blm-seg-item:focus-visible,
+a:focus-visible,
+button:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-focus);
+}
+
+/* --- 图片描边（暗色纯白 10%，不占布局） --- */
+img { outline: 1px solid rgba(255, 255, 255, 0.1); outline-offset: -1px; }
+
+/* --- 统一按下反馈 scale(0.96)（make-interfaces：不小于 0.95） --- */
+.blm-btn:active,
+.blm-btn-primary:active,
+.blm-icon-btn:active,
+.blm-icon-btn-sm:active,
+.blm-room-card:active,
+.blm-work-card:active,
+.blm-filter-chip:active,
+.chip:active,
+.lchip:active,
+.blm-view-btn:active,
+.blm-seg-item:active { transform: scale(0.96); }
+
+/* --- 入场 stagger 动效（backwards：结束后回归常规样式，不劫持 hover/active 变形） --- */
+@keyframes blmRise {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.blm-room-card,
+.blm-work-card,
+.blm-stat-card,
+.blm-log-summary-item,
+.blm-dash-card,
+.blm-dash-chart {
+  animation: blmRise var(--motion-enter) var(--ease-out) backwards;
+}
+.blm-room-list .blm-room-card:nth-child(1) { animation-delay: 40ms; }
+.blm-room-list .blm-room-card:nth-child(2) { animation-delay: 80ms; }
+.blm-room-list .blm-room-card:nth-child(3) { animation-delay: 120ms; }
+.blm-room-list .blm-room-card:nth-child(4) { animation-delay: 160ms; }
+.blm-room-list .blm-room-card:nth-child(5) { animation-delay: 200ms; }
+.blm-room-list .blm-room-card:nth-child(n+6) { animation-delay: 240ms; }
+.blm-stats-bar .blm-stat-card:nth-child(1) { animation-delay: 0ms; }
+.blm-stats-bar .blm-stat-card:nth-child(2) { animation-delay: 60ms; }
+.blm-stats-bar .blm-stat-card:nth-child(3) { animation-delay: 120ms; }
+.blm-works-grid .blm-work-card:nth-child(1) { animation-delay: 40ms; }
+.blm-works-grid .blm-work-card:nth-child(2) { animation-delay: 80ms; }
+.blm-works-grid .blm-work-card:nth-child(3) { animation-delay: 120ms; }
+.blm-works-grid .blm-work-card:nth-child(4) { animation-delay: 160ms; }
+.blm-works-grid .blm-work-card:nth-child(n+5) { animation-delay: 200ms; }
+.blm-dash-grid .blm-dash-card:nth-child(1) { animation-delay: 40ms; }
+.blm-dash-grid .blm-dash-card:nth-child(2) { animation-delay: 80ms; }
+.blm-dash-grid .blm-dash-card:nth-child(3) { animation-delay: 120ms; }
+.blm-dash-grid .blm-dash-card:nth-child(4) { animation-delay: 160ms; }
+
+/* --- 尊重 prefers-reduced-motion --- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+</style>
 </head>
 <body>
 
