@@ -4,7 +4,7 @@ on:
   # 注意：GitHub Actions schedule 不太稳定，可能延迟或跳过
   # 建议配合外部 cron 服务（如 cron-job.org）使用，通过 workflow_dispatch 触发
   schedule:
-    - cron: "*/2 * * * *"
+    - cron: "*/5 * * * *"
   workflow_dispatch:
   push:
     paths:
@@ -85,7 +85,7 @@ jobs:
         run: python3 check_status.py
 
       # 新作品监控（无头浏览器抓取用户主页，绕过抖音反爬；列表来自独立的 post_rooms.json）
-      # 降频：每 2 分钟一次（UTC 分钟为 2 的倍数时运行），与开播检测的 5 分钟解耦，
+      # 降频：每 15 分钟一次（UTC 分钟为 15 的倍数时运行），与开播检测的 5 分钟解耦，
       # 降低抖音 API 限流 / 风控压力。用「分钟取模」闸门而非 schedule 判断，
       # 这样无论触发来自 GitHub 原生 schedule 还是外部 cron-job.org 的 workflow_dispatch 都生效。
       - name: Check new posts
@@ -95,26 +95,26 @@ jobs:
           DOUYIN_COOKIE: ${{ secrets.DOUYIN_COOKIE }}
           ENABLE_POST_CHECK: "true"
         run: |
-          # 新作品检测：仅当 UTC 分钟为 2 的倍数时运行（即每 2 分钟一次）；
+          # 新作品检测降频：仅当 UTC 分钟为 15 的倍数时运行（即每 15 分钟一次）；
           # 但若本次由 post_rooms.json 的 push 触发（用户增删账号），则立即抓取不受限。
           if [ "${FORCE_POST_CHECK}" != "true" ]; then
             MIN=${WIN_MIN}
-            if [ $((MIN % 2)) -ne 0 ]; then
-              echo "非新作品检测窗口（每 2 分钟一次，当前 UTC 分钟 $MIN），跳过"
+            if [ $((MIN % 15)) -ne 0 ]; then
+              echo "非新作品检测窗口（每 15 分钟一次，当前 UTC 分钟 $MIN），跳过"
               exit 0
             fi
           fi
           python3 check_new_posts.py
 
       # D1：抖音新作封面转存（仅 post_rooms 非空时运行；差异提交避免仓库膨胀）
-      # 与「新作品检测」同窗口（每 2 分钟）：无新作时不必每 5 分钟转存
+      # 与「新作品检测」同窗口（每 15 分钟）：无新作时不必每 5 分钟转存
       - name: Transcode covers
         if: ${{ steps.postlist.outputs.enabled == 'true' }}
         run: |
           if [ "${FORCE_POST_CHECK}" != "true" ]; then
             MIN=${WIN_MIN}
-            if [ $((MIN % 2)) -ne 0 ]; then
-              echo "非新作品检测窗口（每 2 分钟一次，当前 UTC 分钟 $MIN），跳过封面转存"
+            if [ $((MIN % 15)) -ne 0 ]; then
+              echo "非新作品检测窗口（每 15 分钟一次，当前 UTC 分钟 $MIN），跳过封面转存"
               exit 0
             fi
           fi
