@@ -308,7 +308,7 @@ body {
   border-color: rgba(255, 77, 106, 0.2);
 }
 .blm-stat-value {
-  font-size: var(--font-size-h1);
+  font-size: var(--font-size-h2);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
   line-height: 1.1;
@@ -332,7 +332,7 @@ body {
   background: var(--state-success-bg);
   border: 1px solid rgba(48, 209, 88, 0.14);
   border-radius: var(--radius-lg);
-  margin: var(--spacing-sm) var(--spacing-md) 0;
+  margin: var(--spacing-sm) 0 0;
   gap: var(--spacing-sm);
 }
 .blm-freshness-left { display: flex; align-items: center; gap: var(--spacing-sm); min-width: 0; }
@@ -387,7 +387,7 @@ body {
 .blm-filter-chip, .chip, .lchip {
   flex-shrink: 0;
   padding: 9px 16px;
-  min-height: 36px;
+  min-height: 40px;
   border-radius: var(--radius-full);
   font-size: var(--font-size-caption);
   font-weight: var(--font-weight-medium);
@@ -609,8 +609,8 @@ body {
 .blm-room-avatar {
   flex-shrink: 0;
   align-self: flex-start;
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   margin-top: 2px;
   border-radius: var(--radius-full);
   overflow: hidden;
@@ -619,7 +619,7 @@ body {
   align-items: center;
   justify-content: center;
   font-weight: var(--font-weight-bold);
-  font-size: var(--font-size-h3);
+  font-size: var(--font-size-body);
   color: #fff;
   user-select: none;
   background: var(--color-bg-surface-raised);
@@ -761,7 +761,7 @@ body {
 .blm-room-actions {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--spacing-xs);
   flex-shrink: 0;
 }
 
@@ -853,7 +853,7 @@ body {
 .blm-log-item {
   display: flex;
   gap: var(--spacing-md);
-  padding: var(--spacing-md) 0;
+  padding: var(--spacing-lg) 0;
   border-bottom: 1px solid var(--color-border-subtle);
   position: relative;
   align-items: flex-start;
@@ -963,7 +963,7 @@ body {
 .toast.err { background: rgba(255, 71, 87, 0.95); }
 
 /* ===== Empty State ===== */
-.empty { text-align: center; padding: 48px 16px; color: var(--color-text-tertiary); font-size: var(--font-size-body); line-height: 1.6; }
+.empty { text-align: center; padding: 36px 16px; color: var(--color-text-tertiary); font-size: var(--font-size-body); line-height: 1.6; }
 
 /* ===== Phase-1 保留类 - 必须保留（文档§2.3，测试保护） ===== */
 .blm-status-pill .txt { font-size: var(--font-size-caption); font-weight: var(--font-weight-medium); }
@@ -1968,6 +1968,8 @@ img { outline: 1px solid rgba(255, 255, 255, 0.1); outline-offset: -1px; }
   border-bottom: 1px solid var(--color-border-subtle);
 }
 .blm-list-toolbar > .blm-filter-bar { margin: 0; }
+/* 空工具条不占位（删除搜索框后避免吸顶空壳浪费垂直空间） */
+.blm-list-toolbar:empty { display: none; }
 
 /* 4. 批量操作条：选中时吸底常驻（悬浮于 Tab 之上） */
 .blm-batch-bar {
