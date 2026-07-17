@@ -1,47 +1,47 @@
 [
-  {
-    "id": "22230707",
-    "name": "峰哥亡命天涯",
-    "platform": "bilibili"
-  },
-  {
-    "id": "wsyzxz6688",
-    "name": "小猪装机",
-    "platform": "douyin"
-  },
-  {
-    "id": "83134194400",
-    "name": "27～",
-    "platform": "douyin"
-  },
-  {
-    "id": "jiubugaosuni315",
-    "name": "jiubugaosuni315",
-    "platform": "douyin"
-  },
-  {
-    "id": "dy571881",
-    "name": "dy571881",
-    "platform": "douyin"
-  },
-  {
-    "id": "1197109127",
-    "name": "1197109127",
-    "platform": "douyin"
-  },
-  {
-    "platform": "douyin",
-    "id": "64865306",
-    "name": "64865306"
-  },
-  {
-    "platform": "douyin",
-    "id": "woshixiaoqumt",
-    "name": "woshixiaoqumt"
-  },
-  {
-    "platform": "douyin",
-    "id": "hmh1020l.",
-    "name": "hmh1020l."
-  }
+    {
+        "id": "22230707",
+        "name": "峰哥亡命天涯",
+        "platform": "bilibili"
+    },
+    {
+        "id": "wsyzxz6688",
+        "name": "小猪装机",
+        "platform": "douyin"
+    },
+    {
+        "id": "83134194400",
+        "name": "27～",
+        "platform": "douyin"
+    },
+    {
+        "id": "jiubugaosuni315",
+        "name": "jiubugaosuni315",
+        "platform": "douyin"
+    },
+    {
+        "id": "dy571881",
+        "name": "dy571881",
+        "platform": "douyin"
+    },
+    {
+        "id": "1197109127",
+        "name": "1197109127",
+        "platform": "douyin"
+    },
+    {
+        "platform": "douyin",
+        "id": "64865306",
+        "name": "64865306"
+    },
+    {
+        "platform": "douyin",
+        "id": "woshixiaoqumt",
+        "name": "woshixiaoqumt"
+    },
+    {
+        "platform": "douyin",
+        "id": "hmh1020l.",
+        "name": "hmh1020l."
+    }
 ]

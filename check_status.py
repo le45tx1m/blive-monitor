@@ -14,7 +14,6 @@ import os
 import re
 import time
 import logging
-import hashlib
 import urllib.request
 import urllib.parse
 import urllib.error
@@ -194,64 +193,24 @@ def fetch_bilibili_batch(room_ids: List[str]) -> Dict[str, Dict[str, Any]]:
     return data["data"]["by_room_ids"]
 
 
-# ==================== B站 真实头像（WBI 签名 space/wbi/acc/info） ====================
-
-# WBI mixinKey 重排表（bilibili-API-collect 官方定义，固定 64 项）
-_WBI_MIXIN_ENC = [
-    46, 47, 18, 2, 53, 8, 23, 32, 15, 50, 10, 31, 58, 3, 45, 35,
-    27, 43, 5, 49, 33, 9, 42, 19, 29, 28, 14, 39, 12, 38, 41, 13,
-    37, 48, 7, 16, 24, 55, 40, 61, 26, 17, 0, 1, 60, 51, 30, 4,
-    22, 25, 54, 21, 56, 59, 6, 63, 57, 62, 11, 36, 20, 34, 44, 52,
-]
-
-
-def _wbi_mixin_key(orig: str) -> str:
-    """按重排表取前 32 位得到 mixin_key。"""
-    return "".join(orig[i] for i in _WBI_MIXIN_ENC[:32])
-
-
-def _wbi_sign(params: Dict[str, Any], img_key: str, sub_key: str) -> Dict[str, Any]:
-    """对查询参数做 WBI 签名，返回含 w_rid / wts 的新参数字典。"""
-    mixin_key = _wbi_mixin_key(img_key + sub_key)
-    signed = dict(sorted(params.items()))
-    signed["wts"] = int(time.time())
-    query = urllib.parse.urlencode(signed)
-    signed["w_rid"] = hashlib.md5((query + mixin_key).encode("utf-8")).hexdigest()
-    return signed
-
+# ==================== B站 真实头像（live_user/v1/Master/info） ====================
 
 def _fetch_bilibili_face(uid: str) -> str:
-    """WBI 签名调 space/wbi/acc/info 取主播真实头像（face）。
+    """取主播真实头像（face）。
 
-    CI 运行在无登录态的数据中心 IP，B站常返回 -352 风控，此时优雅降级返回 ''，
-    前端回退到首字母彩色圆。任何异常都不抛出，避免影响整轮检测。
+    参考本仓库同系项目 new-monitor-project：getRoomBaseInfo 已返回 uid，
+    再用 live_user/v1/Master/info?uid={uid} 取 face（无需 WBI 签名，实测
+    数据中心 IP 不风控，code=0）。失败优雅降级返回 ''，前端回退首字母圆。
+    任何异常都不抛出，避免影响整轮检测。
     """
     try:
-        nav = json.loads(
-            fetch_with_retry(
-                "https://api.bilibili.com/x/web-interface/nav",
-                headers={"Referer": "https://www.bilibili.com/"},
-            )
+        url = f"https://api.live.bilibili.com/live_user/v1/Master/info?uid={uid}"
+        data = json.loads(
+            fetch_with_retry(url, headers={"Referer": "https://live.bilibili.com/"})
         )
-        if nav.get("code") != 0:
+        if data.get("code") != 0:
             return ""
-        wbi = nav.get("data", {}).get("wbi_img", {})
-        img_key = wbi.get("img_url", "").rsplit("/", 1)[-1].split(".")[0]
-        sub_key = wbi.get("sub_url", "").rsplit("/", 1)[-1].split(".")[0]
-        if not img_key or not sub_key:
-            return ""
-        params = {"mid": str(uid), "token": "", "web_location": "space_index"}
-        signed = _wbi_sign(params, img_key, sub_key)
-        url = "https://api.bilibili.com/x/space/wbi/acc/info?" + urllib.parse.urlencode(signed)
-        info = json.loads(
-            fetch_with_retry(
-                url,
-                headers={"Referer": "https://space.bilibili.com/" + str(uid)},
-            )
-        )
-        if info.get("code") != 0:
-            return ""
-        return info.get("data", {}).get("face", "") or ""
+        return data.get("data", {}).get("info", {}).get("face", "") or ""
     except Exception as e:
         logger.warning("B站头像获取失败 (uid=%s): %s", uid, e)
         return ""
