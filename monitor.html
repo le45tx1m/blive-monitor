@@ -26,9 +26,9 @@
   --color-bg-surface-elevated: #1F2029;
   --color-bg-input: #1A1B22;
 
-  --color-border-subtle: rgba(255, 255, 255, 0.05);
-  --color-border-default: rgba(255, 255, 255, 0.09);
-  --color-border-strong: rgba(255, 255, 255, 0.15);
+  --color-border-subtle: rgba(255, 255, 255, 0.08);
+  --color-border-default: rgba(255, 255, 255, 0.12);
+  --color-border-strong: rgba(255, 255, 255, 0.18);
 
   --color-text-primary: #F0F0F5;
   --color-text-secondary: rgba(240, 240, 245, 0.68);
@@ -98,6 +98,12 @@
   --shadow-glow-live: 0 0 10px var(--state-live-glow);
   --shadow-glow-primary: 0 0 16px rgba(255, 77, 106, 0.2);
 
+  /* ===== 高级感：分层表面阴影 + 顶部内高光 + 渐变基底 ===== */
+  --color-bg-body-top: #0B0D13;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.35), 0 8px 24px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --shadow-card-hover: 0 2px 6px rgba(0, 0, 0, 0.40), 0 16px 40px rgba(0, 0, 0, 0.30), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --shadow-surface: 0 1px 2px rgba(0, 0, 0, 0.30), 0 6px 18px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+
   /* ===== 设计升级：暗色阴影环 + 动效变量（依据 make-interfaces / ui-ux-pro-max） ===== */
   --shadow-ring: 0 0 0 1px rgba(255, 255, 255, 0.08);
   --shadow-ring-hover: 0 0 0 1px rgba(255, 255, 255, 0.14), 0 8px 24px rgba(0, 0, 0, 0.30);
@@ -150,7 +156,7 @@ body {
   font-size: var(--font-size-body);
   line-height: var(--line-height-normal);
   color: var(--color-text-primary);
-  background: var(--color-bg-body);
+  background: linear-gradient(180deg, var(--color-bg-body-top) 0%, var(--color-bg-body) 100%);
   min-height: 100vh;
   overflow-x: hidden;
 }
@@ -164,7 +170,7 @@ body {
   max-width: 100%;
   margin: 0 auto;
   min-height: 100vh;
-  background: var(--color-bg-body);
+  background: linear-gradient(180deg, var(--color-bg-body-top) 0%, var(--color-bg-body) 100%);
   position: relative;
   padding-bottom: calc(var(--tab-bar-height) + var(--safe-area-bottom) + var(--spacing-sm));
 }
@@ -185,6 +191,7 @@ body {
   top: 0;
   z-index: 100;
   background: rgba(8, 9, 13, 0.92);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04), 0 10px 30px rgba(0, 0, 0, 0.35);
   backdrop-filter: blur(24px) saturate(1.4);
   -webkit-backdrop-filter: blur(24px) saturate(1.4);
   border-bottom: 1px solid var(--color-border-subtle);
@@ -410,6 +417,7 @@ body {
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-lg);
   padding: 10px var(--spacing-md);
+  box-shadow: var(--shadow-surface);
   transition: border-color 0.15s;
 }
 .blm-search-bar:focus-within { border-color: var(--brand-primary); }
@@ -495,7 +503,7 @@ body {
   justify-content: center;
   gap: var(--spacing-sm);
 }
-.blm-add-room-btn:hover { border-color: var(--brand-primary); color: var(--brand-primary); background: var(--brand-primary-lighter); }
+.blm-add-room-btn:hover { border-color: var(--brand-primary); color: var(--brand-primary); background: var(--brand-primary-lighter); box-shadow: var(--shadow-glow-primary); }
 .blm-add-room-btn:active { transform: scale(0.99); }
 
 .blm-add-form {
@@ -579,6 +587,7 @@ body {
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-lg);
   padding: var(--spacing-md);
+  box-shadow: var(--shadow-card);
   transition: all 0.22s cubic-bezier(0.25, 0.1, 0.25, 1);
   position: relative;
   overflow: hidden;
@@ -586,8 +595,8 @@ body {
 .blm-room-card:hover {
   border-color: var(--color-border-default);
   background: var(--color-bg-surface-raised);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-card-hover);
 }
 .blm-room-card:active { transform: scale(0.985); }
 
@@ -1612,6 +1621,7 @@ body {
   right: 0;
   width: 100%;
   background: rgba(18, 19, 24, 0.95);
+  box-shadow: 0 -1px 0 rgba(255, 255, 255, 0.04), 0 -10px 30px rgba(0, 0, 0, 0.35);
   backdrop-filter: blur(24px) saturate(1.5);
   -webkit-backdrop-filter: blur(24px) saturate(1.5);
   border-top: 1px solid var(--color-border-subtle);
