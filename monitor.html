@@ -115,7 +115,7 @@
   --ease-out: cubic-bezier(0.2, 0, 0, 1);
 
   --tab-bar-height: 62px;
-  --header-height: 58px;
+  --header-height: 56px;
   --safe-area-bottom: env(safe-area-inset-bottom, 0px);
 
   /* ===== 遗留变量别名 - 必须保留（文档§2.2，测试保护） ===== */
@@ -553,7 +553,7 @@ body {
   background: var(--color-bg-surface);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-lg);
-  padding: var(--spacing-md);
+  padding: var(--spacing-lg);
   box-shadow: var(--shadow-card);
   transition: all 0.22s cubic-bezier(0.25, 0.1, 0.25, 1);
   position: relative;
@@ -1214,13 +1214,13 @@ body {
 .blm-modal-card {
   position: relative;
   width: 100%;
-  max-width: 420px;
-  max-height: 85vh;
+  max-width: 520px;
+  max-height: 88vh;
   overflow-y: auto;
   background: var(--color-bg-surface);
   border: 1px solid var(--color-border-default);
   border-radius: var(--radius-xl);
-  padding: var(--spacing-xl);
+  padding: var(--spacing-2xl);
   box-shadow: var(--shadow-lg);
   animation: modal-in 0.2s ease;
 }
@@ -1412,7 +1412,7 @@ body {
 .blm-works-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: var(--spacing-md);
+  gap: var(--spacing-lg);
 }
 .blm-work-card {
   background: var(--color-bg-surface);
@@ -1669,8 +1669,9 @@ body {
   .mobile-container { max-width: 740px; }
   .blm-tab-bar { max-width: 740px; }
   .blm-freshness { max-width: calc(740px - var(--spacing-2xl)); }
-  .blm-works-grid { grid-template-columns: repeat(3, 1fr); gap: var(--spacing-md); }
+  .blm-works-grid { grid-template-columns: repeat(3, 1fr); gap: var(--spacing-lg); }
   .blm-stats-bar { gap: var(--spacing-md); }
+  .blm-dash-grid { grid-template-columns: repeat(3, 1fr); gap: var(--spacing-md); }
   #liveBody {
     display: grid !important;
     grid-template-columns: repeat(2, 1fr);
@@ -1687,7 +1688,7 @@ body {
   .blm-freshness { max-width: calc(1040px - var(--spacing-3xl)); margin: var(--spacing-md) auto 0; padding: var(--spacing-sm) var(--spacing-lg); }
   .blm-header {
     padding: 0 var(--spacing-2xl);
-    height: 64px;
+    height: 60px;
   }
   .blm-header h1 { font-size: var(--font-size-h2); }
   .blm-content {
@@ -1703,7 +1704,6 @@ body {
     padding: var(--spacing-lg);
   }
   .blm-stat-value { font-size: 28px; }
-  .blm-room-card { padding: var(--spacing-lg); }
   #liveBody {
     display: grid !important;
     grid-template-columns: repeat(3, 1fr);
@@ -1757,7 +1757,6 @@ body {
     grid-template-columns: repeat(4, 1fr);
     gap: var(--spacing-lg);
   }
-  .blm-room-card { padding: var(--spacing-lg); }
   .blm-works-grid {
     grid-template-columns: repeat(5, 1fr);
     gap: var(--spacing-lg);
