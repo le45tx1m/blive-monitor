@@ -610,6 +610,7 @@ body {
 
 .blm-room-card-inner {
   display: flex;
+  align-items: flex-start;
   gap: var(--spacing-md);
 }
 
@@ -671,7 +672,19 @@ body {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
-  flex-wrap: wrap;
+}
+.blm-room-head-left {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  min-width: 0;
+  flex: 1;
+}
+.blm-room-head-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
 .blm-platform-badge {
@@ -740,9 +753,16 @@ body {
 .blm-room-footer {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  flex-wrap: wrap;
   gap: var(--spacing-sm);
   margin-top: var(--spacing-xs);
+}
+.blm-room-foot-right {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
 .blm-room-meta {
@@ -2899,15 +2919,16 @@ function renderLive(){
            roomAvatar(r, s)+
            '<div class="blm-room-main">'+
              '<div class="blm-room-header">'+
-               '<span class="blm-platform-badge '+pl+'">'+pln+'</span>'+
-               '<span class="blm-room-name">'+e(s?s.name:r.name)+'</span>'+
-               badge+_pauseBadge+
+               '<div class="blm-room-head-left">'+
+                 '<span class="blm-platform-badge '+pl+'">'+pln+'</span>'+
+                 '<span class="blm-room-name">'+e(s?s.name:r.name)+'</span>'+
+               '</div>'+
+               '<div class="blm-room-head-right">'+badge+_pauseBadge+'</div>'+
              '</div>'+
              titleHtml+
              '<div class="blm-room-footer">'+
                metaHtml+
-               linkHtml+
-               actionsHtml+
+               '<div class="blm-room-foot-right">'+linkHtml+actionsHtml+'</div>'+
              '</div>'+
            '</div>'+
          '</div>'+
