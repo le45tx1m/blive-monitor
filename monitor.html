@@ -2087,6 +2087,21 @@ img { outline: 1px solid rgba(255, 255, 255, 0.1); outline-offset: -1px; }
   justify-content: center;
   -webkit-tap-highlight-color: transparent;
 }
+
+/* ===== 移动端专属打磨（max-width: 767px；仅作用于手机，不影响桌面） ===== */
+@media (max-width: 767px) {
+  /* 刘海/状态栏安全区：头部下移到缺口之下，内容不撞系统栏 */
+  .blm-header {
+    padding-top: env(safe-area-inset-top);
+    height: calc(var(--header-height) + env(safe-area-inset-top));
+  }
+  /* 动态视口高度：规避移动端浏览器 URL 栏导致的底部内容被吞 */
+  body, #root, .app-container, .mobile-container { min-height: 100dvh; }
+  /* 触控间距 >=8px（规范：相邻目标至少 8dp 间隔） */
+  .blm-room-actions, .blm-work-actions { gap: var(--spacing-sm); }
+  /* 小屏可读性：微升最小字号 */
+  :root { --font-size-tiny: 12px; }
+}
 </style>
 </head>
 <body>
