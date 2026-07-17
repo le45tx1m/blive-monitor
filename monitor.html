@@ -114,8 +114,8 @@
   --motion-enter: 420ms;
   --ease-out: cubic-bezier(0.2, 0, 0, 1);
 
-  --tab-bar-height: 62px;
-  --header-height: 56px;
+  --tab-bar-height: 56px;
+  --header-height: 48px;
   --safe-area-bottom: env(safe-area-inset-bottom, 0px);
 
   /* ===== 遗留变量别名 - 必须保留（文档§2.2，测试保护） ===== */
@@ -215,47 +215,71 @@ body {
 }
 
 .blm-header-info h1 {
-  font-size: var(--font-size-h3);
+  font-size: var(--font-size-body);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
-  line-height: 1.15;
+  line-height: 1.2;
 }
 
-.blm-header-info .blm-time {
+.blm-header-sub {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-top: 1px;
+}
+.blm-header-sub .blm-time {
   font-family: var(--font-mono);
   font-size: var(--font-size-tiny);
   color: var(--color-text-tertiary);
   font-variant-numeric: tabular-nums;
-  margin-top: 2px;
 }
+.blm-kpi-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--font-size-tiny);
+  color: var(--color-text-tertiary);
+}
+.blm-kpi b { color: var(--color-text-primary); font-weight: var(--font-weight-semibold); }
+.blm-kpi-sep { opacity: 0.4; }
 
 .blm-header-right { display: flex; align-items: center; gap: var(--spacing-sm); }
 
-.blm-status-pill {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 12px;
-  background: var(--state-success-bg);
-  border: 1px solid rgba(48, 209, 88, 0.18);
-  border-radius: var(--radius-full);
-  font-size: var(--font-size-caption);
-  font-weight: var(--font-weight-medium);
-  color: var(--state-success);
-}
-
+/* 状态点（从 pill 降级为单点；颜色由 ld() 通过 className live/err/ok 切换） */
 .blm-status-dot {
-  width: 7px;
-  height: 7px;
+  width: 8px;
+  height: 8px;
   border-radius: var(--radius-full);
-  background: var(--state-success);
+  background: var(--color-text-quaternary);
   flex-shrink: 0;
+  transition: background 0.2s ease;
 }
 .blm-status-dot.live {
   background: var(--state-live);
-  box-shadow: 0 0 8px var(--state-live-glow);
+  box-shadow: 0 0 0 3px rgba(255, 59, 48, 0.18);
   animation: pulse-dot 2s ease-in-out infinite;
 }
+.blm-status-dot.err { background: var(--state-warning); }
+.blm-status-dot.ok { background: var(--state-success); }
+
+/* 新鲜度细线：header 下的极简状态行（替代旧 freshness 卡片） */
+.blm-freshness-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px var(--spacing-md);
+  background: var(--color-bg-surface);
+  border-bottom: 1px solid var(--color-border-subtle);
+  font-size: var(--font-size-tiny);
+  color: var(--color-text-tertiary);
+  gap: var(--spacing-sm);
+}
+.blm-freshness-line .blm-freshness-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.blm-freshness-line .blm-freshness-time { flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.blm-freshness-line.ok .blm-freshness-text { color: var(--state-success); }
+.blm-freshness-line.warn .blm-freshness-text { color: var(--state-warning); }
+.blm-freshness-line.stale .blm-freshness-text,
+.blm-freshness-line.fail .blm-freshness-text { color: var(--state-error); }
 
 .blm-icon-btn {
   width: 40px;
@@ -283,69 +307,6 @@ body {
   flex-direction: column;
   gap: var(--spacing-sm);
 }
-
-/* ===== Quick Stats Bar ===== (扁平化：去 border/渐变，靠表面色与 divider 分层) */
-.blm-stats-bar {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  flex-shrink: 0;
-  background: var(--color-bg-surface);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-}
-
-.blm-stat-card {
-  padding: var(--spacing-md);
-  text-align: center;
-  position: relative;
-}
-.blm-stat-card + .blm-stat-card::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 20%;
-  bottom: 20%;
-  width: 1px;
-  background: var(--color-border-subtle);
-}
-.blm-stat-card.primary .blm-stat-value { color: var(--brand-primary); }
-.blm-stat-value {
-  font-size: var(--font-size-h2);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-text-primary);
-  line-height: 1.1;
-  font-variant-numeric: tabular-nums;
-}
-.blm-stat-card.primary .blm-stat-value { color: var(--brand-primary); }
-.blm-stat-label {
-  font-size: var(--font-size-tiny);
-  color: var(--color-text-tertiary);
-  margin-top: 3px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-/* ===== Freshness / Health Bar ===== */
-.blm-freshness {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--spacing-sm) var(--spacing-md);
-  background: var(--state-success-bg);
-  border: 1px solid rgba(48, 209, 88, 0.14);
-  border-radius: var(--radius-lg);
-  margin: var(--spacing-sm) 0 0;
-  gap: var(--spacing-sm);
-}
-.blm-freshness-left { display: flex; align-items: center; gap: var(--spacing-sm); min-width: 0; }
-.blm-freshness-text { font-size: var(--font-size-caption); font-weight: var(--font-weight-medium); color: var(--state-success); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.blm-freshness-time { font-size: var(--font-size-tiny); color: var(--color-text-tertiary); font-variant-numeric: tabular-nums; flex-shrink: 0; }
-.blm-freshness.ok { background: var(--state-success-bg); border-color: rgba(48, 209, 88, 0.14); }
-.blm-freshness.ok .blm-freshness-text { color: var(--state-success); }
-.blm-freshness.warn { background: var(--state-warning-bg); border-color: rgba(255, 159, 10, 0.14); }
-.blm-freshness.warn .blm-freshness-text { color: var(--state-warning); }
-.blm-freshness.stale, .blm-freshness.fail { background: var(--state-error-bg); border-color: rgba(255, 69, 58, 0.14); }
-.blm-freshness.stale .blm-freshness-text, .blm-freshness.fail .blm-freshness-text { color: var(--state-error); }
 
 /* ===== Section ===== */
 .blm-section { margin-bottom: var(--spacing-lg); }
@@ -455,25 +416,47 @@ body {
 /* ===== Add Room (collapsible) ===== */
 .blm-add-wrap { margin-bottom: var(--spacing-sm); }
 
+/* 添加按钮：从大 dashed 块改为紧凑文本按钮（融入 toolbar 行） */
 .blm-add-room-btn {
-  width: 100%;
-  padding: var(--spacing-md);
-  border: 1.5px dashed var(--color-border-default);
-  border-radius: var(--radius-lg);
-  background: transparent;
-  color: var(--color-text-tertiary);
-  font-size: var(--font-size-body);
+  padding: 6px 12px;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-surface);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-caption);
   font-weight: var(--font-weight-medium);
   font-family: var(--font-family);
   cursor: pointer;
   transition: all 0.15s ease;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.blm-add-room-btn:hover { border-color: var(--brand-primary); color: var(--brand-primary); }
+.blm-add-room-btn:active { background: var(--brand-primary-light); }
+.blm-add-room-btn-ghost { background: transparent; border-color: var(--color-border-subtle); }
+
+/* toolbar 行：filter + add 同行，小屏自动换行 */
+.blm-toolbar-row {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
   gap: var(--spacing-sm);
+  margin: var(--spacing-sm) 0;
+  flex-wrap: wrap;
 }
-.blm-add-room-btn:hover { border-color: var(--brand-primary); color: var(--brand-primary); background: var(--brand-primary-lighter); }
-.blm-add-room-btn:active { background: var(--brand-primary-light); }
+.blm-toolbar-row .blm-filter-bar { margin-top: 0; padding-bottom: 0; flex: 1; min-width: 0; }
+.blm-toolbar-left { display: flex; align-items: center; gap: var(--spacing-sm); flex: 1; min-width: 0; }
+.blm-toolbar-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.blm-count-text { font-size: var(--font-size-caption); color: var(--color-text-tertiary); font-weight: var(--font-weight-medium); white-space: nowrap; }
+
+/* dashboard 导出按钮行 */
+.blm-dash-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: var(--spacing-sm);
+}
 
 .blm-add-form {
   display: none;
@@ -803,11 +786,7 @@ body {
   padding: var(--spacing-sm) 0;
 }
 
-/* ===== Status indicator dot (legacy .dot) ===== */
-.blm-status-pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--color-text-tertiary); flex-shrink: 0; transition: .3s; }
-.blm-status-pill .dot.on { background: var(--state-live); box-shadow: 0 0 0 4px rgba(255, 59, 48, 0.18); animation: pulse 1.6s infinite; }
-.blm-status-pill .dot.err { background: var(--state-warning); }
-.blm-status-pill .dot.ok { background: var(--state-success); }
+/* ===== Status indicator (legacy .pulse for live dot in room cards) ===== */
 @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0.4); } 70% { box-shadow: 0 0 0 7px rgba(255, 59, 48, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0); } }
 
 .s-live, .s-replay, .s-offline, .s-error, .s-pending { display: none; }
@@ -970,8 +949,6 @@ body {
 .empty { text-align: center; padding: 36px 16px; color: var(--color-text-tertiary); font-size: var(--font-size-body); line-height: 1.6; }
 
 /* ===== Phase-1 保留类 - 必须保留（文档§2.3，测试保护） ===== */
-.blm-status-pill .txt { font-size: var(--font-size-caption); font-weight: var(--font-weight-medium); }
-
 .pf { font-size: var(--font-size-caption); font-weight: var(--font-weight-medium); }
 .pf.ok { color: var(--state-success); }
 .pf.bad { color: var(--state-error); }
@@ -1655,14 +1632,12 @@ body {
 @media (min-width: 560px) {
   .mobile-container { max-width: 520px; }
   .blm-tab-bar { max-width: 520px; left: 50%; right: auto; transform: translateX(-50%); border-radius: var(--radius-xl) var(--radius-xl) 0 0; }
-  .blm-freshness { margin: var(--spacing-sm) auto 0; max-width: calc(520px - var(--spacing-xl)); }
 }
 
 /* 平板竖屏 ≥ 640px */
 @media (min-width: 640px) {
   .mobile-container { max-width: 600px; }
   .blm-tab-bar { max-width: 600px; }
-  .blm-freshness { max-width: calc(600px - var(--spacing-2xl)); }
   .blm-content { padding: var(--spacing-lg) var(--spacing-xl); gap: var(--spacing-md); }
   .blm-header { padding: 0 var(--spacing-xl); }
 }
@@ -1671,10 +1646,8 @@ body {
 @media (min-width: 768px) {
   .mobile-container { max-width: 740px; }
   .blm-tab-bar { max-width: 740px; }
-  .blm-freshness { max-width: calc(740px - var(--spacing-2xl)); }
   .blm-works-grid { grid-template-columns: repeat(3, 1fr); gap: var(--spacing-lg); }
-  .blm-stats-bar { gap: var(--spacing-md); }
-  .blm-dash-grid { grid-template-columns: repeat(3, 1fr); gap: var(--spacing-md); }
+  .blm-dash-grid { grid-template-columns: repeat(3, 1fr); }
   #liveBody {
     display: grid !important;
     grid-template-columns: repeat(2, 1fr);
@@ -1688,25 +1661,16 @@ body {
 @media (min-width: 1024px) {
   .mobile-container { max-width: 1040px; }
   .blm-tab-bar { max-width: 1040px; }
-  .blm-freshness { max-width: calc(1040px - var(--spacing-3xl)); margin: var(--spacing-md) auto 0; padding: var(--spacing-sm) var(--spacing-lg); }
   .blm-header {
     padding: 0 var(--spacing-2xl);
-    height: 60px;
+    height: 56px;
   }
-  .blm-header h1 { font-size: var(--font-size-h2); }
+  .blm-header h1 { font-size: var(--font-size-h3); }
   .blm-content {
     padding: var(--spacing-xl) var(--spacing-2xl);
     padding-bottom: calc(var(--spacing-2xl) + var(--tab-bar-height));
     gap: var(--spacing-lg);
   }
-  .blm-stats-bar {
-    grid-template-columns: repeat(3, 1fr);
-    gap: var(--spacing-lg);
-  }
-  .blm-stat-card {
-    padding: var(--spacing-lg);
-  }
-  .blm-stat-value { font-size: 28px; }
   #liveBody {
     display: grid !important;
     grid-template-columns: repeat(3, 1fr);
@@ -1727,7 +1691,6 @@ body {
   #logBody > .loadmore { grid-column: 1 / -1; }
   .blm-dash-grid {
     grid-template-columns: repeat(3, 1fr);
-    gap: var(--spacing-lg);
   }
   .blm-dash-charts {
     display: grid;
@@ -1735,7 +1698,6 @@ body {
     gap: var(--spacing-lg);
   }
   .blm-dash-chart { margin-bottom: 0; }
-  .blm-dash-card { padding: var(--spacing-lg); }
   #logTypeChips, #logPfChips { flex-wrap: wrap; overflow-x: visible; gap: var(--spacing-sm); }
   .blm-filter-bar { gap: var(--spacing-sm); margin-bottom: var(--spacing-md); }
   .blm-section { margin-bottom: var(--spacing-xl); }
@@ -1746,16 +1708,11 @@ body {
 @media (min-width: 1280px) {
   .mobile-container { max-width: 1280px; }
   .blm-tab-bar { max-width: 1280px; }
-  .blm-freshness { max-width: calc(1280px - var(--spacing-3xl) * 2); }
   .blm-content {
     padding: var(--spacing-2xl) var(--spacing-3xl);
     padding-bottom: calc(var(--spacing-3xl) + var(--tab-bar-height));
   }
   .blm-header { padding: 0 var(--spacing-3xl); }
-  .blm-stats-bar {
-    grid-template-columns: repeat(3, 1fr);
-    gap: var(--spacing-lg);
-  }
   #liveBody {
     grid-template-columns: repeat(4, 1fr);
     gap: var(--spacing-lg);
@@ -1778,7 +1735,6 @@ body {
 @media (min-width: 1600px) {
   .mobile-container { max-width: 1560px; }
   .blm-tab-bar { max-width: 1560px; }
-  .blm-freshness { max-width: calc(1560px - 80px); }
   #liveBody {
     grid-template-columns: repeat(5, 1fr);
   }
@@ -1834,37 +1790,7 @@ body {
    - 入场 stagger 动效 + 键盘焦点环 + 图片描边 + 统一按下 0.96
    ========================================================= */
 
-/* --- 表面：阴影环替代实线边框（保留分隔线型 border 不动） --- */
-.blm-stat-card,
-.blm-add-form,
-.blm-batch-add,
-.blm-room-card,
-.blm-log-summary-item,
-.blm-config-card,
-.blm-input,
-.blm-segmented,
-.blm-dash-card,
-.blm-dash-chart,
-.blm-work-card,
-.blm-modal-card,
-.stat-card {
-  border: none !important;
-  box-shadow: var(--shadow-ring);
-  transition: box-shadow var(--motion-fast) ease-out,
-              transform var(--motion-fast) ease-out,
-              background-color var(--motion-fast) ease-out;
-}
-
-/* hover：更亮的环 + 轻微抬升（阴影优于边框，暗色下自适应任意底色） */
-.blm-stat-card:hover,
-.blm-room-card:hover,
-.blm-log-summary-item:hover,
-.blm-config-card:hover,
-.blm-dash-card:hover,
-.blm-dash-chart:hover,
-.blm-work-card:hover { box-shadow: var(--shadow-ring-hover); }
-.blm-room-card:hover,
-.blm-work-card:hover { transform: translateY(-2px); }
+/* --- modal 卡片保留分层阴影（功能性，非装饰） --- */
 .blm-modal-card { box-shadow: var(--shadow-ring-strong), var(--shadow-lg); }
 
 /* --- 键盘焦点环（可访问性 + 精致感） --- */
@@ -1908,7 +1834,6 @@ img { outline: 1px solid rgba(255, 255, 255, 0.1); outline-offset: -1px; }
 }
 .blm-room-card,
 .blm-work-card,
-.blm-stat-card,
 .blm-log-summary-item,
 .blm-dash-card,
 .blm-dash-chart {
@@ -1920,18 +1845,11 @@ img { outline: 1px solid rgba(255, 255, 255, 0.1); outline-offset: -1px; }
 .blm-room-list .blm-room-card:nth-child(4) { animation-delay: 160ms; }
 .blm-room-list .blm-room-card:nth-child(5) { animation-delay: 200ms; }
 .blm-room-list .blm-room-card:nth-child(n+6) { animation-delay: 240ms; }
-.blm-stats-bar .blm-stat-card:nth-child(1) { animation-delay: 0ms; }
-.blm-stats-bar .blm-stat-card:nth-child(2) { animation-delay: 60ms; }
-.blm-stats-bar .blm-stat-card:nth-child(3) { animation-delay: 120ms; }
 .blm-works-grid .blm-work-card:nth-child(1) { animation-delay: 40ms; }
 .blm-works-grid .blm-work-card:nth-child(2) { animation-delay: 80ms; }
 .blm-works-grid .blm-work-card:nth-child(3) { animation-delay: 120ms; }
 .blm-works-grid .blm-work-card:nth-child(4) { animation-delay: 160ms; }
 .blm-works-grid .blm-work-card:nth-child(n+5) { animation-delay: 200ms; }
-.blm-dash-grid .blm-dash-card:nth-child(1) { animation-delay: 40ms; }
-.blm-dash-grid .blm-dash-card:nth-child(2) { animation-delay: 80ms; }
-.blm-dash-grid .blm-dash-card:nth-child(3) { animation-delay: 120ms; }
-.blm-dash-grid .blm-dash-card:nth-child(4) { animation-delay: 160ms; }
 
 /* --- 尊重 prefers-reduced-motion --- */
 @media (prefers-reduced-motion: reduce) {
@@ -2003,17 +1921,8 @@ img { outline: 1px solid rgba(255, 255, 255, 0.1); outline-offset: -1px; }
   margin-top: var(--spacing-xs);
 }
 
-/* 8. 仪表盘：区块标题吸顶 + KPI 网格更紧凑 */
-#view-dashboard .blm-section-header {
-  position: sticky;
-  top: var(--header-height);
-  z-index: 50;
-  background: var(--color-bg-body);
-  padding: var(--spacing-sm) 0;
-  margin-bottom: var(--spacing-md);
-  border-bottom: 1px solid var(--color-border-subtle);
-}
-#view-dashboard .blm-dash-grid { gap: var(--spacing-sm); }
+/* 8. 仪表盘：KPI 网格更紧凑 */
+#view-dashboard .blm-dash-grid { gap: 0; }
 
 /* 9. 底部导航：激活态指示点 */
 .blm-tab-item.active .blm-tab-label { position: relative; }
@@ -2059,7 +1968,7 @@ img { outline: 1px solid rgba(255, 255, 255, 0.1); outline-offset: -1px; }
 <body>
 
 <div class="mobile-container">
-  <!-- Header -->
+  <!-- Header：品牌 + 内联 KPI + 刷新 + 状态点（合并旧 stats-bar / status-pill / freshness） -->
   <header class="blm-header">
     <div class="blm-header-left">
       <div class="blm-logo">
@@ -2070,7 +1979,10 @@ img { outline: 1px solid rgba(255, 255, 255, 0.1); outline-offset: -1px; }
       </div>
       <div class="blm-header-info">
         <h1>直播 &amp; 新作监控</h1>
-        <div class="blm-time blm-mono" id="stime">--:--:--</div>
+        <div class="blm-header-sub">
+          <span class="blm-time blm-mono" id="stime">--:--:--</span>
+          <span class="blm-kpi-line" id="kpiLine"><span class="blm-kpi"><b class="blm-mono" id="statLive">0</b> 直播</span><span class="blm-kpi-sep">·</span><span class="blm-kpi"><b class="blm-mono" id="statRooms">0</b> 房间</span><span class="blm-kpi-sep">·</span><span class="blm-kpi"><b class="blm-mono" id="statPosts">0</b> 新作</span></span>
+        </div>
       </div>
     </div>
     <div class="blm-header-right">
@@ -2079,243 +1991,173 @@ img { outline: 1px solid rgba(255, 255, 255, 0.1); outline-offset: -1px; }
           <path d="M2 8a6 6 0 0 1 10.3-4.2L14 2v4h-4l1.5-1.5A4 4 0 1 0 12 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </button>
-      <div class="blm-status-pill" id="sdot"><span class="dot"></span><span class="txt">加载中</span></div>
+      <span class="blm-status-dot" id="sdot" title="监控状态"></span>
     </div>
   </header>
 
-  <!-- P0-1 监控自检健康条：常驻跨 tab，复用 calcFreshness / renderHealthBar -->
-  <div class="blm-freshness" id="healthBar">
-    <div class="blm-freshness-left">
-      <span class="blm-status-dot"></span>
-      <span class="blm-freshness-text">监控自检中…</span>
-    </div>
+  <!-- 新鲜度细线（从独立卡片降级为 header 下的状态行） -->
+  <div class="blm-freshness-line" id="healthBar">
+    <span class="blm-freshness-text">监控自检中…</span>
     <span class="blm-freshness-time blm-mono">--</span>
   </div>
 
   <main class="blm-content">
-    <!-- 全局概览三卡（ld() 直写 #statLive/#statRooms/#statPosts） -->
-    <div class="blm-stats-bar">
-      <div class="blm-stat-card primary">
-        <div class="blm-stat-value" id="statLive">0</div>
-        <div class="blm-stat-label">直播中</div>
-      </div>
-      <div class="blm-stat-card">
-        <div class="blm-stat-value" id="statRooms">0</div>
-        <div class="blm-stat-label">监控房间</div>
-      </div>
-      <div class="blm-stat-card">
-        <div class="blm-stat-value" id="statPosts">0</div>
-        <div class="blm-stat-label">新作品号</div>
-      </div>
-    </div>
-
-    <!-- Live Monitor Section -->
+    <!-- Live Monitor Section（去 section-title：tab 已表明位置；toolbar 行内化 filter + add） -->
     <section class="view active" id="view-live">
-      <div class="blm-section">
-        <div class="blm-section-header">
-          <h2 class="blm-section-title">
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" style="flex-shrink:0;">
-              <rect x="1.5" y="4" width="11" height="10" rx="2" stroke="currentColor" stroke-width="1.6"/>
-              <path d="M12.5 7l4-2.5v7l-4-2.5V7z" fill="currentColor"/>
-            </svg>
-            直播监控
-          </h2>
+      <!-- 阶段二 2a：A1 定时摘要卡（直播视图顶部） -->
+      <div id="summaryCard" class="blm-summary-card blm-dash-card full-width" style="display:none">
+        <div class="blm-summary-head">
+          <span id="summaryTitle" class="blm-summary-title">今日摘要</span>
+          <span id="summaryBadge" class="blm-summary-badge">—</span>
         </div>
-
-        <!-- 阶段二 2a：A1 定时摘要卡（直播视图顶部） -->
-        <div id="summaryCard" class="blm-summary-card blm-dash-card full-width" style="display:none">
-          <div class="blm-summary-head">
-            <span id="summaryTitle" class="blm-summary-title">今日摘要</span>
-            <span id="summaryBadge" class="blm-summary-badge">—</span>
-          </div>
-          <div id="summaryText" class="blm-summary-text">暂无新动态</div>
-          <div class="blm-summary-actions">
-            <button class="blm-btn blm-btn-secondary" id="btnCopySummary" onclick="copySummary()">📋 复制摘要</button>
-            <button class="blm-btn blm-btn-primary" id="btnPushSummary" onclick="requestPushSummary()">📨 请求推送</button>
-          </div>
+        <div id="summaryText" class="blm-summary-text">暂无新动态</div>
+        <div class="blm-summary-actions">
+          <button class="blm-btn blm-btn-secondary" id="btnCopySummary" onclick="copySummary()">📋 复制摘要</button>
+          <button class="blm-btn blm-btn-primary" id="btnPushSummary" onclick="requestPushSummary()">📨 请求推送</button>
         </div>
+      </div>
 
-        <!-- Filter Chips（fil() 用 .chip 按索引设 active，叠加 .blm-filter-chip 外观） -->
-        <div class="blm-list-toolbar">
+      <!-- 阶段二 2b B3：批量操作条（勾选后出现） -->
+      <div id="batchBar" class="blm-batch-bar" style="display:none">
+        <button class="blm-btn" onclick="selectAllInView('live')">全选</button>
+        <button class="blm-btn blm-btn-warning" onclick="pauseSelected()">暂停选中</button>
+        <button class="blm-btn blm-btn-primary" onclick="resumeSelected()">恢复选中</button>
+        <button class="blm-btn blm-btn-danger" onclick="deleteSelected()">删除选中</button>
+        <span id="batchCount" class="blm-batch-count">已选 0</span>
+      </div>
+
+      <!-- toolbar：filter chips 与 add/batch 同行（小屏自动换行） -->
+      <div class="blm-toolbar-row">
         <div class="blm-filter-bar">
           <button class="blm-filter-chip chip active" onclick="fil('all')">全部</button>
           <button class="blm-filter-chip chip" onclick="fil('bilibili')">哔哩哔哩</button>
           <button class="blm-filter-chip chip" onclick="fil('douyin')">抖音</button>
         </div>
-        </div><!-- /.blm-list-toolbar -->
-
-        <!-- 阶段二 2b B3：批量操作条（勾选后出现） -->
-        <div id="batchBar" class="blm-batch-bar" style="display:none">
-          <button class="blm-btn" onclick="selectAllInView('live')">全选</button>
-          <button class="blm-btn blm-btn-warning" onclick="pauseSelected()">暂停选中</button>
-          <button class="blm-btn blm-btn-primary" onclick="resumeSelected()">恢复选中</button>
-          <button class="blm-btn blm-btn-danger" onclick="deleteSelected()">删除选中</button>
-          <span id="batchCount" class="blm-batch-count">已选 0</span>
+        <div class="blm-toolbar-actions">
+          <button class="blm-add-room-btn" onclick="toggleAddForm()">＋ 添加</button>
+          <button class="blm-add-room-btn blm-add-room-btn-ghost" onclick="toggleBatchAdd()" id="batchToggleBtn">批量</button>
         </div>
-
-
-        <!-- Add Room -->
-        <div class="blm-add-actions" style="display:flex;gap:var(--spacing-sm);margin:var(--spacing-sm) 0;">
-          <button class="blm-add-room-btn" onclick="toggleAddForm()" style="flex:1">＋ 添加监控</button>
-          <button class="blm-add-room-btn" onclick="toggleBatchAdd()" id="batchToggleBtn" style="width:auto;padding:var(--spacing-md) var(--spacing-lg);">📋 批量</button>
-        </div>
-        <div id="addWrap">
-          <div class="blm-add-form" id="addForm" style="display:none">
-            <select id="addPlatform" class="blm-input" onchange="onAddPlatformChange()">
-              <option value="bilibili">B站</option>
-              <option value="douyin">抖音</option>
-            </select>
-            <input id="addId" class="blm-input" placeholder="房间 ID（必填）" inputmode="numeric" autocomplete="off">
-            <input id="addName" class="blm-input" placeholder="名称（可选）" autocomplete="off">
-            <input id="roomTags" class="blm-input" placeholder="标签（可选，逗号分隔，如 游戏,学习）" autocomplete="off">
-            <div style="display:flex;gap:var(--spacing-sm)">
-              <button class="blm-btn blm-btn-primary" style="flex:1" onclick="submitAdd()">添加</button>
-              <button class="blm-btn blm-btn-secondary" onclick="toggleAddForm(false)">取消</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- 批量添加直播房间（默认折叠） -->
-        <div class="blm-batch-add" id="batchAddWrap" style="display:none;margin-top:var(--spacing-sm);margin-bottom:var(--spacing-md);">
-          <div class="blm-config-item-title">批量添加房间</div>
-          <div class="blm-config-item-desc">每行一个：平台|ID|名称（如 douyin|123|张三）。也支持整段 JSON。</div>
-          <textarea id="batchAddBox" class="blm-input" placeholder="每行一个：平台|ID|名称（如 douyin|123|张三）"></textarea>
-          <div id="batchPreview" class="blm-batch-preview"></div>
-          <div style="display:flex;gap:var(--spacing-sm);margin-top:var(--spacing-sm)">
-            <button class="blm-btn" onclick="previewBatchBox('batchAddBox','batchPreview')">解析预览</button>
-            <button class="blm-btn blm-btn-primary" onclick="submitBatchBox('batchAddBox','rooms')">批量加入</button>
-            <button class="blm-btn blm-btn-secondary" style="margin-left:auto" onclick="toggleBatchAdd(false)">收起</button>
-          </div>
-        </div>
-
-        <div id="liveBody"><div class="empty">🔄 加载中…</div></div>
       </div>
+
+      <div id="addWrap">
+        <div class="blm-add-form" id="addForm" style="display:none">
+          <select id="addPlatform" class="blm-input" onchange="onAddPlatformChange()">
+            <option value="bilibili">B站</option>
+            <option value="douyin">抖音</option>
+          </select>
+          <input id="addId" class="blm-input" placeholder="房间 ID（必填）" inputmode="numeric" autocomplete="off">
+          <input id="addName" class="blm-input" placeholder="名称（可选）" autocomplete="off">
+          <input id="roomTags" class="blm-input" placeholder="标签（可选，逗号分隔，如 游戏,学习）" autocomplete="off">
+          <div style="display:flex;gap:var(--spacing-sm)">
+            <button class="blm-btn blm-btn-primary" style="flex:1" onclick="submitAdd()">添加</button>
+            <button class="blm-btn blm-btn-secondary" onclick="toggleAddForm(false)">取消</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 批量添加直播房间（默认折叠） -->
+      <div class="blm-batch-add" id="batchAddWrap" style="display:none;margin-top:var(--spacing-sm);margin-bottom:var(--spacing-md);">
+        <div class="blm-config-item-title">批量添加房间</div>
+        <div class="blm-config-item-desc">每行一个：平台|ID|名称（如 douyin|123|张三）。也支持整段 JSON。</div>
+        <textarea id="batchAddBox" class="blm-input" placeholder="每行一个：平台|ID|名称（如 douyin|123|张三）"></textarea>
+        <div id="batchPreview" class="blm-batch-preview"></div>
+        <div style="display:flex;gap:var(--spacing-sm);margin-top:var(--spacing-sm)">
+          <button class="blm-btn" onclick="previewBatchBox('batchAddBox','batchPreview')">解析预览</button>
+          <button class="blm-btn blm-btn-primary" onclick="submitBatchBox('batchAddBox','rooms')">批量加入</button>
+          <button class="blm-btn blm-btn-secondary" style="margin-left:auto" onclick="toggleBatchAdd(false)">收起</button>
+        </div>
+      </div>
+
+      <div id="liveBody"><div class="empty">🔄 加载中…</div></div>
     </section>
 
-    <!-- New Works Section -->
+    <!-- New Works Section（去 section-title；toolbar 行内化 view-toggle + count + add） -->
     <section class="view" id="view-posts">
-      <div class="blm-section">
-        <div class="blm-section-header">
-          <h2 class="blm-section-title">
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" style="flex-shrink:0;">
-              <rect x="3" y="3" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.6"/>
-              <path d="M9 8l5 3-5 3V8z" fill="currentColor"/>
-            </svg>
-            新作监控
-          </h2>
-          <div class="blm-section-header-right">
-            <span class="blm-section-action" id="postsCount"></span>
-            <div class="blm-view-toggle" role="group" aria-label="布局切换">
-              <button type="button" class="blm-view-btn active" data-view="grid" onclick="setPostsView('grid')" title="卡片视图">▦</button>
-              <button type="button" class="blm-view-btn" data-view="list" onclick="setPostsView('list')" title="横条视图">▤</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="blm-list-toolbar">
-        </div><!-- /.blm-list-toolbar -->
-
-        <!-- Add Post -->
-        <div class="blm-add-actions" style="display:flex;gap:var(--spacing-sm);margin:var(--spacing-sm) 0;">
-          <button class="blm-add-room-btn" onclick="togglePostAddForm()" style="flex:1">＋ 添加抖音号</button>
-          <button class="blm-add-room-btn" onclick="togglePostBatchAdd()" id="postBatchToggleBtn" style="width:auto;padding:var(--spacing-md) var(--spacing-lg);">📋 批量</button>
-        </div>
-        <div id="postAddWrap">
-          <div class="blm-add-form" id="postAddForm" style="display:none">
-            <input id="postAddId" class="blm-input" placeholder="抖音号 / sec_uid（粘贴 sec_uid 可立即生效）" autocomplete="off">
-            <input id="postAddName" class="blm-input" placeholder="备注名（可选）" autocomplete="off">
-            <input id="postRoomTags" class="blm-input" placeholder="标签（可选，逗号分隔，如 游戏,学习）" autocomplete="off">
-            <div style="display:flex;gap:var(--spacing-sm)">
-              <button class="blm-btn blm-btn-primary" style="flex:1" onclick="submitPostAdd()">添加</button>
-              <button class="blm-btn blm-btn-secondary" onclick="togglePostAddForm(false)">取消</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- 批量添加抖音号（默认折叠） -->
-        <div class="blm-batch-add" id="postBatchWrap" style="display:none;margin-top:var(--spacing-sm);margin-bottom:var(--spacing-md);">
-          <div class="blm-config-item-title">批量添加抖音号</div>
-          <div class="blm-config-item-desc">每行一个：douyin|ID|名称，或整段 JSON（新作监控仅抖音）。</div>
-          <textarea id="postBatchBox" class="blm-input" placeholder="每行一个：douyin|ID|名称（如 douyin|123|张三）"></textarea>
-          <div id="postBatchPreview" class="blm-batch-preview"></div>
-          <div style="display:flex;gap:var(--spacing-sm);margin-top:var(--spacing-sm)">
-            <button class="blm-btn" onclick="previewBatchBox('postBatchBox','postBatchPreview')">解析预览</button>
-            <button class="blm-btn blm-btn-primary" onclick="submitBatchBox('postBatchBox','posts')">批量加入</button>
-            <button class="blm-btn blm-btn-secondary" style="margin-left:auto" onclick="togglePostBatchAdd(false)">收起</button>
-          </div>
-        </div>
-
-        <!-- 阶段二 2b B3：抖音号批量操作条（与直播共用 selected 全局） -->
-        <div id="batchBarPosts" class="blm-batch-bar" style="display:none">
-          <button class="blm-btn" onclick="selectAllInView('posts')">全选</button>
-          <button class="blm-btn blm-btn-warning" onclick="pauseSelected()">暂停选中</button>
-          <button class="blm-btn blm-btn-primary" onclick="resumeSelected()">恢复选中</button>
-          <button class="blm-btn blm-btn-danger" onclick="deleteSelected()">删除选中</button>
-          <span id="batchCountPosts" class="blm-batch-count">已选 0</span>
-        </div>
-
-        <div id="postsBody" class="blm-works-grid"></div>
+      <!-- 阶段二 2b B3：抖音号批量操作条（与直播共用 selected 全局） -->
+      <div id="batchBarPosts" class="blm-batch-bar" style="display:none">
+        <button class="blm-btn" onclick="selectAllInView('posts')">全选</button>
+        <button class="blm-btn blm-btn-warning" onclick="pauseSelected()">暂停选中</button>
+        <button class="blm-btn blm-btn-primary" onclick="resumeSelected()">恢复选中</button>
+        <button class="blm-btn blm-btn-danger" onclick="deleteSelected()">删除选中</button>
+        <span id="batchCountPosts" class="blm-batch-count">已选 0</span>
       </div>
+
+      <!-- toolbar：count + view-toggle + add 同行 -->
+      <div class="blm-toolbar-row">
+        <div class="blm-toolbar-left">
+          <span class="blm-count-text" id="postsCount"></span>
+          <div class="blm-view-toggle" role="group" aria-label="布局切换">
+            <button type="button" class="blm-view-btn active" data-view="grid" onclick="setPostsView('grid')" title="卡片视图">▦</button>
+            <button type="button" class="blm-view-btn" data-view="list" onclick="setPostsView('list')" title="横条视图">▤</button>
+          </div>
+        </div>
+        <div class="blm-toolbar-actions">
+          <button class="blm-add-room-btn" onclick="togglePostAddForm()">＋ 添加</button>
+          <button class="blm-add-room-btn blm-add-room-btn-ghost" onclick="togglePostBatchAdd()" id="postBatchToggleBtn">批量</button>
+        </div>
+      </div>
+
+      <div id="postAddWrap">
+        <div class="blm-add-form" id="postAddForm" style="display:none">
+          <input id="postAddId" class="blm-input" placeholder="抖音号 / sec_uid（粘贴 sec_uid 可立即生效）" autocomplete="off">
+          <input id="postAddName" class="blm-input" placeholder="备注名（可选）" autocomplete="off">
+          <input id="postRoomTags" class="blm-input" placeholder="标签（可选，逗号分隔，如 游戏,学习）" autocomplete="off">
+          <div style="display:flex;gap:var(--spacing-sm)">
+            <button class="blm-btn blm-btn-primary" style="flex:1" onclick="submitPostAdd()">添加</button>
+            <button class="blm-btn blm-btn-secondary" onclick="togglePostAddForm(false)">取消</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 批量添加抖音号（默认折叠） -->
+      <div class="blm-batch-add" id="postBatchWrap" style="display:none;margin-top:var(--spacing-sm);margin-bottom:var(--spacing-md);">
+        <div class="blm-config-item-title">批量添加抖音号</div>
+        <div class="blm-config-item-desc">每行一个：douyin|ID|名称，或整段 JSON（新作监控仅抖音）。</div>
+        <textarea id="postBatchBox" class="blm-input" placeholder="每行一个：douyin|ID|名称（如 douyin|123|张三）"></textarea>
+        <div id="postBatchPreview" class="blm-batch-preview"></div>
+        <div style="display:flex;gap:var(--spacing-sm);margin-top:var(--spacing-sm)">
+          <button class="blm-btn" onclick="previewBatchBox('postBatchBox','postBatchPreview')">解析预览</button>
+          <button class="blm-btn blm-btn-primary" onclick="submitBatchBox('postBatchBox','posts')">批量加入</button>
+          <button class="blm-btn blm-btn-secondary" style="margin-left:auto" onclick="togglePostBatchAdd(false)">收起</button>
+        </div>
+      </div>
+
+      <div id="postsBody" class="blm-works-grid"></div>
     </section>
 
-    <!-- Log Section -->
+    <!-- Log Section（去 section-title；count 内联到 filter 首行） -->
     <section class="view" id="view-log">
-      <div class="blm-section">
-        <div class="blm-section-header">
-          <h2 class="blm-section-title">
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" style="flex-shrink:0;">
-              <rect x="3" y="3" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.6"/>
-              <path d="M7 8h8M7 11h8M7 14h5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-            </svg>
-            监控日志
-          </h2>
-          <span class="blm-section-action" id="logCount"></span>
+      <div id="logStats" class="blm-log-summary"></div>
+
+      <div id="logFilter" class="blm-log-filter">
+        <input id="logSearch" class="blm-input" placeholder="搜索 名称/标题/详情…" oninput="onLogSearch()">
+        <div class="blm-filter-bar" id="logTypeChips" style="margin-bottom:0">
+          <button class="blm-filter-chip lchip active" data-type="all" onclick="onLogType('all')">全部</button>
+          <button class="blm-filter-chip lchip" data-type="live_on" onclick="onLogType('live_on')">开播</button>
+          <button class="blm-filter-chip lchip" data-type="live_off" onclick="onLogType('live_off')">下播</button>
+          <button class="blm-filter-chip lchip" data-type="new_post" onclick="onLogType('new_post')">新作品</button>
+          <button class="blm-filter-chip lchip" data-type="error" onclick="onLogType('error')">异常</button>
+          <button class="blm-filter-chip lchip" data-type="cookie_warn" onclick="onLogType('cookie_warn')">风控</button>
+          <button class="blm-filter-chip lchip" data-type="system" onclick="onLogType('system')">系统</button>
         </div>
-
-        <div id="logStats" class="blm-log-summary"></div>
-
-        <div id="logFilter" class="blm-log-filter">
-          <div class="blm-list-toolbar">
-          <input id="logSearch" class="blm-input" placeholder="搜索 名称/标题/详情…" oninput="onLogSearch()">
-          <div class="blm-filter-bar" id="logTypeChips" style="margin-bottom:0">
-            <button class="blm-filter-chip lchip active" data-type="all" onclick="onLogType('all')">全部</button>
-            <button class="blm-filter-chip lchip" data-type="live_on" onclick="onLogType('live_on')">开播</button>
-            <button class="blm-filter-chip lchip" data-type="live_off" onclick="onLogType('live_off')">下播</button>
-            <button class="blm-filter-chip lchip" data-type="new_post" onclick="onLogType('new_post')">新作品</button>
-            <button class="blm-filter-chip lchip" data-type="error" onclick="onLogType('error')">异常</button>
-            <button class="blm-filter-chip lchip" data-type="cookie_warn" onclick="onLogType('cookie_warn')">风控</button>
-            <button class="blm-filter-chip lchip" data-type="system" onclick="onLogType('system')">系统</button>
-          </div>
-          <div class="blm-filter-bar" id="logPfChips" style="margin-bottom:0">
-            <button class="blm-filter-chip lchip active" data-pf="all" onclick="onLogPlatform('all')">全部</button>
-            <button class="blm-filter-chip lchip" data-pf="bilibili" onclick="onLogPlatform('bilibili')">哔哩哔哩</button>
-            <button class="blm-filter-chip lchip" data-pf="douyin" onclick="onLogPlatform('douyin')">抖音</button>
-          </div>
-          </div><!-- /.blm-list-toolbar -->
-          <div class="blm-log-row">
-            <select id="logAccount" class="blm-input" onchange="onLogAccount()"><option value="">全部账号</option></select>
-            <input id="logDate" class="blm-input" type="date" onchange="onLogDate()">
-            <button class="blm-filter-chip lchip" id="logSort" onclick="onLogSort()">↓ 新→旧</button>
-          </div>
+        <div class="blm-filter-bar" id="logPfChips" style="margin-bottom:0">
+          <button class="blm-filter-chip lchip active" data-pf="all" onclick="onLogPlatform('all')">全部</button>
+          <button class="blm-filter-chip lchip" data-pf="bilibili" onclick="onLogPlatform('bilibili')">哔哩哔哩</button>
+          <button class="blm-filter-chip lchip" data-pf="douyin" onclick="onLogPlatform('douyin')">抖音</button>
+          <span class="blm-count-text" id="logCount" style="margin-left:auto"></span>
         </div>
-
-        <div id="logBody"></div>
+        <div class="blm-log-row">
+          <select id="logAccount" class="blm-input" onchange="onLogAccount()"><option value="">全部账号</option></select>
+          <input id="logDate" class="blm-input" type="date" onchange="onLogDate()">
+          <button class="blm-filter-chip lchip" id="logSort" onclick="onLogSort()">↓ 新→旧</button>
+        </div>
       </div>
+
+      <div id="logBody"></div>
     </section>
 
-    <!-- Config Section -->
+    <!-- Config Section（去 section-title；直接进配置组） -->
     <section class="view" id="view-config">
-      <div class="blm-section">
-        <div class="blm-section-header">
-          <h2 class="blm-section-title">
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" style="flex-shrink:0;">
-              <circle cx="9" cy="9" r="3" stroke="currentColor" stroke-width="1.6"/>
-              <path d="M9 2v2M9 14v2M4.2 4.2l1.4 1.4M12.4 12.4l1.4 1.4M2 9h2M14 9h2M4.2 13.8l1.4-1.4M12.4 5.6l1.4-1.4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-            </svg>
-            配置
-          </h2>
-        </div>
-
         <!-- P0-5 支持平台区块（保留 #supportedPlatforms、.pf.ok/.pf.bad） -->
         <div class="blm-config-wrap">
         <div class="blm-config-group">
@@ -2526,23 +2368,13 @@ img { outline: 1px solid rgba(255, 255, 255, 0.1); outline-offset: -1px; }
           </div>
         </div>
         </div><!-- /.blm-config-wrap -->
-      </div>
     </section>
 
-    <!-- Dashboard Section -->
+    <!-- Dashboard Section（去 section-title；导出按钮内联到首 KPI 行上方） -->
     <section class="view" id="view-dashboard">
-      <div class="blm-section">
-        <div class="blm-section-header">
-          <h2 class="blm-section-title">
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" style="flex-shrink:0;">
-              <rect x="3" y="11" width="4" height="4" rx="1" stroke="currentColor" stroke-width="1.6"/>
-              <rect x="9" y="6" width="4" height="9" rx="1" stroke="currentColor" stroke-width="1.6"/>
-              <rect x="14" y="3" width="3" height="12" rx="1" stroke="currentColor" stroke-width="1.6"/>
-            </svg>
-            健康仪表盘
-          </h2>
-          <button class="blm-btn blm-btn-secondary blm-dash-export" id="btnExportCsv" onclick="exportReport('csv')">导出 CSV</button>
-        </div>
+      <div class="blm-dash-toolbar">
+        <button class="blm-btn blm-btn-secondary blm-dash-export" id="btnExportCsv" onclick="exportReport('csv')">导出 CSV</button>
+      </div>
 
         <div class="blm-dash-grid">
           <div class="blm-dash-card"><div class="blm-dash-label">监控房间</div><div class="blm-dash-value blm-mono"><span id="kpiRooms">0</span></div></div>
@@ -2604,8 +2436,7 @@ img { outline: 1px solid rgba(255, 255, 255, 0.1); outline-offset: -1px; }
           </div>
           <div id="dashNotify"></div>
         </div>
-        </div>
-      </div>
+        </div><!-- /.blm-dash-charts -->
     </section>
   </main>
 
@@ -4176,12 +4007,11 @@ function removeRoom(arg){
 function renderHealthBar(f){
   var el = document.getElementById('healthBar');
   if(!el || !f) return;
-  var cls = 'blm-freshness', ic = '💚';
-  if(f.state === 'ok'){ cls += ' ok'; ic = '💚'; }
-  else if(f.state === 'warn'){ cls += ' warn'; ic = '🟡'; }
-  else if(f.state === 'stale'){ cls += ' stale'; ic = '🔴'; }
-  else { cls += ' fail'; ic = '⚫'; }   // loadfail
-  // 复用已有 ago() 输出相对时间（ago 入参为秒级 unix 时间戳）
+  var cls = 'blm-freshness-line';
+  if(f.state === 'ok') cls += ' ok';
+  else if(f.state === 'warn') cls += ' warn';
+  else if(f.state === 'stale') cls += ' stale';
+  else cls += ' fail';   // loadfail
   var rel = '';
   if(f.state !== 'loadfail' && f.updated){
     var ms = parseBeijing(f.updated);
@@ -4189,7 +4019,7 @@ function renderHealthBar(f){
   }
   el.className = cls;
   el.innerHTML =
-    '<div class="blm-freshness-left"><span class="blm-status-dot'+(f.state==='ok'?'':(f.state==='stale'||f.state==='fail'?' live':''))+'"></span><span class="blm-freshness-text">'+e(f.label)+'</span></div>'+
+    '<span class="blm-freshness-text">'+e(f.label)+'</span>'+
     '<span class="blm-freshness-time blm-mono">'+e(f.updated || '') + rel + '</span>';
 }
 
@@ -4214,9 +4044,10 @@ function ld(){
     var n=new Date();document.getElementById('stime').textContent=n.toLocaleTimeString('zh-CN',{hour12:false});
     var liveCount=stat&&stat.rooms?stat.rooms.filter(function(r){return r.status==='live'}).length:0;
     var hasErr=stat&&stat.rooms?stat.rooms.some(function(r){return r.status==='error'}):false;
-    var dcls=liveCount>0?'on':(hasErr?'err':'ok');
-    var dtxt=liveCount>0?('直播中 '+liveCount):(hasErr?'有异常':'已更新');
-    document.getElementById('sdot').innerHTML='<span class="dot '+dcls+'"></span><span class="txt">'+dtxt+'</span>';
+    var dcls=liveCount>0?'live':(hasErr?'err':'ok');
+    var sdotEl=document.getElementById('sdot');
+    sdotEl.className='blm-status-dot '+dcls;
+    sdotEl.title = liveCount>0?('直播中 '+liveCount):(hasErr?'有异常':'已更新');
     // P0-1：基于 status.updated 渲染常驻健康条（新鲜度四态：ok/warn/stale/fail）
     var __fresh = calcFreshness();
     renderHealthBar(__fresh);
