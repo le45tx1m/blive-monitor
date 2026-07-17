@@ -129,14 +129,6 @@
   --dy-soft: rgba(254, 44, 85, 0.13);
   --bg: #08090D;
   --radius: 16px;
-
-  /* ===== 毛玻璃（Glassmorphism）变量 ===== */
-  --glass-bg: rgba(255, 255, 255, 0.05);
-  --glass-bg-strong: rgba(255, 255, 255, 0.08);
-  --glass-border: rgba(255, 255, 255, 0.09);
-  --glass-blur: 18px;
-  --glass-saturate: 150%;
-  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 /* ===== Base Reset ===== */
@@ -172,7 +164,7 @@ body {
   max-width: 100%;
   margin: 0 auto;
   min-height: 100vh;
-  background: transparent;
+  background: var(--color-bg-body);
   position: relative;
   padding-bottom: calc(var(--tab-bar-height) + var(--safe-area-bottom) + var(--spacing-sm));
 }
@@ -2084,43 +2076,6 @@ img { outline: 1px solid rgba(255, 255, 255, 0.1); outline-offset: -1px; }
   background: var(--brand-primary);
 }
 
-/* ===== 毛玻璃（Glassmorphism）：主表面统一 frosted 处理 ===== */
-/* 背景氛围光（aurora）：fixed 层置于最底，供各毛玻璃面 blur 出层次 */
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background:
-    radial-gradient(58vw 58vw at 12% 6%, rgba(255, 77, 106, 0.18), transparent 60%),
-    radial-gradient(52vw 52vw at 90% 10%, rgba(0, 212, 245, 0.16), transparent 60%),
-    radial-gradient(64vw 64vw at 78% 92%, rgba(254, 44, 85, 0.14), transparent 60%),
-    radial-gradient(56vw 56vw at 18% 96%, rgba(124, 92, 231, 0.16), transparent 60%);
-  filter: saturate(120%);
-}
-
-/* 不透明表面 → 半透明 + backdrop-filter（header / tab-bar 已自带，故不在此列） */
-.blm-freshness,
-.blm-section-header,
-.blm-filter-bar,
-.blm-search-bar,
-.blm-sort-bar,
-.blm-batch-bar,
-.blm-stat-card,
-.blm-room-card,
-.blm-work-card,
-.blm-dash-card,
-.blm-config-card,
-.blm-modal-card,
-.blm-add-room-btn {
-  background: var(--glass-bg);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  border: 1px solid var(--glass-border);
-  box-shadow: var(--glass-highlight);
-  transition: background var(--motion-base) ease, border-color var(--motion-base) ease, box-shadow var(--motion-base) ease;
-}
 </style>
 </head>
 <body>
