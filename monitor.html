@@ -32,8 +32,8 @@
 
   --color-text-primary: #F0F0F5;
   --color-text-secondary: rgba(240, 240, 245, 0.68);
-  --color-text-tertiary: rgba(240, 240, 245, 0.42);
-  --color-text-quaternary: rgba(240, 240, 245, 0.22);
+  --color-text-tertiary: rgba(240, 240, 245, 0.65);
+  --color-text-quaternary: rgba(240, 240, 245, 0.45);
 
   --color-bilibili: #00D4F5;
   --color-bilibili-bg: rgba(0, 212, 245, 0.1);
@@ -120,7 +120,7 @@
   --dy: #FE2C55;
   --text: #F0F0F5;
   --text2: rgba(240, 240, 245, 0.68);
-  --text3: rgba(240, 240, 245, 0.42);
+  --text3: rgba(240, 240, 245, 0.65);
   --card: #121318;
   --card2: #181920;
   --line: rgba(255, 255, 255, 0.07);
@@ -617,12 +617,13 @@ body {
 .blm-room-select-wrap {
   display: flex;
   align-items: flex-start;
-  padding-top: 3px;
+  padding: 11px;
+  margin: -11px;
   flex-shrink: 0;
 }
 .blm-room-select {
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
   accent-color: var(--brand-primary);
   cursor: pointer;
   margin: 0;
@@ -805,8 +806,8 @@ body {
 .blm-room-link:hover { background: rgba(255, 77, 106, 0.2); }
 
 .blm-icon-btn-sm {
-  width: 28px;
-  height: 28px;
+  min-width: 40px;
+  min-height: 40px;
   border-radius: var(--radius-sm);
   border: none;
   background: transparent;
@@ -1460,8 +1461,8 @@ body {
   z-index: 10;
 }
 .blm-work-select {
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
   accent-color: var(--brand-primary);
   cursor: pointer;
   margin: 0;
@@ -1544,7 +1545,7 @@ body {
   border: none; background: transparent; cursor: pointer;
   color: var(--color-text-tertiary);
   font-size: 15px; line-height: 1;
-  width: 30px; height: 28px;
+  min-width: 40px; min-height: 40px;
   border-radius: var(--radius-sm);
   display: inline-flex; align-items: center; justify-content: center;
   transition: all .15s ease;
@@ -2076,6 +2077,16 @@ img { outline: 1px solid rgba(255, 255, 255, 0.1); outline-offset: -1px; }
   background: var(--brand-primary);
 }
 
+
+/* ===== UI 打磨（C 计划）：小触控目标补强 ===== */
+.blm-room-remove {
+  min-width: 40px;
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+}
 </style>
 </head>
 <body>
@@ -2172,7 +2183,7 @@ img { outline: 1px solid rgba(255, 255, 255, 0.1); outline-offset: -1px; }
             <path d="M11 11l3 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
           </svg>
           <input id="liveSearch" type="search" placeholder="搜索房间名 / ID" oninput="onLiveSearch(this.value)">
-          <button class="blm-room-remove" title="清除搜索" onclick="document.getElementById('liveSearch').value='';onLiveSearch('')">✕</button>
+          <button class="blm-room-remove" title="清除搜索" onclick="document.getElementById('liveSearch').value='';onLiveSearch('')"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
         </div>
         </div><!-- /.blm-list-toolbar -->
 
@@ -2268,7 +2279,7 @@ img { outline: 1px solid rgba(255, 255, 255, 0.1); outline-offset: -1px; }
             <path d="M11 11l3 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
           </svg>
           <input id="postsSearch" type="search" placeholder="搜索 备注名/抖音号/昵称…" oninput="onPostsSearch(this.value)">
-          <button class="blm-room-remove" title="清除搜索" onclick="document.getElementById('postsSearch').value='';onPostsSearch('')">✕</button>
+          <button class="blm-room-remove" title="清除搜索" onclick="document.getElementById('postsSearch').value='';onPostsSearch('')"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
         </div>
 
         <!-- 阶段二 2b B2：标签筛选（与 q 搜索 AND 叠加） -->
@@ -2750,7 +2761,7 @@ img { outline: 1px solid rgba(255, 255, 255, 0.1); outline-offset: -1px; }
       <div class="blm-modal-card">
         <div class="blm-modal-title">
           <span id="roomDetailTitle">房间详情</span>
-          <button class="blm-modal-close" title="关闭" onclick="closeRoomDetail()">✕</button>
+          <button class="blm-modal-close" title="关闭" onclick="closeRoomDetail()"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
         </div>
         <div id="roomDetailBody"></div>
         <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">
@@ -2910,9 +2921,9 @@ function renderLive(){
     var selHtml='<label class="blm-room-select-wrap"><input type="checkbox" class="blm-room-select" data-key="'+e(roomKey)+'"'+(r.enabled===false?' disabled':'')+_sel+' onchange="toggleRoomSelect(\''+e(roomKey)+'\',this)"></label>';
     var actionsHtml=
       '<div class="blm-room-actions">'+
-        '<button class="blm-icon-btn-sm blm-room-detail" title="详情" onclick="openRoomDetail(\''+e(roomKey)+'\')">ⓘ</button>'+
-        '<button class="blm-icon-btn-sm" title="编辑" onclick=\'editRoom('+rmArg+')\'>✎</button>'+
-        (hasApi?'<button class="blm-icon-btn-sm danger" title="移除监控" onclick=\'removeRoom('+rmArg+')\'>✕</button>':'')+
+        '<button class="blm-icon-btn-sm blm-room-detail" title="详情" onclick="openRoomDetail(\''+e(roomKey)+'\')"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></button>'+
+        '<button class="blm-icon-btn-sm" title="编辑" onclick=\'editRoom('+rmArg+')\'><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>'+
+        (hasApi?'<button class="blm-icon-btn-sm danger" title="移除监控" onclick=\'removeRoom('+rmArg+')\'><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>':'')+
       '</div>';
     h+='<div class="blm-room-card'+(isLive?' live':'')+(_paused?' paused':'')+'">'+
          '<div class="blm-room-card-inner">'+
@@ -3001,9 +3012,9 @@ function renderPosts(){
     var editArg=JSON.stringify({id:r.id,platform:'douyin'});
     var actionsP=
       '<div class="blm-work-actions">'+
-        '<button class="blm-icon-btn-sm blm-room-detail" title="详情" onclick="openRoomDetail(\'douyin|'+e(id)+'\')">ⓘ</button>'+
-        '<button class="blm-icon-btn-sm" title="编辑" onclick=\'editRoom('+editArg+')\'>✎</button>'+
-        (hasApi?'<button class="blm-icon-btn-sm danger" title="移除监控" onclick=\'removePostRoom('+rmArg+')\'>✕</button>':'')+
+        '<button class="blm-icon-btn-sm blm-room-detail" title="详情" onclick="openRoomDetail(\'douyin|'+e(id)+'\')"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></button>'+
+        '<button class="blm-icon-btn-sm" title="编辑" onclick=\'editRoom('+editArg+')\'><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>'+
+        (hasApi?'<button class="blm-icon-btn-sm danger" title="移除监控" onclick=\'removePostRoom('+rmArg+')\'><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>':'')+
       '</div>';
     h+='<div class="blm-work-card'+(r.enabled===false?' paused':'')+'">'+
          selHtmlP+
@@ -5179,7 +5190,7 @@ function renderChannelRoutes(){
     h+='<div class="blm-channel-item" data-id="'+e(c.id)+'">'+
         '<span class="blm-channel-name">'+e(c.name||c.id)+'</span>'+
         '<span class="blm-channel-type">'+e(c.type||'')+'</span>'+
-        '<button class="blm-room-remove" title="删除" onclick="removeChannel(\''+e(c.id)+'\')">✕</button></div>';
+        '<button class="blm-room-remove" title="删除" onclick="removeChannel(\''+e(c.id)+'\')"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>';
   }
   h+='<div class="blm-config-item-title" style="margin-top:8px">路由规则（最具体优先 + default 兜底）</div>';
   if(!window.__routes.length) h+='<div class="blm-caption">（暂无规则，走默认通道）</div>';
@@ -5188,7 +5199,7 @@ function renderChannelRoutes(){
     var mtxt=[m.event?'事件='+m.event:'', m.platform?'平台='+m.platform:'', m.tag?'标签='+m.tag:''].filter(function(x){return x;}).join(' / ')||'默认';
     h+='<div class="blm-route-item" data-i="'+j+'">'+
         '<span>'+e(mtxt)+' → '+e(r.channelId||'')+'</span>'+
-        '<button class="blm-room-remove" title="删除" onclick="removeRoute('+j+')">✕</button></div>';
+        '<button class="blm-room-remove" title="删除" onclick="removeRoute('+j+')"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>';
   }
   el.innerHTML=h;
 }
