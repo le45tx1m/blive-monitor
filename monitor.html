@@ -2812,12 +2812,12 @@ function matchPostQ(r, q){
       || (tt.nickname || '').toLowerCase().indexOf(s) >= 0;
 }
 
-function roomAvatar(r){
-  /* 监控对象头像：优先真实照片(rooms.json 的 avatar 字段)，缺省回退首字母彩色圆。
-     真实照片由后端/CI 富集进 rooms.json 后自动生效；当前无 avatar 时显示首字母。 */
+function roomAvatar(r, s){
+  /* 监控对象头像：优先真实照片(status.json 的 s.avatar，CI 抓取时顺手存)，
+     其次 rooms.json 的 r.avatar，都没有则回退首字母彩色圆。 */
   var name = (r && r.name) ? r.name : ((r && r.platform === 'bilibili') ? 'B' : ((r && r.platform === 'douyin') ? '抖' : '?'));
   var ch = (name || '?').replace(/\s+/g, '').charAt(0) || '?';
-  var url = (r && r.avatar) ? r.avatar : '';
+  var url = ((s && s.avatar) ? s.avatar : ((r && r.avatar) ? r.avatar : ''));
   var cls = (r && r.platform === 'bilibili') ? 'ava-bili' : ((r && r.platform === 'douyin') ? 'ava-douyin' : 'ava-def');
   var img = url ? '<img src="' + e(url) + '" alt="" loading="lazy" onerror="this.style.display=\'none\'">' : '';
   return '<span class="blm-room-avatar ' + cls + '" aria-hidden="true">' + img + e(ch) + '</span>';
@@ -2896,7 +2896,7 @@ function renderLive(){
     h+='<div class="blm-room-card'+(isLive?' live':'')+(_paused?' paused':'')+'">'+
          '<div class="blm-room-card-inner">'+
            selHtml+
-           roomAvatar(r)+
+           roomAvatar(r, s)+
            '<div class="blm-room-main">'+
              '<div class="blm-room-header">'+
                '<span class="blm-platform-badge '+pl+'">'+pln+'</span>'+

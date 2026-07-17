@@ -14,6 +14,7 @@ import os
 import re
 import time
 import logging
+import hashlib
 import urllib.request
 import urllib.parse
 import urllib.error
@@ -193,6 +194,69 @@ def fetch_bilibili_batch(room_ids: List[str]) -> Dict[str, Dict[str, Any]]:
     return data["data"]["by_room_ids"]
 
 
+# ==================== B站 真实头像（WBI 签名 space/wbi/acc/info） ====================
+
+# WBI mixinKey 重排表（bilibili-API-collect 官方定义，固定 64 项）
+_WBI_MIXIN_ENC = [
+    46, 47, 18, 2, 53, 8, 23, 32, 15, 50, 10, 31, 58, 3, 45, 35,
+    27, 43, 5, 49, 33, 9, 42, 19, 29, 28, 14, 39, 12, 38, 41, 13,
+    37, 48, 7, 16, 24, 55, 40, 61, 26, 17, 0, 1, 60, 51, 30, 4,
+    22, 25, 54, 21, 56, 59, 6, 63, 57, 62, 11, 36, 20, 34, 44, 52,
+]
+
+
+def _wbi_mixin_key(orig: str) -> str:
+    """按重排表取前 32 位得到 mixin_key。"""
+    return "".join(orig[i] for i in _WBI_MIXIN_ENC[:32])
+
+
+def _wbi_sign(params: Dict[str, Any], img_key: str, sub_key: str) -> Dict[str, Any]:
+    """对查询参数做 WBI 签名，返回含 w_rid / wts 的新参数字典。"""
+    mixin_key = _wbi_mixin_key(img_key + sub_key)
+    signed = dict(sorted(params.items()))
+    signed["wts"] = int(time.time())
+    query = urllib.parse.urlencode(signed)
+    signed["w_rid"] = hashlib.md5((query + mixin_key).encode("utf-8")).hexdigest()
+    return signed
+
+
+def _fetch_bilibili_face(uid: str) -> str:
+    """WBI 签名调 space/wbi/acc/info 取主播真实头像（face）。
+
+    CI 运行在无登录态的数据中心 IP，B站常返回 -352 风控，此时优雅降级返回 ''，
+    前端回退到首字母彩色圆。任何异常都不抛出，避免影响整轮检测。
+    """
+    try:
+        nav = json.loads(
+            fetch_with_retry(
+                "https://api.bilibili.com/x/web-interface/nav",
+                headers={"Referer": "https://www.bilibili.com/"},
+            )
+        )
+        if nav.get("code") != 0:
+            return ""
+        wbi = nav.get("data", {}).get("wbi_img", {})
+        img_key = wbi.get("img_url", "").rsplit("/", 1)[-1].split(".")[0]
+        sub_key = wbi.get("sub_url", "").rsplit("/", 1)[-1].split(".")[0]
+        if not img_key or not sub_key:
+            return ""
+        params = {"mid": str(uid), "token": "", "web_location": "space_index"}
+        signed = _wbi_sign(params, img_key, sub_key)
+        url = "https://api.bilibili.com/x/space/wbi/acc/info?" + urllib.parse.urlencode(signed)
+        info = json.loads(
+            fetch_with_retry(
+                url,
+                headers={"Referer": "https://space.bilibili.com/" + str(uid)},
+            )
+        )
+        if info.get("code") != 0:
+            return ""
+        return info.get("data", {}).get("face", "") or ""
+    except Exception as e:
+        logger.warning("B站头像获取失败 (uid=%s): %s", uid, e)
+        return ""
+
+
 # ==================== 抖音数据提取（多种策略） ====================
 
 def _extract_douyin_from_render_data(html: str) -> Optional[Dict[str, Any]]:
@@ -318,6 +382,30 @@ def _extract_douyin_sec_uid(html: str) -> str:
     return ""
 
 
+def _extract_douyin_avatar(html: str) -> str:
+    """从抖音 RENDER_DATA 提取主播真实头像 URL（avatar_thumb.url_list[0]）。
+
+    兼容两种形态：
+    - 转义 JSON（html 中形如 \\"avatar_thumb\\":{\\"uri\\":...,\\"url_list\\":[\\"https://...\\"]}）
+    - URL 编码（%22avatar_thumb%22%3A%7B...%22url_list%22%3A%5B%22https%3A%2F%2F...%22）
+    取 avatar_thumb 之后第一个 http(s) 链接；含 % 则 URL 解码。失败返回 ''。
+    """
+    pat = re.compile(
+        r'avatar_thumb.{0,1200}?(https?%?(?:://|%3A%2F%2F).*?)(?=%22|\\"|\s|$)',
+        re.IGNORECASE | re.DOTALL,
+    )
+    m = pat.search(html)
+    if not m:
+        return ""
+    url = m.group(1).strip()
+    if "%" in url:
+        try:
+            url = urllib.parse.unquote(url)
+        except Exception:
+            pass
+    return url
+
+
 def fetch_douyin(web_rid: str) -> Dict[str, Any]:
     """抖音直播间检测 - 多种策略兜底提取
 
@@ -348,12 +436,14 @@ def fetch_douyin(web_rid: str) -> Dict[str, Any]:
             "area": "",
             "nickname": "",
             "sec_uid": "",
+            "avatar": "",
             "time": now_str,
         }
 
     # 提取公共字段
     nickname = _extract_douyin_nickname(html)
     sec_uid = _extract_douyin_sec_uid(html)
+    avatar = _extract_douyin_avatar(html)
 
     # 策略1: 从 RENDER_DATA 提取（最准确）
     result = _extract_douyin_from_render_data(html)
@@ -363,6 +453,7 @@ def fetch_douyin(web_rid: str) -> Dict[str, Any]:
                 "area": "",
                 "nickname": nickname,
                 "sec_uid": sec_uid,
+                "avatar": avatar,
                 "time": now_str,
             }
         )
@@ -377,6 +468,7 @@ def fetch_douyin(web_rid: str) -> Dict[str, Any]:
                 "area": "",
                 "nickname": nickname,
                 "sec_uid": sec_uid,
+                "avatar": avatar,
                 "time": now_str,
             }
         )
@@ -391,6 +483,7 @@ def fetch_douyin(web_rid: str) -> Dict[str, Any]:
                 "area": "",
                 "nickname": nickname,
                 "sec_uid": sec_uid,
+                "avatar": avatar,
                 "time": now_str,
             }
         )
@@ -402,11 +495,12 @@ def fetch_douyin(web_rid: str) -> Dict[str, Any]:
     return {
         "status": "offline",
         "title": "",
-        "online": 0,
-        "area": "",
-        "nickname": nickname,
-        "sec_uid": sec_uid,
-        "time": now_str,
+            "online": 0,
+            "area": "",
+            "nickname": nickname,
+            "sec_uid": sec_uid,
+            "avatar": avatar,
+            "time": now_str,
     }
 
 
@@ -602,6 +696,21 @@ def main() -> None:
         try:
             bili_ids = [r["id"] for r, _ in bili_rooms]
             bili_data = fetch_bilibili_batch(bili_ids)
+            # 真实头像：B站需 WBI 取 face（CI 无登录态可能风控失败→留空，前端回退首字母）。
+            # 仅当房间含 uid 时尝试；测试 fixture 无 uid，不会触发真实网络请求。
+            for r, _ in bili_rooms:
+                _d = bili_data.get(str(r["id"]))
+                if not _d:
+                    continue
+                _uid = _d.get("uid")
+                if not _uid:
+                    _d["avatar"] = ""
+                    continue
+                try:
+                    _d["avatar"] = _fetch_bilibili_face(str(_uid))
+                except Exception as _e:
+                    logger.warning("B站头像获取失败 (%s): %s", _uid, _e)
+                    _d["avatar"] = ""
             logger.info("B站批量查询成功，获取 %d 个房间数据", len(bili_data))
         except Exception as e:
             logger.error("B站批量查询失败: %s", e)
@@ -648,6 +757,7 @@ def main() -> None:
                             f"{d.get('parent_area_name', '')}·{d.get('area_name', '')}".strip("·")
                             or ""
                         ),
+                        "avatar": d.get("avatar", ""),
                     }
             elif platform == "douyin":
                 result = fetch_douyin(rid)
@@ -717,6 +827,7 @@ def main() -> None:
             "area": result.get("area", ""),
             "time": result.get("time", now_str),
             "sec_uid": result.get("sec_uid", ""),
+            "avatar": result.get("avatar", ""),
             "last_live": last_live,
             "live_duration": live_duration,
         }
@@ -944,6 +1055,7 @@ def _room_model_to_result(model, now_str: str) -> Dict[str, Any]:
         "time": now_str,
         "url": model.url,
         "cover": model.cover,
+        "avatar": model.extra.get("avatar", "") or model.avatar,
     }
 
 
@@ -1101,6 +1213,7 @@ def run_live_check(*, cfg_all: Dict[str, Any], persist: Any, now: Optional[datet
             "area": result.get("area", ""),
             "time": result.get("time", now_str),
             "sec_uid": result.get("sec_uid", ""),
+            "avatar": result.get("avatar", ""),
             "last_live": last_live,
             "live_duration": live_duration,
         }
