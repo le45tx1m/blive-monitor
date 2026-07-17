@@ -2179,6 +2179,7 @@ img { outline: 1px solid rgba(255, 255, 255, 0.1); outline-offset: -1px; }
           <button class="blm-filter-chip chip" onclick="fil('bilibili')">哔哩哔哩</button>
           <button class="blm-filter-chip chip" onclick="fil('douyin')">抖音</button>
         </div>
+        <input id="liveSearch" class="blm-input" placeholder="搜索 名称/ID…" oninput="onLiveSearch()">
 
         </div><!-- /.blm-list-toolbar -->
 
@@ -2271,6 +2272,7 @@ img { outline: 1px solid rgba(255, 255, 255, 0.1); outline-offset: -1px; }
 
         <!-- 阶段二 2b B2：标签筛选（与 q 搜索 AND 叠加） -->
         <div class="blm-filter-bar" id="postsTagBar"></div>
+        <input id="postsSearch" class="blm-input" placeholder="搜索 名称/ID/昵称…" oninput="onPostsSearch()">
         </div><!-- /.blm-list-toolbar -->
 
         <!-- Add Post -->
@@ -2806,6 +2808,8 @@ function show(t){
 function fil(f){fl=f;var cs=document.querySelectorAll('.chip');cs[0].className='chip'+(f==='all'?' active':'');cs[1].className='chip'+(f==='bilibili'?' active':'');cs[2].className='chip'+(f==='douyin'?' active':'');renderLive();}
 
 /* ===== P0-4 列表文本搜索：输入 handler（写全局 q → 仅重渲染本 tab body，严禁调 ld） ===== */
+function onLiveSearch(){ q=document.getElementById('liveSearch').value; renderLive(); }
+function onPostsSearch(){ q=document.getElementById('postsSearch').value; renderPosts(); }
 /* ===== P0-4 列表文本搜索：匹配函数（大小写不敏感子串匹配，不触发网络/ld） ===== */
 function matchQ(r, q){
   var s = (q || '').toLowerCase();

@@ -71,6 +71,7 @@ def test_live_offline_unknown_rooms_link_behavior():
     """
     html = _read_monitor()
     e_js = _extract_single_line_js(html, "function e(s)")
+    avatar_js = _extract_js(html, "function roomAvatar(r, s)")
     render_js = _extract_js(html, "function renderLive()")
 
     rooms = [
@@ -101,10 +102,11 @@ def test_live_offline_unknown_rooms_link_behavior():
         + "var q = '';\n"  # P0-4：renderLive 现依赖全局搜索词 q（空串=不过滤）
         + "var matchQ = function(r, q){ return true; };\n"  # 桩：q 为空时不会被调用，提供以防万一
         "%s\n"   # e()
+        "%s\n"   # roomAvatar
         "%s\n"   # renderLive()
         "renderLive();\n"
         "console.log(JSON.stringify(liveBody.innerHTML));\n"
-    ) % (json.dumps(rooms), json.dumps(stat), e_js, render_js)
+    ) % (json.dumps(rooms), json.dumps(stat), e_js, avatar_js, render_js)
 
     import tempfile
     f = tempfile.NamedTemporaryFile("w", suffix=".js", delete=False, encoding="utf-8")
@@ -198,6 +200,7 @@ def test_live_offline_room_classes_real_run():
     'act act-off'（直接抽取真实函数，无 node 时 skip）。"""
     html = _read_monitor()
     e_js = _extract_single_line_js(html, "function e(s)")
+    avatar_js = _extract_js(html, "function roomAvatar(r, s)")
     render_js = _extract_js(html, "function renderLive()")
 
     rooms = [
@@ -224,10 +227,10 @@ def test_live_offline_room_classes_real_run():
         "var hasApi = true;\n"
         + "var q = '';\n"  # P0-4：renderLive 现依赖全局搜索词 q（空串=不过滤）
         + "var matchQ = function(r, q){ return true; };\n"  # 桩：q 为空时不会被调用，提供以防万一
-        "%s\n%s\n"
+        "%s\n%s\n%s\n"
         "renderLive();\n"
         "console.log(JSON.stringify(liveBody.innerHTML));\n"
-    ) % (json.dumps(rooms), json.dumps(stat), e_js, render_js)
+    ) % (json.dumps(rooms), json.dumps(stat), e_js, avatar_js, render_js)
 
     import tempfile
     f = tempfile.NamedTemporaryFile("w", suffix=".js", delete=False, encoding="utf-8")

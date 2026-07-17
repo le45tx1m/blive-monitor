@@ -28,7 +28,7 @@ def test_c3_modal_is_blm_modal_overlay():
     # roomDetail 必须是 .blm-modal overlay（与 roomEdit 同构），且 mask/关闭按钮调用 closeRoomDetail
     assert 'id="roomDetail" class="blm-modal"' in src, "roomDetail 应为 .blm-modal"
     assert 'class="blm-modal-mask" onclick="closeRoomDetail()"' in src, "mask 点击应关闭弹层"
-    assert 'onclick="closeRoomDetail()">✕' in src, "关闭按钮应调用 closeRoomDetail"
+    assert 'class="blm-modal-close" title="关闭" onclick="closeRoomDetail()"' in src, "关闭按钮应调用 closeRoomDetail"
 
 
 def test_c3_esc_closes_modal():
