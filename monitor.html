@@ -2138,8 +2138,6 @@ img { outline: 1px solid rgba(255, 255, 255, 0.1); outline-offset: -1px; }
           <button class="blm-filter-chip chip" onclick="fil('bilibili')">哔哩哔哩</button>
           <button class="blm-filter-chip chip" onclick="fil('douyin')">抖音</button>
         </div>
-        <input id="liveSearch" class="blm-input" placeholder="搜索 名称/ID…" oninput="onLiveSearch()">
-
         </div><!-- /.blm-list-toolbar -->
 
         <!-- 阶段二 2b B3：批量操作条（勾选后出现） -->
@@ -2211,8 +2209,6 @@ img { outline: 1px solid rgba(255, 255, 255, 0.1); outline-offset: -1px; }
         </div>
 
         <div class="blm-list-toolbar">
-
-        <input id="postsSearch" class="blm-input" placeholder="搜索 名称/ID/昵称…" oninput="onPostsSearch()">
         </div><!-- /.blm-list-toolbar -->
 
         <!-- Add Post -->
@@ -2701,7 +2697,7 @@ img { outline: 1px solid rgba(255, 255, 255, 0.1); outline-offset: -1px; }
     </div>
 
 <script>
-var stat=null,rooms=[],hist=[],postRooms=[],postTrack={},fl='all',q='';
+var stat=null,rooms=[],hist=[],postRooms=[],postTrack={},fl='all';
 /* 阶段二 2b：批量启停 全局状态 */
 var selected={};                // 批量选中：'platform|id' -> true
 window.__channels=[];           // A2 多通道（前端 schema + UI，CI 多通道消费留后续）
@@ -2745,23 +2741,6 @@ function show(t){
 
 function fil(f){fl=f;var cs=document.querySelectorAll('.chip');cs[0].className='chip'+(f==='all'?' active':'');cs[1].className='chip'+(f==='bilibili'?' active':'');cs[2].className='chip'+(f==='douyin'?' active':'');renderLive();}
 
-/* ===== P0-4 列表文本搜索：输入 handler（写全局 q → 仅重渲染本 tab body，严禁调 ld） ===== */
-function onLiveSearch(){ q=document.getElementById('liveSearch').value; renderLive(); }
-function onPostsSearch(){ q=document.getElementById('postsSearch').value; renderPosts(); }
-/* ===== P0-4 列表文本搜索：匹配函数（大小写不敏感子串匹配，不触发网络/ld） ===== */
-function matchQ(r, q){
-  var s = (q || '').toLowerCase();
-  return (r.name || '').toLowerCase().indexOf(s) >= 0
-      || String(r.id || '').toLowerCase().indexOf(s) >= 0;
-}
-function matchPostQ(r, q){
-  var s = (q || '').toLowerCase();
-  var tt = postTrack['douyin_' + r.id] || {};
-  return (r.name || '').toLowerCase().indexOf(s) >= 0
-      || String(r.id || '').toLowerCase().indexOf(s) >= 0
-      || (tt.nickname || '').toLowerCase().indexOf(s) >= 0;
-}
-
 function roomAvatar(r, s){
   /* 监控对象头像：优先真实照片(status.json 的 s.avatar，CI 抓取时顺手存)，
      其次 rooms.json 的 r.avatar，都没有则回退首字母彩色圆。 */
@@ -2779,9 +2758,7 @@ function renderLive(){
   var rs=rooms.slice();
   if(fl==='bilibili')rs=rs.filter(function(r){return r.platform==='bilibili';});
   else if(fl==='douyin')rs=rs.filter(function(r){return r.platform==='douyin';});
-  /* ★ P0-4 文本搜索：与 fl 顺序 AND 叠加（仅过滤已加载数据，绝不调用 ld） */
-  if(q) rs = rs.filter(function(r){ return matchQ(r, q); });
-  if(!rs.length){lb.innerHTML='<div class="empty">'+(q?'未找到匹配「'+e(q)+'」':(fl!=='all'?'该平台暂无房间':'暂无监控房间'))+'</div>';return;}
+  if(!rs.length){lb.innerHTML='<div class="empty">'+(fl!=='all'?'该平台暂无房间':'暂无监控房间')+'</div>';return;}
   var up=(stat&&stat.updated)||'等待数据';
   var h='<div class="blm-update-time blm-mono">更新于 '+e(up)+'</div>';
   for(var i=0;i<rs.length;i++){
@@ -2853,14 +2830,12 @@ function renderPosts(){
   var cnt=document.getElementById('postsCount');
   if(!postRooms||!postRooms.length){body.innerHTML='<div class="empty">⌛ 暂无监控的抖音号</div>';if(cnt)cnt.textContent='';return;}
   var list=postRooms.slice();
-  /* ★ P0-4 文本搜索：name/id/nickname 任一命中（仅过滤已加载数据，绝不调用 ld） */
-  if(q) list=list.filter(function(r){return matchPostQ(r,q);});
   if(!list.length){
-    body.innerHTML='<div class="empty">'+(q?'未找到匹配「'+e(q)+'」':'⌛ 暂无监控的抖音号')+'</div>';
-    if(cnt)cnt.textContent='';   // 搜索态空：清空计数，避免与「未找到匹配」矛盾
+    body.innerHTML='<div class="empty">⌛ 暂无监控的抖音号</div>';
+    if(cnt)cnt.textContent='';
     return;
   }
-  if(cnt)cnt.textContent=q?('匹配 '+list.length+' / '+postRooms.length):('共 '+postRooms.length+' 个');
+  if(cnt)cnt.textContent='共 '+postRooms.length+' 个';
   var h='';
   for(var i=0;i<list.length;i++){
     var r=list[i],id=r.id;
