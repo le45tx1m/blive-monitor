@@ -3127,7 +3127,7 @@ function renderLive(){
   rs = (typeof applySort==='function') ? applySort(rs, typeof sortKey!=='undefined'?sortKey:'default', {statusRank:_rm, lastActive:_lastActive}) : rs;
   if(!rs.length){lb.innerHTML='<div class="empty">'+(q?'未找到匹配「'+e(q)+'」':(fl!=='all'?'该平台暂无房间':'暂无监控房间'))+'</div>';return;}
   var up=(stat&&stat.updated)||'等待数据';
-  var h='<div class="blm-update-time blm-mono">更新于 '+e(up)+'</div>';
+  var h='';
   for(var i=0;i<rs.length;i++){
     var r=rs[i],s=null;
     if(stat&&stat.rooms){for(var j=0;j<stat.rooms.length;j++){if(stat.rooms[j].platform===r.platform&&String(stat.rooms[j].id)===String(r.id)){s=stat.rooms[j];break;}}}
