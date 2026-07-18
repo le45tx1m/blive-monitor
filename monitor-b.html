@@ -3147,9 +3147,11 @@ function renderPosts(){
     var platformTag='<span class="blm-work-platform-tag douyin">抖音</span>';
     var placeholder='<svg class="blm-work-thumb-placeholder" width="40" height="40" viewBox="0 0 24 24" fill="none"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>';
     var coverImg=tt.latest_cover?'<img class="blm-work-cover" src="'+e(tt.latest_cover)+'" alt="" onerror="this.remove()">':'';
-    /* 横条视图用头像（首字母彩色圆），与卡片视图的视频封面区分 */
+    /* 横条视图用头像（真实头像优先，缺省回退首字母彩色圆），与卡片视图的视频封面区分 */
     var _ach=(name||'?').replace(/\s+/g,'').charAt(0)||'?';
-    var avatarHtml='<span class="blm-work-avatar ava-douyin" aria-hidden="true">'+e(_ach)+'</span>';
+    var _avaUrl = tt.avatar || '';
+    var _avaImg = _avaUrl ? '<img src="'+e(_avaUrl)+'" alt="" loading="lazy" onerror="this.style.display=\'none\'">' : '';
+    var avatarHtml='<span class="blm-work-avatar ava-douyin" aria-hidden="true">'+_avaImg+e(_ach)+'</span>';
     var titleLine=name, descLine='', linkLine=link, linkLabel='查看作品 →';
     if(aid && !String(aid).startsWith('count:')){
       descLine=desc||'(无描述)';

@@ -431,6 +431,33 @@ def parse_profile_nickname(profile_text: str) -> Optional[str]:
     return nick if isinstance(nick, str) and nick.strip() else None
 
 
+def parse_profile_avatar(profile_text: str) -> Optional[str]:
+    """从 user/profile/other 响应体解析账号头像 URL（avatar_url）。
+
+    用于前端横条视图显示真实头像（替代首字母圆）。解析失败返回 None。
+    抖音 user 对象的头像字段有多个：avatar_url（高清）/ avatar_thumb（缩略）/ avatar_medium，
+    取首个可用 URL（url_list[0]）。
+    """
+    if not profile_text:
+        return None
+    try:
+        data = json.loads(profile_text)
+    except Exception:
+        return None
+    user = data.get("user") or (data.get("data") or {}).get("user") or {}
+    if not isinstance(user, dict):
+        return None
+    for key in ("avatar_url", "avatar_medium", "avatar_thumb"):
+        v = user.get(key)
+        if isinstance(v, dict):
+            urls = v.get("url_list") or []
+            if urls and isinstance(urls[0], str) and urls[0].startswith("http"):
+                return urls[0]
+        elif isinstance(v, str) and v.startswith("http"):
+            return v
+    return None
+
+
 def _sort_key(it: Dict[str, Any]) -> Tuple[int, int]:
     """取最新作品：优先 create_time，缺失时退化为 aweme_id 数值（近似时间序）。"""
     ct = int(it.get("create_time") or 0)
@@ -505,6 +532,7 @@ def get_latest_aweme(context, sec_uid: str) -> Optional[Dict[str, Any]]:
 
         actual_uid = parse_profile_handle(dcap.get("profile"))
         actual_nick = parse_profile_nickname(dcap.get("profile"))
+        actual_avatar = parse_profile_avatar(dcap.get("profile"))
 
         # 策略 0 优先：移动端真实作品（无 Cookie）
         items = parse_aweme_list(mcap.get("post")) if mcap.get("post") else []
@@ -515,6 +543,7 @@ def get_latest_aweme(context, sec_uid: str) -> Optional[Dict[str, Any]]:
             best["actual_unique_id"] = actual_uid
             # 真实昵称优先用作品作者，缺失时回退到主页 profile/other 的真实昵称
             best["nickname"] = best.get("nickname") or actual_nick or ""
+            best["avatar"] = actual_avatar or best.get("avatar") or ""
             return best
 
         # 策略 1：桌面端 API 响应（需登录 Cookie）
@@ -525,6 +554,7 @@ def get_latest_aweme(context, sec_uid: str) -> Optional[Dict[str, Any]]:
             best["_src"] = "desktop"
             best["actual_unique_id"] = actual_uid
             best["nickname"] = best.get("nickname") or actual_nick or ""
+            best["avatar"] = actual_avatar or best.get("avatar") or ""
             return best
 
         # 策略 2（退化）：作品数变化推测
@@ -537,6 +567,7 @@ def get_latest_aweme(context, sec_uid: str) -> Optional[Dict[str, Any]]:
                 "is_note": False,
                 # 即便退化到「作品数推测」，主页 profile/other 仍返回真实昵称，回填供前端展示
                 "nickname": actual_nick or "",
+                "avatar": actual_avatar or "",
                 "create_time": count,
                 "_conf": "count",
                 "actual_unique_id": actual_uid,
@@ -924,6 +955,9 @@ def main() -> None:
                 t["latest_count"] = new_ct
                 # 真实昵称在所有模式都回填（前端展示/推送都用它，避免只显示裸 id）
                 t["nickname"] = aweme.get("nickname") or t.get("nickname", "")
+                # 头像 URL 回填（前端横条视图显示真实头像，替代首字母圆）
+                if aweme.get("avatar"):
+                    t["avatar"] = aweme["avatar"]
                 # need_cookie 标记：账号稳定走 count 退化（接口被风控/未登录，拿不到真实
                 # 作品列表）时置 True，引导用户到 BLIVE_CONFIG 配置 douyin_cookie 突破风控。
                 # api 模式下拿到真实作品则清除该标记。
@@ -1346,6 +1380,8 @@ def run_post_check(*, cfg_all: Dict[str, Any], persist: Any, now: Optional[Any] 
                 t["mode"] = conf
                 t["latest_count"] = new_ct
                 t["nickname"] = aweme.get("nickname") or t.get("nickname", "")
+                if aweme.get("avatar"):
+                    t["avatar"] = aweme["avatar"]
                 if conf == "count":
                     t["need_cookie"] = True
                 else:
