@@ -2081,14 +2081,42 @@ img { outline: 1px solid rgba(255, 255, 255, 0.1); outline-offset: -1px; }
   gap: var(--spacing-sm);
   min-height: 32px;
 }
+.blm-hero-compact .blm-hero-row-top {
+  justify-content: space-between;
+  padding-bottom: var(--spacing-xs);
+  border-bottom: 1px solid var(--color-border-subtle);
+  margin-bottom: var(--spacing-xs);
+}
+.blm-hero-compact .blm-hero-row-stats {
+  /* 第二行：纯数据，均匀分布 */
+}
+.blm-hero-compact .blm-hero-brand {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.blm-hero-compact .blm-hero-title {
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  letter-spacing: -0.01em;
+}
+.blm-hero-compact .blm-hero-logo {
+  width: 20px; height: 20px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--brand-primary);
+  border-radius: 4px;
+}
 .blm-hero-compact .blm-hero-stats {
   display: flex;
-  gap: var(--spacing-md);
+  gap: var(--spacing-lg);
   flex: 1;
   align-items: center;
+  justify-content: flex-start;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
+  padding: 2px 0;
 }
 .blm-hero-compact .blm-hero-stats::-webkit-scrollbar { display: none; }
 .blm-hero-compact .blm-hero-stat {
@@ -2110,7 +2138,7 @@ img { outline: 1px solid rgba(255, 255, 255, 0.1); outline-offset: -1px; }
   font-weight: var(--font-weight-bold);
 }
 .blm-hero-compact .blm-hero-stat b {
-  font-size: var(--font-size-body);
+  font-size: var(--font-size-h3);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
 }
@@ -2180,16 +2208,19 @@ img { outline: 1px solid rgba(255, 255, 255, 0.1); outline-offset: -1px; }
   color: var(--color-text-primary);
 }
 .blm-feed-posts-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  display: flex;
   gap: var(--spacing-sm);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding: 2px;
+  margin: -2px;
+  /* 横滑卡：3 个固定宽度 */
 }
-@media (min-width: 480px) {
-  .blm-feed-posts-grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
-}
+.blm-feed-posts-grid::-webkit-scrollbar { display: none; }
 .blm-feed-post-card {
+  flex: 0 0 auto;
+  width: 140px;
   background: var(--color-bg-surface);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
@@ -2199,6 +2230,9 @@ img { outline: 1px solid rgba(255, 255, 255, 0.1); outline-offset: -1px; }
 .blm-feed-post-card:hover {
   border-color: var(--color-border-default);
   transform: translateY(-1px);
+}
+@media (min-width: 480px) {
+  .blm-feed-post-card { width: 160px; }
 }
 .blm-feed-post-link {
   display: block;
@@ -2238,7 +2272,8 @@ img { outline: 1px solid rgba(255, 255, 255, 0.1); outline-offset: -1px; }
   color: var(--color-text-tertiary);
 }
 .blm-feed-empty {
-  grid-column: 1 / -1;
+  /* 横滑容器里占位 */
+  flex: 1;
   text-align: center;
   padding: var(--spacing-xl);
   color: var(--color-text-tertiary);
@@ -2301,60 +2336,72 @@ img { outline: 1px solid rgba(255, 255, 255, 0.1); outline-offset: -1px; }
   opacity: 0;
   gap: 0;
 }
+/* 未开播卡片：单列中卡（横向布局：头像+名字+状态+meta，不显示标题/操作按钮） */
 .blm-live-group-offline .blm-room-card {
-  padding: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
 }
 .blm-live-group-offline .blm-room-card .blm-room-title,
-.blm-live-group-offline .blm-room-card .blm-room-meta,
-.blm-live-group-offline .blm-room-card .blm-room-footer,
-.blm-live-group-offline .blm-room-card .blm-room-actions,
-.blm-live-group-offline .blm-room-card .blm-room-link {
+.blm-live-group-offline .blm-room-card .blm-room-actions {
   display: none;
 }
 .blm-live-group-offline .blm-room-card .blm-room-header {
-  flex-direction: column;
-  gap: var(--spacing-xs);
+  flex-direction: row;
+  gap: var(--spacing-sm);
 }
 .blm-live-group-offline .blm-room-card .blm-room-head-right .blm-live-badge,
 .blm-live-group-offline .blm-room-card .blm-room-head-right .blm-offline-badge {
-  font-size: 9px;
-  padding: 2px 4px;
+  font-size: var(--font-size-tiny);
+  padding: 2px 6px;
 }
 .blm-live-group-offline .blm-room-card .blm-room-name {
-  font-size: var(--font-size-tiny);
+  font-size: var(--font-size-caption);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 100%;
 }
+.blm-live-group-offline .blm-room-card .blm-room-meta {
+  font-size: var(--font-size-tiny);
+  color: var(--color-text-tertiary);
+}
+.blm-live-group-offline .blm-room-card .blm-room-link {
+  font-size: var(--font-size-tiny);
+  white-space: nowrap;
+}
 .blm-live-group-offline .blm-room-card .blm-room-select-wrap {
   position: absolute;
-  top: 2px;
-  right: 2px;
+  top: 4px;
+  right: 4px;
   z-index: 2;
 }
 .blm-live-group-offline .blm-room-card-inner {
-  flex-direction: column;
-  gap: var(--spacing-xs);
+  flex-direction: row;
+  gap: var(--spacing-sm);
+  align-items: center;
 }
 .blm-live-group-offline .blm-room-card .room-avatar,
 .blm-live-group-offline .blm-room-card .ava-bili,
 .blm-live-group-offline .blm-room-card .ava-douyin,
 .blm-live-group-offline .blm-room-card .ava-def {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
 }
 
+/* 单列中卡：保持 flex 列方向（不要 grid 多列） */
 @media (min-width: 400px) {
   .blm-live-group-offline .blm-live-group-body {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    display: flex;
+    flex-direction: column;
     gap: var(--spacing-sm);
   }
 }
 @media (min-width: 640px) {
   .blm-live-group-offline .blm-live-group-body {
-    grid-template-columns: repeat(3, 1fr);
+    /* 桌面端可双列 */
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-sm);
   }
 }
 
@@ -2385,7 +2432,23 @@ img { outline: 1px solid rgba(255, 255, 255, 0.1); outline-offset: -1px; }
 <div class="mobile-container">
   <!-- B 方案：紧凑 Hero（单行状态栏，保留所有原 id） -->
   <header class="blm-hero blm-hero-compact">
-    <div class="blm-hero-row">
+    <div class="blm-hero-row blm-hero-row-top">
+      <div class="blm-hero-brand">
+        <div class="blm-logo">
+          <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
+            <rect x="2" y="2" width="16" height="16" rx="3" stroke="white" stroke-width="2"/>
+            <path d="M7 7L13 10L7 13V7Z" fill="white"/>
+          </svg>
+        </div>
+        <span class="blm-hero-title">直播监控</span>
+      </div>
+      <button class="blm-icon-btn" onclick="ld()" title="刷新">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M2 8a6 6 0 0 1 10.3-4.2L14 2v4h-4l1.5-1.5A4 4 0 1 0 12 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </div>
+    <div class="blm-hero-row blm-hero-row-stats">
       <div class="blm-hero-stats">
         <div class="blm-hero-stat live" id="liveSignal">
           <span class="blm-hero-live-label">LIVE</span>
@@ -2401,11 +2464,6 @@ img { outline: 1px solid rgba(255, 255, 255, 0.1); outline-offset: -1px; }
           <b class="blm-mono" id="stime">--:--:--</b><span>更新</span>
         </div>
       </div>
-      <button class="blm-icon-btn" onclick="ld()" title="刷新">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-          <path d="M2 8a6 6 0 0 1 10.3-4.2L14 2v4h-4l1.5-1.5A4 4 0 1 0 12 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </button>
     </div>
 
     <!-- freshness 内嵌为 hero 底部细线（替代独立卡片） -->
@@ -2514,10 +2572,6 @@ img { outline: 1px solid rgba(255, 255, 255, 0.1); outline-offset: -1px; }
 
     <!-- New Works Section（去 section-title；toolbar 行内化 view-toggle + count + tag-bar + add） -->
     <section class="view" id="view-posts">
-        <!-- B 方案：新作页返回 Feed 按钮 -->
-        <div class="blm-posts-back">
-          <button class="blm-btn blm-btn-secondary" onclick="show('live')">← 返回 Feed</button>
-        </div>
         <!-- 阶段二 2b B3：抖音号批量操作条（与直播共用 selected 全局） -->
         <div id="batchBarPosts" class="blm-batch-bar" style="display:none">
           <button class="blm-btn" onclick="selectAllInView('posts')">全选</button>
@@ -2896,7 +2950,7 @@ img { outline: 1px solid rgba(255, 255, 255, 0.1); outline-offset: -1px; }
     </section>
   </main>
 
-  <!-- B 方案 Bottom Tab Bar：3 个主 Tab（Feed / 日志 / 配置）。posts 与 dashboard 通过页面内入口进入，不在底栏 -->
+  <!-- B 方案 Bottom Tab Bar：4 个主 Tab（Feed / 新作 / 日志 / 配置）。dashboard 通过日志页入口进入 -->
   <nav class="blm-tab-bar">
     <a class="blm-tab-item tab active" data-key="live" onclick="show('live')">
       <span class="blm-tab-icon">
@@ -2906,6 +2960,15 @@ img { outline: 1px solid rgba(255, 255, 255, 0.1); outline-offset: -1px; }
         </svg>
       </span>
       <span class="blm-tab-label">Feed</span>
+    </a>
+    <a class="blm-tab-item tab" data-key="posts" onclick="show('posts')">
+      <span class="blm-tab-icon">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+          <rect x="3" y="3" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.6"/>
+          <path d="M9 8l5 3-5 3V8z" fill="currentColor"/>
+        </svg>
+      </span>
+      <span class="blm-tab-label">新作</span>
     </a>
     <a class="blm-tab-item tab" data-key="log" onclick="show('log')">
       <span class="blm-tab-icon">
@@ -3010,7 +3073,7 @@ function show(t){
   var views={'live':'view-live','posts':'view-posts','log':'view-log','config':'view-config','dashboard':'view-dashboard'};
   Object.keys(views).forEach(function(k){var el=document.getElementById(views[k]); if(el) el.classList.toggle('active',k===t);});
 
-  // 主 tab 高亮（B 方案只有 3 个主 tab: live/log/config）。posts/dashboard 不在主 tab 里，切到它们时不高亮任何主 tab
+  // 主 tab 高亮（B 方案 4 个主 tab: live/posts/log/config）。dashboard 不在主 tab 里，切到它时不高亮任何主 tab
   document.querySelectorAll('.blm-tab-bar .blm-tab-item.tab').forEach(function(b){
     var key = b.getAttribute('data-key');
     b.classList.toggle('active', key === t);
@@ -5640,8 +5703,8 @@ function renderFeedPostsPreview() {
 
     countEl.textContent = allPosts.length;
 
-    // 只显示前 6 个
-    var display = allPosts.slice(0, 6);
+    // 只显示前 3 个（横滑卡）
+    var display = allPosts.slice(0, 3);
     if (!display.length) {
         grid.innerHTML = '<div class="blm-feed-empty">暂无新作</div>';
         return;
