@@ -2454,16 +2454,14 @@ img { outline: 1px solid rgba(255, 255, 255, 0.1); outline-offset: -1px; }
           <span class="blm-hero-live-label">LIVE</span>
           <b class="blm-mono" id="statLive">0</b>
         </div>
-        <div class="blm-hero-stat">
-          <b class="blm-mono" id="statRooms">0</b><span>房间</span>
-        </div>
-        <div class="blm-hero-stat">
-          <b class="blm-mono" id="statPosts">0</b><span>新作</span>
-        </div>
-        <div class="blm-hero-stat">
-          <b class="blm-mono" id="stime">--:--:--</b><span>更新</span>
-        </div>
       </div>
+    </div>
+
+    <!-- 隐藏元素：保留 id 以兼容原 updateStatRooms/updateStatPosts/ld 等函数的写入 -->
+    <div style="display:none" aria-hidden="true">
+      <span id="statRooms">0</span>
+      <span id="statPosts">0</span>
+      <span id="stime">--:--:--</span>
     </div>
 
     <!-- freshness 内嵌为 hero 底部细线（替代独立卡片） -->
