@@ -4448,7 +4448,8 @@ function renderHealthBar(f){
   }
   el.className = cls;
   el.innerHTML =
-    '<span class="blm-freshness-text">'+e(f.label)+'</span>';
+    '<span class="blm-freshness-text">'+e(f.label)+'</span>'+
+    '<span class="blm-freshness-time blm-mono">'+e(f.updated || '') + rel + '</span>';
 }
 
 function ld(){
