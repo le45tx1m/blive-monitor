@@ -5598,15 +5598,9 @@ function toggleOfflineGroup(headerEl){
   if(toggle) toggle.textContent = collapsed ? '展开 ▸' : '折叠 ▾';
 }
 
-/* ===== B 方案初始化：hijack renderLive/renderPosts，挂接分层与 Feed 预览 ===== */
+/* ===== B 方案初始化：hijack renderPosts，挂接 Feed 预览 ===== */
+// 注：直播分区（applyLiveStratification）已移除，renderLive 输出平铺卡片
 if (typeof renderLive === 'function' && !window._bStratified) {
-  var _origRenderLiveB = renderLive;
-  renderLive = function() {
-    _origRenderLiveB.apply(this, arguments);
-    if (typeof applyLiveStratification === 'function') {
-      setTimeout(applyLiveStratification, 0);
-    }
-  };
   window._bStratified = true;
 }
 // hijack renderPosts，在它之后也更新 Feed 预览
