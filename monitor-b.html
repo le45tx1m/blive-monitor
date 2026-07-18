@@ -1687,7 +1687,7 @@ body.batch-mode #postBatchModeBtn { display: none; }
 .blm-tab-item.active .blm-tab-icon { transform: scale(1.08); }
 
 /* ===== View Show/Hide ===== */
-.view { max-width: 100%; margin: 0 auto; padding: 0; display: none; }
+.view { width: 100%; max-width: 100%; margin: 0; padding: 0; display: none; }
 .view.active { display: block; animation: fade .25s ease; }
 @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
@@ -2373,7 +2373,7 @@ img { outline: 1px solid rgba(255, 255, 255, 0.1); outline-offset: -1px; }
             <path d="M7 7L13 10L7 13V7Z" fill="white"/>
           </svg>
         </div>
-        <span class="blm-hero-title">直播监控</span>
+        <span class="blm-hero-title" id="heroTitle">直播监控</span>
       </div>
       <button class="blm-icon-btn" onclick="ld()" title="刷新">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -2860,7 +2860,7 @@ img { outline: 1px solid rgba(255, 255, 255, 0.1); outline-offset: -1px; }
           <path d="M16 9l4-2v8l-4-2V9z" fill="currentColor"/>
         </svg>
       </span>
-      <span class="blm-tab-label">Feed</span>
+      <span class="blm-tab-label">直播</span>
     </a>
     <a class="blm-tab-item tab" data-key="posts" onclick="show('posts')">
       <span class="blm-tab-icon">
@@ -2977,6 +2977,10 @@ function show(t){
     var key = b.getAttribute('data-key');
     b.classList.toggle('active', key === t);
   });
+
+  // 顶部标题随 tab 切换
+  var titles={'live':'直播监控','posts':'新作品监控','log':'推送日志','config':'配置','dashboard':'仪表盘'};
+  var ht=document.getElementById('heroTitle'); if(ht) ht.textContent=titles[t]||'监控';
 
   // view-posts 和 view-dashboard 显示时全屏覆盖，用户点底部 tab 或顶部返回按钮回主 Feed
   if(t==='posts') applyPostsView();   // 切到新作监控时同步布局偏好（含横条/卡片切换）
