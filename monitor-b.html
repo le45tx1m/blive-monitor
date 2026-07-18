@@ -594,6 +594,10 @@ body {
 body:not(.batch-mode) .blm-room-select-wrap,
 body:not(.batch-mode) .blm-work-select-wrap { display: none; }
 body:not(.batch-mode) .blm-batch-bar { display: none !important; }
+body.batch-mode .blm-batch-bar { display: flex !important; }
+/* 进入批量模式时，toolbar 的"批量管理"按钮隐藏（已合并到操作条末尾的"完成"） */
+body.batch-mode #batchModeBtn,
+body.batch-mode #postBatchModeBtn { display: none; }
 .blm-room-select {
   width: 22px;
   height: 22px;
@@ -2354,13 +2358,14 @@ img { outline: 1px solid rgba(255, 255, 255, 0.1); outline-offset: -1px; }
           </div>
         </div>
 
-        <!-- 阶段二 2b B3：批量操作条（勾选后出现） -->
+        <!-- 阶段二 2b B3：批量操作条（进入批量模式后显示，末尾"完成"退出） -->
         <div id="batchBar" class="blm-batch-bar" style="display:none">
           <button class="blm-btn" onclick="selectAllInView('live')">全选</button>
           <button class="blm-btn blm-btn-warning" onclick="pauseSelected()">暂停选中</button>
           <button class="blm-btn blm-btn-primary" onclick="resumeSelected()">恢复选中</button>
           <button class="blm-btn blm-btn-danger" onclick="deleteSelected()">删除选中</button>
           <span id="batchCount" class="blm-batch-count">已选 0</span>
+          <button class="blm-btn blm-btn-secondary" style="margin-left:auto" onclick="toggleBatchMode(false)">完成</button>
         </div>
 
         <!-- toolbar 行：filter + add 同行 -->
@@ -2427,6 +2432,7 @@ img { outline: 1px solid rgba(255, 255, 255, 0.1); outline-offset: -1px; }
           <button class="blm-btn blm-btn-primary" onclick="resumeSelected()">恢复选中</button>
           <button class="blm-btn blm-btn-danger" onclick="deleteSelected()">删除选中</button>
           <span id="batchCountPosts" class="blm-batch-count">已选 0</span>
+          <button class="blm-btn blm-btn-secondary" style="margin-left:auto" onclick="toggleBatchMode(false)">完成</button>
         </div>
 
         <!-- toolbar：count + view-toggle + add 同行 -->
