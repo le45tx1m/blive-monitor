@@ -2286,12 +2286,6 @@ img { outline: 1px solid rgba(255, 255, 255, 0.1); outline-offset: -1px; }
   font-size: var(--font-size-tiny);
   white-space: nowrap;
 }
-.blm-live-group-offline .blm-room-card .blm-room-select-wrap {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  z-index: 2;
-}
 .blm-live-group-offline .blm-room-card-inner {
   flex-direction: row;
   gap: var(--spacing-sm);
@@ -4454,8 +4448,7 @@ function renderHealthBar(f){
   }
   el.className = cls;
   el.innerHTML =
-    '<span class="blm-freshness-text">'+e(f.label)+'</span>'+
-    '<span class="blm-freshness-time blm-mono">'+e(f.updated || '') + rel + '</span>';
+    '<span class="blm-freshness-text">'+e(f.label)+'</span>';
 }
 
 function ld(){
