@@ -2448,14 +2448,19 @@ img { outline: 1px solid rgba(255, 255, 255, 0.1); outline-offset: -1px; }
         </svg>
       </button>
     </div>
-    <!-- 隐藏元素：保留 id 以兼容原 updateStatRooms/updateStatPosts/ld/renderHealthBar 等函数的写入 -->
+    <!-- 隐藏元素：保留 id 以兼容原 updateStatRooms/updateStatPosts/ld 等函数的写入 -->
     <div style="display:none" aria-hidden="true">
       <span id="statLive">0</span>
       <span id="statRooms">0</span>
       <span id="statPosts">0</span>
       <span id="stime">--:--:--</span>
       <span id="liveSignal"></span>
-      <div id="healthBar"></div>
+    </div>
+
+    <!-- freshness 内嵌为 hero 底部细线（数据新鲜度自检） -->
+    <div class="blm-hero-freshness" id="healthBar">
+      <span class="blm-freshness-text">监控自检中…</span>
+      <span class="blm-freshness-time blm-mono">--</span>
     </div>
   </header>
 
