@@ -628,6 +628,24 @@ body {
 .blm-room-avatar.ava-bili { background: linear-gradient(135deg, #FB7299, #FF9BBE); }
 .blm-room-avatar.ava-douyin { background: linear-gradient(135deg, #25F4EE, #00C2C7); }
 .blm-room-avatar.ava-def { background: linear-gradient(135deg, #6c5ce7, #a29bfe); }
+/* 头像点击进入直播间（替代原底部"查看直播间"链接） */
+.blm-room-avatar-link {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-self: flex-start;
+  margin-top: 2px;
+  border-radius: var(--radius-full);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  cursor: pointer;
+}
+.blm-room-avatar-link:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 0 3px rgba(255, 77, 106, 0.3);
+}
+.blm-room-avatar-link:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 2px;
+}
 
 .blm-room-main {
   flex: 1;
@@ -2983,13 +3001,19 @@ function matchPostQ(r, q){
 
 function roomAvatar(r, s){
   /* 监控对象头像：优先真实照片(status.json 的 s.avatar，CI 抓取时顺手存)，
-     其次 rooms.json 的 r.avatar，都没有则回退首字母彩色圆。 */
+     其次 rooms.json 的 r.avatar，都没有则回退首字母彩色圆。
+     头像外层包裹 <a>，点击进入直播间（替代原底部"查看直播间"链接）。 */
   var name = (r && r.name) ? r.name : ((r && r.platform === 'bilibili') ? 'B' : ((r && r.platform === 'douyin') ? '抖' : '?'));
   var ch = (name || '?').replace(/\s+/g, '').charAt(0) || '?';
   var url = ((s && s.avatar) ? s.avatar : ((r && r.avatar) ? r.avatar : ''));
   var cls = (r && r.platform === 'bilibili') ? 'ava-bili' : ((r && r.platform === 'douyin') ? 'ava-douyin' : 'ava-def');
   var img = url ? '<img src="' + e(url) + '" alt="" loading="lazy" onerror="this.style.display=\'none\'">' : '';
-  return '<span class="blm-room-avatar ' + cls + '" aria-hidden="true">' + img + e(ch) + '</span>';
+  var u = (r && r.platform === 'bilibili') ? 'https://live.bilibili.com/'+r.id
+        : (r && r.platform === 'douyin') ? 'https://live.douyin.com/'+r.id : '#';
+  var inner = '<span class="blm-room-avatar ' + cls + '" aria-hidden="true">' + img + e(ch) + '</span>';
+  return (u !== '#')
+    ? '<a class="blm-room-avatar-link" href="'+u+'" target="_blank" title="进入直播间">'+inner+'</a>'
+    : inner;
 }
 
 function renderLive(){
@@ -3042,7 +3066,7 @@ function renderLive(){
     var badge=isLive
       ? '<span class="blm-live-badge"><span class="blm-status-dot live"></span>LIVE</span>'
       : '<span class="blm-offline-badge">'+stxt+'</span>';
-    var linkHtml=(u!=='#')?'<a class="blm-room-link" href="'+u+'" target="_blank">'+(isLive?'进入直播间 →':'查看直播间 →')+'</a>':'';
+    var linkHtml='';
     var roomKey=r.platform+'|'+String(r.id);
     var _sel=(typeof selected!=='undefined' && selected.hasOwnProperty(roomKey))?' checked':'';
     var _paused=(r.enabled===false);
