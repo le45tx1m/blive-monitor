@@ -3152,16 +3152,14 @@ function renderPosts(){
     var _avaUrl = tt.avatar || '';
     var _avaImg = _avaUrl ? '<img src="'+e(_avaUrl)+'" alt="" loading="lazy" onerror="this.style.display=\'none\'">' : '';
     var avatarHtml='<span class="blm-work-avatar ava-douyin" aria-hidden="true">'+_avaImg+e(_ach)+'</span>';
-    var titleLine=name, descLine='', linkLine=link, linkLabel='查看作品 →';
+    var titleLine=name, descLine='', linkLine=link;
     if(aid && !String(aid).startsWith('count:')){
       descLine=desc||'(无描述)';
     }else if(aid && String(aid).startsWith('count:')){
       var c=String(aid).replace('count:','');
       descLine=needCookie?'⚠️ 仅检测到 '+c+' 个作品（抖音接口风控）':'已检测 '+c+' 个作品';
-      linkLabel='打开主页 →';
     }else{
       descLine='⌛ 等待首次抓取…';
-      linkLabel='打开主页 →';
     }
     var _pausePost=(r.enabled===false);
     var _pauseBadgePost=_pausePost?'<span class="blm-status-badge muted">已暂停</span>':'';
@@ -3184,7 +3182,6 @@ function renderPosts(){
            '<div class="blm-work-footer">'+
              '<span class="blm-work-time">'+time+'</span>'+
              '<div style="display:flex;align-items:center;gap:4px">'+
-               '<a class="blm-work-link" href="'+linkLine+'" target="_blank">'+linkLabel+'</a>'+
                actionsP+
              '</div>'+
            '</div>'+
