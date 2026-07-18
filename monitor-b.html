@@ -3031,7 +3031,6 @@ function renderLive(){
     var isLive = st==='live';
     var meta=[];
     if(s&&s.online)meta.push('人气 '+e(s.online));
-    if(s&&s.area)meta.push(e(s.area));
     if(s&&s.last_live)meta.push('上次 '+e(s.last_live).substring(5,16));
     var rmArg=JSON.stringify({platform:r.platform,id:r.id});
     var metaHtml=meta.length?'<div class="blm-room-meta">'+meta.map(function(m){return '<span class="blm-room-meta-item">'+m+'</span>';}).join('')+'</div>':'';
