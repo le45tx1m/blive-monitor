@@ -2463,18 +2463,10 @@ img { outline: 1px solid rgba(255, 255, 255, 0.1); outline-offset: -1px; }
 
         <div id="liveBody"><div class="empty">🔄 加载中…</div></div>
 
-        <!-- B 方案：Feed 页的新作预览区（在 view-live 内，liveBody 之后） -->
-        <div class="blm-feed-posts-preview" id="feedPostsPreview">
-          <div class="blm-feed-section-header">
-            <span class="blm-feed-section-title">
-              <span class="blm-feed-section-dot douyin"></span>
-              新作品 <b class="blm-mono" id="feedPostsCount">0</b>
-            </span>
-            <button class="blm-feed-view-all" onclick="show('posts')">查看全部 →</button>
-          </div>
-          <div class="blm-feed-posts-grid" id="feedPostsGrid">
-            <!-- 由 renderFeedPostsPreview() 渲染，最多 6 个新作卡 -->
-          </div>
+        <div style="display:none">
+          <div id="feedPostsPreview"></div>
+          <b id="feedPostsCount">0</b>
+          <div id="feedPostsGrid"></div>
         </div>
     </section>
 
