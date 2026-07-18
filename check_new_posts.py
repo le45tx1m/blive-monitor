@@ -341,10 +341,35 @@ def _extract_cover(w: Dict[str, Any]) -> Optional[str]:
     return None
 
 
+def _extract_author_avatar(w: Dict[str, Any]) -> Optional[str]:
+    """从 aweme 作品的 author 对象提取头像 URL。
+
+    抖音 aweme_list[].author 与 user/profile/other 的 user 对象结构一致，
+    均含 avatar_url（高清）/ avatar_medium / avatar_thumb（dict 含 url_list）。
+    取首个可用 URL（url_list[0]）。无则返回 None。
+
+    作为 parse_profile_avatar 的 fallback：当 user/profile/other 响应未被拦截
+    或被风控时，仍可从作品列表的 author 拿到头像供前端展示。
+    """
+    author = w.get("author") or {}
+    if not isinstance(author, dict):
+        return None
+    for key in ("avatar_url", "avatar_medium", "avatar_thumb"):
+        v = author.get(key)
+        if isinstance(v, dict):
+            urls = v.get("url_list") or []
+            if urls and isinstance(urls[0], str) and urls[0].startswith("http"):
+                return urls[0]
+        elif isinstance(v, str) and v.startswith("http"):
+            return v
+    return None
+
+
 def parse_aweme_list(json_text: str) -> List[Dict[str, Any]]:
     """从 aweme/post 响应体解析作品列表，返回标准化 dict 列表。
 
-    每个 dict: {aweme_id, desc, video_url, is_note, nickname, create_time}
+    每个 dict: {aweme_id, desc, video_url, is_note, nickname, create_time, avatar}
+    avatar 取自 author 对象，供前端横条视图显示真实头像（profile 拦截失败时的 fallback）。
     空/风控/异常返回 []。
     """
     if not json_text:
@@ -372,6 +397,7 @@ def parse_aweme_list(json_text: str) -> List[Dict[str, Any]]:
             "nickname": (w.get("author") or {}).get("nickname", "") or "",
             "create_time": int(w.get("create_time", 0) or 0),
             "cover": _extract_cover(w),
+            "avatar": _extract_author_avatar(w),
         })
     return out
 
