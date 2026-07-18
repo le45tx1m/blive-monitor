@@ -559,6 +559,15 @@ def get_latest_aweme(context, sec_uid: str) -> Optional[Dict[str, Any]]:
         actual_uid = parse_profile_handle(dcap.get("profile"))
         actual_nick = parse_profile_nickname(dcap.get("profile"))
         actual_avatar = parse_profile_avatar(dcap.get("profile"))
+        # 临时调试：profile 拦截到了但 avatar 没拿到时，打印 user 对象的 keys 确认字段名
+        if dcap.get("profile") and not actual_avatar:
+            try:
+                _pd = json.loads(dcap["profile"])
+                _pu = _pd.get("user") or (_pd.get("data") or {}).get("user") or {}
+                _keys = list(_pu.keys()) if isinstance(_pu, dict) else f"non-dict:{type(_pu).__name__}"
+                logger.warning("  [%s] avatar-debug: profile 有但 avatar 缺失, user keys=%s", sec_uid[:12], _keys)
+            except Exception as _e:
+                logger.warning("  [%s] avatar-debug: parse error %s", sec_uid[:12], _e)
 
         # 策略 0 优先：移动端真实作品（无 Cookie）
         items = parse_aweme_list(mcap.get("post")) if mcap.get("post") else []

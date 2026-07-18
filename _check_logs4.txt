@@ -1,0 +1,875 @@
+﻿2026-07-18T20:27:36.2656359Z Current runner version: '2.335.1'
+2026-07-18T20:27:36.2683229Z ##[group]Runner Image Provisioner
+2026-07-18T20:27:36.2684225Z Hosted Compute Agent
+2026-07-18T20:27:36.2684824Z Version: 20260707.563
+2026-07-18T20:27:36.2685461Z Commit: 02667638d2b423fbc733a8e32a88b44996a3ba6e
+2026-07-18T20:27:36.2686282Z Build Date: 2026-07-07T19:33:50Z
+2026-07-18T20:27:36.2687185Z Worker ID: {60c4fb33-3b5b-4e4b-b8e0-5cdd02b4d444}
+2026-07-18T20:27:36.2688040Z Azure Region: westus
+2026-07-18T20:27:36.2688692Z ##[endgroup]
+2026-07-18T20:27:36.2690182Z ##[group]Operating System
+2026-07-18T20:27:36.2690989Z Ubuntu
+2026-07-18T20:27:36.2691512Z 24.04.4
+2026-07-18T20:27:36.2692053Z LTS
+2026-07-18T20:27:36.2692571Z ##[endgroup]
+2026-07-18T20:27:36.2693149Z ##[group]Runner Image
+2026-07-18T20:27:36.2693792Z Image: ubuntu-24.04
+2026-07-18T20:27:36.2694356Z Version: 20260714.240.1
+2026-07-18T20:27:36.2695641Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260714.240/images/ubuntu/Ubuntu2404-Readme.md
+2026-07-18T20:27:36.2697637Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260714.240
+2026-07-18T20:27:36.2698723Z ##[endgroup]
+2026-07-18T20:27:36.2699989Z ##[group]GITHUB_TOKEN Permissions
+2026-07-18T20:27:36.2702238Z Actions: write
+2026-07-18T20:27:36.2702933Z Contents: write
+2026-07-18T20:27:36.2703567Z Metadata: read
+2026-07-18T20:27:36.2704145Z Pages: write
+2026-07-18T20:27:36.2704673Z ##[endgroup]
+2026-07-18T20:27:36.2707269Z Secret source: Actions
+2026-07-18T20:27:36.2708315Z Prepare workflow directory
+2026-07-18T20:27:36.3174048Z Prepare all required actions
+2026-07-18T20:27:36.3213009Z Getting action download info
+2026-07-18T20:27:36.6688687Z Download action repository 'actions/checkout@v4' (SHA:34e114876b0b11c390a56381ad16ebd13914f8d5)
+2026-07-18T20:27:36.8037298Z Download action repository 'actions/setup-python@v5' (SHA:a26af69be951a213d495a4c3e4e4022e16d87065)
+2026-07-18T20:27:36.9647558Z Download action repository 'actions/cache@v4' (SHA:0057852bfaa89a56745cba8c7296529d2fc39830)
+2026-07-18T20:27:37.1490433Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+2026-07-18T20:27:37.2743922Z Download action repository 'actions/upload-pages-artifact@v3' (SHA:56afc609e74202658d3ffba0e8f6dda462b719fa)
+2026-07-18T20:27:37.6065555Z Getting action download info
+2026-07-18T20:27:37.7621474Z Complete job name: check
+2026-07-18T20:27:37.8606234Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-07-18T20:27:37.8618276Z ##[group]Run actions/checkout@v4
+2026-07-18T20:27:37.8619465Z with:
+2026-07-18T20:27:37.8620292Z   repository: racheko-lab/blive-monitor
+2026-07-18T20:27:37.8629879Z   token: ***
+2026-07-18T20:27:37.8630681Z   ssh-strict: true
+2026-07-18T20:27:37.8631505Z   ssh-user: git
+2026-07-18T20:27:37.8632320Z   persist-credentials: true
+2026-07-18T20:27:37.8633218Z   clean: true
+2026-07-18T20:27:37.8634036Z   sparse-checkout-cone-mode: true
+2026-07-18T20:27:37.8635008Z   fetch-depth: 1
+2026-07-18T20:27:37.8635794Z   fetch-tags: false
+2026-07-18T20:27:37.8636602Z   show-progress: true
+2026-07-18T20:27:37.8637637Z   lfs: false
+2026-07-18T20:27:37.8638442Z   submodules: false
+2026-07-18T20:27:37.8639254Z   set-safe-directory: true
+2026-07-18T20:27:37.8640538Z env:
+2026-07-18T20:27:37.8717571Z   ENABLE_POST_CHECK: true
+2026-07-18T20:27:37.8718631Z ##[endgroup]
+2026-07-18T20:27:37.9808111Z Syncing repository: racheko-lab/blive-monitor
+2026-07-18T20:27:37.9812630Z ##[group]Getting Git version info
+2026-07-18T20:27:37.9815018Z Working directory is '/home/runner/work/blive-monitor/blive-monitor'
+2026-07-18T20:27:37.9818870Z [command]/usr/bin/git version
+2026-07-18T20:27:37.9890357Z git version 2.54.0
+2026-07-18T20:27:37.9929813Z ##[endgroup]
+2026-07-18T20:27:37.9941422Z Temporarily overriding HOME='/home/runner/work/_temp/359c8871-e693-496e-8896-26f4d03b74e8' before making global git config changes
+2026-07-18T20:27:37.9947007Z Adding repository directory to the temporary git global config as a safe directory
+2026-07-18T20:27:37.9951581Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/blive-monitor/blive-monitor
+2026-07-18T20:27:38.0004704Z Deleting the contents of '/home/runner/work/blive-monitor/blive-monitor'
+2026-07-18T20:27:38.0010638Z ##[group]Initializing the repository
+2026-07-18T20:27:38.0016201Z [command]/usr/bin/git init /home/runner/work/blive-monitor/blive-monitor
+2026-07-18T20:27:38.0125587Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-07-18T20:27:38.0129266Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-07-18T20:27:38.0132695Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-07-18T20:27:38.0135185Z hint: call:
+2026-07-18T20:27:38.0136490Z hint:
+2026-07-18T20:27:38.0138259Z hint: 	git config --global init.defaultBranch <name>
+2026-07-18T20:27:38.0140259Z hint:
+2026-07-18T20:27:38.0142156Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-07-18T20:27:38.0145324Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-07-18T20:27:38.0148268Z hint:
+2026-07-18T20:27:38.0149666Z hint: 	git branch -m <name>
+2026-07-18T20:27:38.0151170Z hint:
+2026-07-18T20:27:38.0153196Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-07-18T20:27:38.0156969Z Initialized empty Git repository in /home/runner/work/blive-monitor/blive-monitor/.git/
+2026-07-18T20:27:38.0162612Z [command]/usr/bin/git remote add origin https://github.com/racheko-lab/blive-monitor
+2026-07-18T20:27:38.0250163Z ##[endgroup]
+2026-07-18T20:27:38.0252575Z ##[group]Disabling automatic garbage collection
+2026-07-18T20:27:38.0254718Z [command]/usr/bin/git config --local gc.auto 0
+2026-07-18T20:27:38.0309692Z ##[endgroup]
+2026-07-18T20:27:38.0311066Z ##[group]Setting up auth
+2026-07-18T20:27:38.0313069Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-07-18T20:27:38.0346112Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-07-18T20:27:38.0722632Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-07-18T20:27:38.0768060Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-07-18T20:27:38.1002608Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-07-18T20:27:38.1042872Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-07-18T20:27:38.1274780Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-07-18T20:27:38.1316348Z ##[endgroup]
+2026-07-18T20:27:38.1319281Z ##[group]Fetching the repository
+2026-07-18T20:27:38.1331247Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +2cd839561b1f29324320646da44ffac40105ea53:refs/remotes/origin/master
+2026-07-18T20:27:38.8641458Z From https://github.com/racheko-lab/blive-monitor
+2026-07-18T20:27:38.8643618Z  * [new ref]         2cd839561b1f29324320646da44ffac40105ea53 -> origin/master
+2026-07-18T20:27:38.8675842Z ##[endgroup]
+2026-07-18T20:27:38.8678263Z ##[group]Determining the checkout info
+2026-07-18T20:27:38.8680844Z ##[endgroup]
+2026-07-18T20:27:38.8684327Z [command]/usr/bin/git sparse-checkout disable
+2026-07-18T20:27:38.8737175Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-07-18T20:27:38.8770114Z ##[group]Checking out the ref
+2026-07-18T20:27:38.8782229Z [command]/usr/bin/git checkout --progress --force -B master refs/remotes/origin/master
+2026-07-18T20:27:38.9082181Z Reset branch 'master'
+2026-07-18T20:27:38.9084644Z branch 'master' set up to track 'origin/master'.
+2026-07-18T20:27:38.9093248Z ##[endgroup]
+2026-07-18T20:27:38.9138697Z [command]/usr/bin/git log -1 --format=%H
+2026-07-18T20:27:38.9167789Z 2cd839561b1f29324320646da44ffac40105ea53
+2026-07-18T20:27:38.9498338Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-07-18T20:27:38.9502890Z ##[group]Run actions/setup-python@v5
+2026-07-18T20:27:38.9503842Z with:
+2026-07-18T20:27:38.9504558Z   python-version: 3.11
+2026-07-18T20:27:38.9505375Z   check-latest: false
+2026-07-18T20:27:38.9514591Z   token: ***
+2026-07-18T20:27:38.9515359Z   update-environment: true
+2026-07-18T20:27:38.9516233Z   allow-prereleases: false
+2026-07-18T20:27:38.9517232Z   freethreaded: false
+2026-07-18T20:27:38.9518002Z env:
+2026-07-18T20:27:38.9518707Z   ENABLE_POST_CHECK: true
+2026-07-18T20:27:38.9519546Z ##[endgroup]
+2026-07-18T20:27:39.0900716Z ##[group]Installed versions
+2026-07-18T20:27:39.1951112Z (node:2315) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-07-18T20:27:39.1953146Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-07-18T20:27:39.1954131Z Successfully set up CPython (3.11.15)
+2026-07-18T20:27:39.1955565Z ##[endgroup]
+2026-07-18T20:27:39.2129508Z ##[group]Run echo "WIN_MIN=$(date -u +%-M)" >> "$GITHUB_ENV"
+2026-07-18T20:27:39.2130482Z [36;1mecho "WIN_MIN=$(date -u +%-M)" >> "$GITHUB_ENV"[0m
+2026-07-18T20:27:39.2317113Z shell: /usr/bin/bash -e {0}
+2026-07-18T20:27:39.2317979Z env:
+2026-07-18T20:27:39.2318631Z   ENABLE_POST_CHECK: true
+2026-07-18T20:27:39.2319381Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:27:39.2320292Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.15/x64/lib/pkgconfig
+2026-07-18T20:27:39.2321199Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:27:39.2322018Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:27:39.2322849Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:27:39.2323692Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.15/x64/lib
+2026-07-18T20:27:39.2324422Z ##[endgroup]
+2026-07-18T20:27:39.2533637Z ##[group]Run if [ "push" = "push" ]; then
+2026-07-18T20:27:39.2534413Z [36;1mif [ "push" = "push" ]; then[0m
+2026-07-18T20:27:39.2535141Z [36;1m  echo "FORCE_POST_CHECK=true" >> "$GITHUB_ENV"[0m
+2026-07-18T20:27:39.2535844Z [36;1melse[0m
+2026-07-18T20:27:39.2536478Z [36;1m  echo "FORCE_POST_CHECK=false" >> "$GITHUB_ENV"[0m
+2026-07-18T20:27:39.2537393Z [36;1mfi[0m
+2026-07-18T20:27:39.2601942Z shell: /usr/bin/bash -e {0}
+2026-07-18T20:27:39.2602559Z env:
+2026-07-18T20:27:39.2603089Z   ENABLE_POST_CHECK: true
+2026-07-18T20:27:39.2603797Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:27:39.2604671Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.15/x64/lib/pkgconfig
+2026-07-18T20:27:39.2605540Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:27:39.2606345Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:27:39.2607314Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:27:39.2608171Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.15/x64/lib
+2026-07-18T20:27:39.2608886Z   WIN_MIN: 27
+2026-07-18T20:27:39.2609425Z ##[endgroup]
+2026-07-18T20:27:39.2756400Z ##[group]Run n=$(python3 -c "import json;print(len(json.load(open('post_rooms.json'))))" 2>/dev/null || echo 0)
+2026-07-18T20:27:39.2757991Z [36;1mn=$(python3 -c "import json;print(len(json.load(open('post_rooms.json'))))" 2>/dev/null || echo 0)[0m
+2026-07-18T20:27:39.2759508Z [36;1mif [ "$n" != "0" ]; then echo "enabled=true" >> "$GITHUB_OUTPUT"; else echo "enabled=false" >> "$GITHUB_OUTPUT"; fi[0m
+2026-07-18T20:27:39.2827959Z shell: /usr/bin/bash -e {0}
+2026-07-18T20:27:39.2828555Z env:
+2026-07-18T20:27:39.2829086Z   ENABLE_POST_CHECK: true
+2026-07-18T20:27:39.2829771Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:27:39.2830618Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.15/x64/lib/pkgconfig
+2026-07-18T20:27:39.2831467Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:27:39.2832254Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:27:39.2833087Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:27:39.2833909Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.15/x64/lib
+2026-07-18T20:27:39.2834620Z   WIN_MIN: 27
+2026-07-18T20:27:39.2835152Z   FORCE_POST_CHECK: true
+2026-07-18T20:27:39.2835716Z ##[endgroup]
+2026-07-18T20:27:39.8199956Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-07-18T20:27:39.8201445Z ##[group]Run actions/cache@v4
+2026-07-18T20:27:39.8201833Z with:
+2026-07-18T20:27:39.8202182Z   path: ~/.cache/ms-playwright
+2026-07-18T20:27:39.8202583Z   key: playwright-1.58.0
+2026-07-18T20:27:39.8202976Z   enableCrossOsArchive: false
+2026-07-18T20:27:39.8203372Z   fail-on-cache-miss: false
+2026-07-18T20:27:39.8203740Z   lookup-only: false
+2026-07-18T20:27:39.8204088Z   save-always: false
+2026-07-18T20:27:39.8204418Z env:
+2026-07-18T20:27:39.8204737Z   ENABLE_POST_CHECK: true
+2026-07-18T20:27:39.8205186Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:27:39.8205830Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.15/x64/lib/pkgconfig
+2026-07-18T20:27:39.8206437Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:27:39.8207288Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:27:39.8207840Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:27:39.8208376Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.15/x64/lib
+2026-07-18T20:27:39.8208837Z   WIN_MIN: 27
+2026-07-18T20:27:39.8209174Z   FORCE_POST_CHECK: true
+2026-07-18T20:27:39.8209526Z ##[endgroup]
+2026-07-18T20:27:39.9308548Z (node:2329) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-07-18T20:27:39.9309763Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-07-18T20:27:40.1680624Z Cache hit for: playwright-1.58.0
+2026-07-18T20:27:40.1788299Z (node:2329) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+2026-07-18T20:27:41.4773006Z Received 0 of 261363450 (0.0%), 0.0 MBs/sec
+2026-07-18T20:27:42.4778981Z Received 96468992 of 261363450 (36.9%), 46.0 MBs/sec
+2026-07-18T20:27:43.4790508Z Received 201326592 of 261363450 (77.0%), 64.0 MBs/sec
+2026-07-18T20:27:43.9888479Z Received 261363450 of 261363450 (100.0%), 71.0 MBs/sec
+2026-07-18T20:27:43.9891516Z Cache Size: ~249 MB (261363450 B)
+2026-07-18T20:27:44.0009771Z [command]/usr/bin/tar -xf /home/runner/work/_temp/cf27768f-860f-4cda-8266-b7590ca815e6/cache.tzst -P -C /home/runner/work/blive-monitor/blive-monitor --use-compress-program unzstd
+2026-07-18T20:27:44.9842921Z Cache restored successfully
+2026-07-18T20:27:45.0040418Z Cache restored from key: playwright-1.58.0
+2026-07-18T20:27:45.0174548Z ##[group]Run python -m pip install --upgrade pip
+2026-07-18T20:27:45.0175022Z [36;1mpython -m pip install --upgrade pip[0m
+2026-07-18T20:27:45.0175349Z [36;1mpip install -r requirements.txt[0m
+2026-07-18T20:27:45.0175856Z [36;1mplaywright install --with-deps chromium[0m
+2026-07-18T20:27:45.0235744Z shell: /usr/bin/bash -e {0}
+2026-07-18T20:27:45.0236037Z env:
+2026-07-18T20:27:45.0236261Z   ENABLE_POST_CHECK: true
+2026-07-18T20:27:45.0236617Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:27:45.0237347Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.15/x64/lib/pkgconfig
+2026-07-18T20:27:45.0237834Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:27:45.0238250Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:27:45.0238651Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:27:45.0239054Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.15/x64/lib
+2026-07-18T20:27:45.0239443Z   WIN_MIN: 27
+2026-07-18T20:27:45.0239657Z   FORCE_POST_CHECK: true
+2026-07-18T20:27:45.0239890Z ##[endgroup]
+2026-07-18T20:27:47.8252042Z Requirement already satisfied: pip in /opt/hostedtoolcache/Python/3.11.15/x64/lib/python3.11/site-packages (26.1.2)
+2026-07-18T20:27:48.9996714Z Collecting playwright==1.58.0 (from -r requirements.txt (line 10))
+2026-07-18T20:27:49.0494570Z   Downloading playwright-1.58.0-py3-none-manylinux1_x86_64.whl.metadata (3.5 kB)
+2026-07-18T20:27:49.0957319Z Collecting fastapi==0.128.2 (from -r requirements.txt (line 14))
+2026-07-18T20:27:49.1009048Z   Downloading fastapi-0.128.2-py3-none-any.whl.metadata (30 kB)
+2026-07-18T20:27:49.1343003Z Collecting uvicorn (from -r requirements.txt (line 16))
+2026-07-18T20:27:49.1382160Z   Downloading uvicorn-0.51.0-py3-none-any.whl.metadata (6.6 kB)
+2026-07-18T20:27:49.3705700Z Collecting sqlalchemy==2.0.51 (from -r requirements.txt (line 18))
+2026-07-18T20:27:49.3749524Z   Downloading sqlalchemy-2.0.51-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (9.5 kB)
+2026-07-18T20:27:49.3952461Z Collecting apscheduler==3.11.3 (from -r requirements.txt (line 20))
+2026-07-18T20:27:49.3983372Z   Downloading apscheduler-3.11.3-py3-none-any.whl.metadata (6.5 kB)
+2026-07-18T20:27:49.4183341Z Collecting httpx (from -r requirements.txt (line 22))
+2026-07-18T20:27:49.4216591Z   Downloading httpx-0.28.1-py3-none-any.whl.metadata (7.1 kB)
+2026-07-18T20:27:49.4362813Z Collecting python-multipart (from -r requirements.txt (line 24))
+2026-07-18T20:27:49.4394965Z   Downloading python_multipart-0.0.32-py3-none-any.whl.metadata (2.1 kB)
+2026-07-18T20:27:49.5509632Z Collecting pydantic (from -r requirements.txt (line 26))
+2026-07-18T20:27:49.5541777Z   Downloading pydantic-2.13.4-py3-none-any.whl.metadata (109 kB)
+2026-07-18T20:27:49.5753471Z Collecting pyee<14,>=13 (from playwright==1.58.0->-r requirements.txt (line 10))
+2026-07-18T20:27:49.5785429Z   Downloading pyee-13.0.1-py3-none-any.whl.metadata (3.0 kB)
+2026-07-18T20:27:49.6978549Z Collecting greenlet<4.0.0,>=3.1.1 (from playwright==1.58.0->-r requirements.txt (line 10))
+2026-07-18T20:27:49.7012264Z   Downloading greenlet-3.5.3-cp311-cp311-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl.metadata (3.8 kB)
+2026-07-18T20:27:49.7224231Z Collecting starlette<0.51.0,>=0.40.0 (from fastapi==0.128.2->-r requirements.txt (line 14))
+2026-07-18T20:27:49.7268609Z   Downloading starlette-0.50.0-py3-none-any.whl.metadata (6.3 kB)
+2026-07-18T20:27:49.7438682Z Collecting typing-extensions>=4.8.0 (from fastapi==0.128.2->-r requirements.txt (line 14))
+2026-07-18T20:27:49.7467724Z   Downloading typing_extensions-4.16.0-py3-none-any.whl.metadata (3.3 kB)
+2026-07-18T20:27:49.7563009Z Collecting typing-inspection>=0.4.2 (from fastapi==0.128.2->-r requirements.txt (line 14))
+2026-07-18T20:27:49.7603311Z   Downloading typing_inspection-0.4.2-py3-none-any.whl.metadata (2.6 kB)
+2026-07-18T20:27:49.7692584Z Collecting annotated-doc>=0.0.2 (from fastapi==0.128.2->-r requirements.txt (line 14))
+2026-07-18T20:27:49.7721559Z   Downloading annotated_doc-0.0.4-py3-none-any.whl.metadata (6.6 kB)
+2026-07-18T20:27:49.7892250Z Collecting tzlocal>=3.0 (from apscheduler==3.11.3->-r requirements.txt (line 20))
+2026-07-18T20:27:49.7923617Z   Downloading tzlocal-5.4.4-py3-none-any.whl.metadata (7.7 kB)
+2026-07-18T20:27:49.8114387Z Collecting anyio<5,>=3.6.2 (from starlette<0.51.0,>=0.40.0->fastapi==0.128.2->-r requirements.txt (line 14))
+2026-07-18T20:27:49.8145252Z   Downloading anyio-4.14.2-py3-none-any.whl.metadata (4.6 kB)
+2026-07-18T20:27:49.8296118Z Collecting idna>=2.8 (from anyio<5,>=3.6.2->starlette<0.51.0,>=0.40.0->fastapi==0.128.2->-r requirements.txt (line 14))
+2026-07-18T20:27:49.8324816Z   Downloading idna-3.18-py3-none-any.whl.metadata (6.1 kB)
+2026-07-18T20:27:49.8497738Z Collecting click>=7.0 (from uvicorn->-r requirements.txt (line 16))
+2026-07-18T20:27:49.8526397Z   Downloading click-8.4.2-py3-none-any.whl.metadata (2.6 kB)
+2026-07-18T20:27:49.8630678Z Collecting h11>=0.8 (from uvicorn->-r requirements.txt (line 16))
+2026-07-18T20:27:49.8660407Z   Downloading h11-0.16.0-py3-none-any.whl.metadata (8.3 kB)
+2026-07-18T20:27:49.8831602Z Collecting certifi (from httpx->-r requirements.txt (line 22))
+2026-07-18T20:27:49.8862745Z   Downloading certifi-2026.6.17-py3-none-any.whl.metadata (2.5 kB)
+2026-07-18T20:27:49.9057304Z Collecting httpcore==1.* (from httpx->-r requirements.txt (line 22))
+2026-07-18T20:27:49.9099902Z   Downloading httpcore-1.0.9-py3-none-any.whl.metadata (21 kB)
+2026-07-18T20:27:49.9230916Z Collecting annotated-types>=0.6.0 (from pydantic->-r requirements.txt (line 26))
+2026-07-18T20:27:49.9261014Z   Downloading annotated_types-0.7.0-py3-none-any.whl.metadata (15 kB)
+2026-07-18T20:27:50.5578097Z Collecting pydantic-core==2.46.4 (from pydantic->-r requirements.txt (line 26))
+2026-07-18T20:27:50.5616183Z   Downloading pydantic_core-2.46.4-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (6.6 kB)
+2026-07-18T20:27:50.5776228Z Downloading playwright-1.58.0-py3-none-manylinux1_x86_64.whl (46.2 MB)
+2026-07-18T20:27:50.8533983Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 46.2/46.2 MB 168.7 MB/s  0:00:00
+2026-07-18T20:27:50.8573419Z Downloading fastapi-0.128.2-py3-none-any.whl (104 kB)
+2026-07-18T20:27:50.8633059Z Downloading sqlalchemy-2.0.51-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (3.3 MB)
+2026-07-18T20:27:50.8810868Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3.3/3.3 MB 217.3 MB/s  0:00:00
+2026-07-18T20:27:50.8841131Z Downloading apscheduler-3.11.3-py3-none-any.whl (66 kB)
+2026-07-18T20:27:50.8895074Z Downloading greenlet-3.5.3-cp311-cp311-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl (617 kB)
+2026-07-18T20:27:50.8947964Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 617.4/617.4 kB 121.2 MB/s  0:00:00
+2026-07-18T20:27:50.8979420Z Downloading pyee-13.0.1-py3-none-any.whl (15 kB)
+2026-07-18T20:27:50.9041121Z Downloading starlette-0.50.0-py3-none-any.whl (74 kB)
+2026-07-18T20:27:50.9097098Z Downloading anyio-4.14.2-py3-none-any.whl (125 kB)
+2026-07-18T20:27:50.9154048Z Downloading uvicorn-0.51.0-py3-none-any.whl (73 kB)
+2026-07-18T20:27:50.9204011Z Downloading httpx-0.28.1-py3-none-any.whl (73 kB)
+2026-07-18T20:27:50.9259717Z Downloading httpcore-1.0.9-py3-none-any.whl (78 kB)
+2026-07-18T20:27:50.9313766Z Downloading python_multipart-0.0.32-py3-none-any.whl (30 kB)
+2026-07-18T20:27:50.9372115Z Downloading pydantic-2.13.4-py3-none-any.whl (472 kB)
+2026-07-18T20:27:50.9433688Z Downloading pydantic_core-2.46.4-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (2.1 MB)
+2026-07-18T20:27:50.9519667Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.1/2.1 MB 282.6 MB/s  0:00:00
+2026-07-18T20:27:50.9549355Z Downloading annotated_doc-0.0.4-py3-none-any.whl (5.3 kB)
+2026-07-18T20:27:50.9600904Z Downloading annotated_types-0.7.0-py3-none-any.whl (13 kB)
+2026-07-18T20:27:50.9651881Z Downloading click-8.4.2-py3-none-any.whl (119 kB)
+2026-07-18T20:27:50.9703933Z Downloading h11-0.16.0-py3-none-any.whl (37 kB)
+2026-07-18T20:27:50.9757413Z Downloading idna-3.18-py3-none-any.whl (65 kB)
+2026-07-18T20:27:50.9811932Z Downloading typing_extensions-4.16.0-py3-none-any.whl (45 kB)
+2026-07-18T20:27:50.9864689Z Downloading typing_inspection-0.4.2-py3-none-any.whl (14 kB)
+2026-07-18T20:27:50.9914625Z Downloading tzlocal-5.4.4-py3-none-any.whl (18 kB)
+2026-07-18T20:27:50.9963851Z Downloading certifi-2026.6.17-py3-none-any.whl (133 kB)
+2026-07-18T20:27:51.1247362Z Installing collected packages: tzlocal, typing-extensions, python-multipart, idna, h11, greenlet, click, certifi, annotated-types, annotated-doc, uvicorn, typing-inspection, sqlalchemy, pyee, pydantic-core, httpcore, apscheduler, anyio, starlette, pydantic, playwright, httpx, fastapi
+2026-07-18T20:27:54.1248541Z 
+2026-07-18T20:27:54.1265082Z Successfully installed annotated-doc-0.0.4 annotated-types-0.7.0 anyio-4.14.2 apscheduler-3.11.3 certifi-2026.6.17 click-8.4.2 fastapi-0.128.2 greenlet-3.5.3 h11-0.16.0 httpcore-1.0.9 httpx-0.28.1 idna-3.18 playwright-1.58.0 pydantic-2.13.4 pydantic-core-2.46.4 pyee-13.0.1 python-multipart-0.0.32 sqlalchemy-2.0.51 starlette-0.50.0 typing-extensions-4.16.0 typing-inspection-0.4.2 tzlocal-5.4.4 uvicorn-0.51.0
+2026-07-18T20:27:54.6526498Z Installing dependencies...
+2026-07-18T20:27:54.6614472Z Switching to root user to install dependencies...
+2026-07-18T20:27:54.7475981Z Get:1 file:/etc/apt/apt-mirrors.txt Mirrorlist [144 B]
+2026-07-18T20:27:54.7815582Z Hit:2 http://azure.archive.ubuntu.com/ubuntu noble InRelease
+2026-07-18T20:27:54.7817720Z Hit:6 https://packages.microsoft.com/repos/azure-cli noble InRelease
+2026-07-18T20:27:54.7828042Z Get:3 http://azure.archive.ubuntu.com/ubuntu noble-updates InRelease [126 kB]
+2026-07-18T20:27:54.7879440Z Get:4 http://azure.archive.ubuntu.com/ubuntu noble-backports InRelease [126 kB]
+2026-07-18T20:27:54.7891471Z Get:7 https://packages.microsoft.com/ubuntu/24.04/prod noble InRelease [3600 B]
+2026-07-18T20:27:54.7895655Z Get:5 http://azure.archive.ubuntu.com/ubuntu noble-security InRelease [126 kB]
+2026-07-18T20:27:54.8222024Z Get:8 https://dl.google.com/linux/chrome-stable/deb stable InRelease [1825 B]
+2026-07-18T20:27:54.9557524Z Get:9 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 Packages [1114 kB]
+2026-07-18T20:27:54.9718637Z Get:10 http://azure.archive.ubuntu.com/ubuntu noble-updates/main Translation-en [272 kB]
+2026-07-18T20:27:54.9738051Z Get:11 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 Components [180 kB]
+2026-07-18T20:27:54.9748123Z Get:12 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe amd64 Packages [1661 kB]
+2026-07-18T20:27:54.9872725Z Get:13 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe Translation-en [328 kB]
+2026-07-18T20:27:54.9892760Z Get:14 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe amd64 Components [389 kB]
+2026-07-18T20:27:54.9928526Z Get:15 http://azure.archive.ubuntu.com/ubuntu noble-updates/restricted amd64 Packages [1256 kB]
+2026-07-18T20:27:54.9982654Z Get:16 http://azure.archive.ubuntu.com/ubuntu noble-updates/restricted Translation-en [286 kB]
+2026-07-18T20:27:55.0001136Z Get:17 http://azure.archive.ubuntu.com/ubuntu noble-updates/multiverse amd64 Components [940 B]
+2026-07-18T20:27:55.0154396Z Get:18 http://azure.archive.ubuntu.com/ubuntu noble-backports/main amd64 Components [5744 B]
+2026-07-18T20:27:55.0573780Z Get:19 http://azure.archive.ubuntu.com/ubuntu noble-backports/universe amd64 Components [10.5 kB]
+2026-07-18T20:27:55.0655518Z Get:20 https://packages.microsoft.com/ubuntu/24.04/prod noble/main arm64 Packages [197 kB]
+2026-07-18T20:27:55.0748218Z Get:21 https://packages.microsoft.com/ubuntu/24.04/prod noble/main amd64 Packages [231 kB]
+2026-07-18T20:27:55.0819337Z Get:22 https://packages.microsoft.com/ubuntu/24.04/prod noble/main armhf Packages [11.7 kB]
+2026-07-18T20:27:55.1189056Z Get:23 http://azure.archive.ubuntu.com/ubuntu noble-security/main amd64 Packages [853 kB]
+2026-07-18T20:27:55.1219249Z Get:24 http://azure.archive.ubuntu.com/ubuntu noble-security/main Translation-en [191 kB]
+2026-07-18T20:27:55.1239557Z Get:25 http://azure.archive.ubuntu.com/ubuntu noble-security/main amd64 Components [44.8 kB]
+2026-07-18T20:27:55.1249296Z Get:26 http://azure.archive.ubuntu.com/ubuntu noble-security/universe amd64 Packages [1178 kB]
+2026-07-18T20:27:55.1332035Z Get:27 http://azure.archive.ubuntu.com/ubuntu noble-security/universe Translation-en [232 kB]
+2026-07-18T20:27:55.1346650Z Get:28 http://azure.archive.ubuntu.com/ubuntu noble-security/universe amd64 Components [76.2 kB]
+2026-07-18T20:27:55.1367835Z Get:29 http://azure.archive.ubuntu.com/ubuntu noble-security/restricted amd64 Packages [1166 kB]
+2026-07-18T20:27:55.1420943Z Get:30 http://azure.archive.ubuntu.com/ubuntu noble-security/restricted Translation-en [268 kB]
+2026-07-18T20:27:55.1894872Z Get:31 https://dl.google.com/linux/chrome-stable/deb stable/main amd64 Packages [1223 B]
+2026-07-18T20:27:59.0681225Z Fetched 10.3 MB in 1s (8496 kB/s)
+2026-07-18T20:27:59.7927782Z Reading package lists...
+2026-07-18T20:27:59.8168532Z Reading package lists...
+2026-07-18T20:27:59.9909003Z Building dependency tree...
+2026-07-18T20:27:59.9916339Z Reading state information...
+2026-07-18T20:28:00.1558645Z libatk-bridge2.0-0t64 is already the newest version (2.52.0-1build1).
+2026-07-18T20:28:00.1559680Z libatk-bridge2.0-0t64 set to manually installed.
+2026-07-18T20:28:00.1560433Z libatk1.0-0t64 is already the newest version (2.52.0-1build1).
+2026-07-18T20:28:00.1561057Z libatk1.0-0t64 set to manually installed.
+2026-07-18T20:28:00.1561697Z libatspi2.0-0t64 is already the newest version (2.52.0-1build1).
+2026-07-18T20:28:00.1562363Z libatspi2.0-0t64 set to manually installed.
+2026-07-18T20:28:00.1563050Z libcairo2 is already the newest version (1.18.0-3build1).
+2026-07-18T20:28:00.1563637Z libcairo2 set to manually installed.
+2026-07-18T20:28:00.1564223Z libcups2t64 is already the newest version (2.4.7-1.2ubuntu7.14).
+2026-07-18T20:28:00.1564860Z libcups2t64 set to manually installed.
+2026-07-18T20:28:00.1565449Z libdbus-1-3 is already the newest version (1.14.10-4ubuntu4.1).
+2026-07-18T20:28:00.1566057Z libdbus-1-3 set to manually installed.
+2026-07-18T20:28:00.1566969Z libdrm2 is already the newest version (2.4.125-1ubuntu0.1~24.04.2).
+2026-07-18T20:28:00.1567623Z libdrm2 set to manually installed.
+2026-07-18T20:28:00.1568250Z libgbm1 is already the newest version (25.2.8-0ubuntu0.24.04.2).
+2026-07-18T20:28:00.1568853Z libgbm1 set to manually installed.
+2026-07-18T20:28:00.1569417Z libglib2.0-0t64 is already the newest version (2.80.0-6ubuntu3.8).
+2026-07-18T20:28:00.1570142Z libglib2.0-0t64 set to manually installed.
+2026-07-18T20:28:00.1570823Z libnspr4 is already the newest version (2:4.35-1.1build1).
+2026-07-18T20:28:00.1571408Z libnspr4 set to manually installed.
+2026-07-18T20:28:00.1571980Z libnss3 is already the newest version (2:3.98-1ubuntu0.2).
+2026-07-18T20:28:00.1572528Z libnss3 set to manually installed.
+2026-07-18T20:28:00.1573071Z libpango-1.0-0 is already the newest version (1.52.1+ds-1build1).
+2026-07-18T20:28:00.1573668Z libpango-1.0-0 set to manually installed.
+2026-07-18T20:28:00.1574222Z libx11-6 is already the newest version (2:1.8.7-1build1).
+2026-07-18T20:28:00.1574716Z libx11-6 set to manually installed.
+2026-07-18T20:28:00.1575203Z libxcb1 is already the newest version (1.15-1ubuntu2).
+2026-07-18T20:28:00.1575747Z libxcb1 set to manually installed.
+2026-07-18T20:28:00.1576280Z libxcomposite1 is already the newest version (1:0.4.5-1build3).
+2026-07-18T20:28:00.1576654Z libxcomposite1 set to manually installed.
+2026-07-18T20:28:00.1577340Z libxdamage1 is already the newest version (1:1.1.6-1build1).
+2026-07-18T20:28:00.1577883Z libxdamage1 set to manually installed.
+2026-07-18T20:28:00.1578233Z libxext6 is already the newest version (2:1.3.4-1build2).
+2026-07-18T20:28:00.1578565Z libxext6 set to manually installed.
+2026-07-18T20:28:00.1578889Z libxfixes3 is already the newest version (1:6.0.0-2build1).
+2026-07-18T20:28:00.1579232Z libxfixes3 set to manually installed.
+2026-07-18T20:28:00.1579713Z libxkbcommon0 is already the newest version (1.6.0-1build1).
+2026-07-18T20:28:00.1580417Z libxkbcommon0 set to manually installed.
+2026-07-18T20:28:00.1580773Z libxrandr2 is already the newest version (2:1.5.2-2build1).
+2026-07-18T20:28:00.1581116Z libxrandr2 set to manually installed.
+2026-07-18T20:28:00.1581433Z xvfb is already the newest version (2:21.1.12-1ubuntu1.6).
+2026-07-18T20:28:00.1582170Z fonts-noto-color-emoji is already the newest version (2.047-0ubuntu0.24.04.1).
+2026-07-18T20:28:00.1582822Z libfontconfig1 is already the newest version (2.15.0-1.1ubuntu2).
+2026-07-18T20:28:00.1583430Z libfontconfig1 set to manually installed.
+2026-07-18T20:28:00.1584048Z libfreetype6 is already the newest version (2.13.2+dfsg-1ubuntu0.1).
+2026-07-18T20:28:00.1584715Z libfreetype6 set to manually installed.
+2026-07-18T20:28:00.1585284Z fonts-liberation is already the newest version (1:2.1.5-3).
+2026-07-18T20:28:00.1585852Z fonts-liberation set to manually installed.
+2026-07-18T20:28:00.1586201Z The following additional packages will be installed:
+2026-07-18T20:28:00.1586599Z   libasound2-data xfonts-encodings xfonts-utils
+2026-07-18T20:28:00.1587174Z Suggested packages:
+2026-07-18T20:28:00.1587615Z   alsa-utils libasound2-plugins
+2026-07-18T20:28:00.1588067Z Recommended packages:
+2026-07-18T20:28:00.1588661Z   fonts-ipafont-mincho fonts-tlwg-loma alsa-ucm-conf alsa-topology-conf
+2026-07-18T20:28:00.1793001Z The following NEW packages will be installed:
+2026-07-18T20:28:00.1793965Z   fonts-freefont-ttf fonts-ipafont-gothic fonts-tlwg-loma-otf fonts-unifont
+2026-07-18T20:28:00.1801634Z   fonts-wqy-zenhei xfonts-cyrillic xfonts-encodings xfonts-scalable
+2026-07-18T20:28:00.1802428Z   xfonts-utils
+2026-07-18T20:28:00.1806529Z The following packages will be upgraded:
+2026-07-18T20:28:00.1811837Z   libasound2-data libasound2t64
+2026-07-18T20:28:00.1982082Z 2 upgraded, 9 newly installed, 0 to remove and 22 not upgraded.
+2026-07-18T20:28:00.1982771Z Need to get 21.5 MB of archives.
+2026-07-18T20:28:00.1983378Z After this operation, 79.5 MB of additional disk space will be used.
+2026-07-18T20:28:00.1984133Z Get:1 file:/etc/apt/apt-mirrors.txt Mirrorlist [144 B]
+2026-07-18T20:28:00.2843021Z Get:2 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 fonts-ipafont-gothic all 00303-21ubuntu1 [3513 kB]
+2026-07-18T20:28:00.6307800Z Get:3 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 fonts-freefont-ttf all 20211204+svn4273-2 [5641 kB]
+2026-07-18T20:28:01.0625616Z Get:4 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 fonts-tlwg-loma-otf all 1:0.7.3-1 [107 kB]
+2026-07-18T20:28:01.1342829Z Get:5 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 fonts-unifont all 1:15.1.01-1build1 [2993 kB]
+2026-07-18T20:28:01.4238481Z Get:6 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 fonts-wqy-zenhei all 0.9.45-8 [7472 kB]
+2026-07-18T20:28:01.9273748Z Get:7 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 libasound2t64 amd64 1.2.11-1ubuntu0.3 [398 kB]
+2026-07-18T20:28:02.0728736Z Get:8 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 libasound2-data all 1.2.11-1ubuntu0.3 [21.4 kB]
+2026-07-18T20:28:02.1489539Z Get:9 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 xfonts-encodings all 1:1.0.5-0ubuntu2 [578 kB]
+2026-07-18T20:28:02.2284535Z Get:10 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 xfonts-utils amd64 1:7.7+6build3 [94.4 kB]
+2026-07-18T20:28:02.3051087Z Get:11 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 xfonts-cyrillic all 1:1.0.5+nmu1 [384 kB]
+2026-07-18T20:28:02.3832152Z Get:12 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 xfonts-scalable all 1:1.0.3-1.3 [304 kB]
+2026-07-18T20:28:02.6398787Z Fetched 21.5 MB in 2s (9786 kB/s)
+2026-07-18T20:28:02.6634140Z Selecting previously unselected package fonts-ipafont-gothic.
+2026-07-18T20:28:02.6867854Z (Reading database ... 
+2026-07-18T20:28:02.6868186Z (Reading database ... 5%
+2026-07-18T20:28:02.6868480Z (Reading database ... 10%
+2026-07-18T20:28:02.6868770Z (Reading database ... 15%
+2026-07-18T20:28:02.6869173Z (Reading database ... 20%
+2026-07-18T20:28:02.6869717Z (Reading database ... 25%
+2026-07-18T20:28:02.6869999Z (Reading database ... 30%
+2026-07-18T20:28:02.6870285Z (Reading database ... 35%
+2026-07-18T20:28:02.6871057Z (Reading database ... 40%
+2026-07-18T20:28:02.6871591Z (Reading database ... 45%
+2026-07-18T20:28:02.6872355Z (Reading database ... 50%
+2026-07-18T20:28:02.6912199Z (Reading database ... 55%
+2026-07-18T20:28:02.8511145Z (Reading database ... 60%
+2026-07-18T20:28:03.0147579Z (Reading database ... 65%
+2026-07-18T20:28:03.2043021Z (Reading database ... 70%
+2026-07-18T20:28:03.3195078Z (Reading database ... 75%
+2026-07-18T20:28:03.5080516Z (Reading database ... 80%
+2026-07-18T20:28:03.7543815Z (Reading database ... 85%
+2026-07-18T20:28:03.9633214Z (Reading database ... 90%
+2026-07-18T20:28:04.1641085Z (Reading database ... 95%
+2026-07-18T20:28:04.1641691Z (Reading database ... 100%
+2026-07-18T20:28:04.1642263Z (Reading database ... 202507 files and directories currently installed.)
+2026-07-18T20:28:04.1686120Z Preparing to unpack .../00-fonts-ipafont-gothic_00303-21ubuntu1_all.deb ...
+2026-07-18T20:28:04.1779650Z Unpacking fonts-ipafont-gothic (00303-21ubuntu1) ...
+2026-07-18T20:28:04.4042936Z Selecting previously unselected package fonts-freefont-ttf.
+2026-07-18T20:28:04.4171391Z Preparing to unpack .../01-fonts-freefont-ttf_20211204+svn4273-2_all.deb ...
+2026-07-18T20:28:04.4183425Z Unpacking fonts-freefont-ttf (20211204+svn4273-2) ...
+2026-07-18T20:28:04.5070051Z Selecting previously unselected package fonts-tlwg-loma-otf.
+2026-07-18T20:28:04.5197356Z Preparing to unpack .../02-fonts-tlwg-loma-otf_1%3a0.7.3-1_all.deb ...
+2026-07-18T20:28:04.5208714Z Unpacking fonts-tlwg-loma-otf (1:0.7.3-1) ...
+2026-07-18T20:28:04.5438215Z Selecting previously unselected package fonts-unifont.
+2026-07-18T20:28:04.5565753Z Preparing to unpack .../03-fonts-unifont_1%3a15.1.01-1build1_all.deb ...
+2026-07-18T20:28:04.5576923Z Unpacking fonts-unifont (1:15.1.01-1build1) ...
+2026-07-18T20:28:04.6720668Z Selecting previously unselected package fonts-wqy-zenhei.
+2026-07-18T20:28:04.6847063Z Preparing to unpack .../04-fonts-wqy-zenhei_0.9.45-8_all.deb ...
+2026-07-18T20:28:04.6952515Z Unpacking fonts-wqy-zenhei (0.9.45-8) ...
+2026-07-18T20:28:05.1772773Z Preparing to unpack .../05-libasound2t64_1.2.11-1ubuntu0.3_amd64.deb ...
+2026-07-18T20:28:05.1860265Z Unpacking libasound2t64:amd64 (1.2.11-1ubuntu0.3) over (1.2.11-1ubuntu0.2) ...
+2026-07-18T20:28:05.2633417Z Preparing to unpack .../06-libasound2-data_1.2.11-1ubuntu0.3_all.deb ...
+2026-07-18T20:28:05.2663843Z Unpacking libasound2-data (1.2.11-1ubuntu0.3) over (1.2.11-1ubuntu0.2) ...
+2026-07-18T20:28:05.3200955Z Selecting previously unselected package xfonts-encodings.
+2026-07-18T20:28:05.3328017Z Preparing to unpack .../07-xfonts-encodings_1%3a1.0.5-0ubuntu2_all.deb ...
+2026-07-18T20:28:05.3339218Z Unpacking xfonts-encodings (1:1.0.5-0ubuntu2) ...
+2026-07-18T20:28:05.3653242Z Selecting previously unselected package xfonts-utils.
+2026-07-18T20:28:05.3782520Z Preparing to unpack .../08-xfonts-utils_1%3a7.7+6build3_amd64.deb ...
+2026-07-18T20:28:05.3794047Z Unpacking xfonts-utils (1:7.7+6build3) ...
+2026-07-18T20:28:05.4157155Z Selecting previously unselected package xfonts-cyrillic.
+2026-07-18T20:28:05.4283195Z Preparing to unpack .../09-xfonts-cyrillic_1%3a1.0.5+nmu1_all.deb ...
+2026-07-18T20:28:05.4293703Z Unpacking xfonts-cyrillic (1:1.0.5+nmu1) ...
+2026-07-18T20:28:05.4649513Z Selecting previously unselected package xfonts-scalable.
+2026-07-18T20:28:05.4775734Z Preparing to unpack .../10-xfonts-scalable_1%3a1.0.3-1.3_all.deb ...
+2026-07-18T20:28:05.4797816Z Unpacking xfonts-scalable (1:1.0.3-1.3) ...
+2026-07-18T20:28:05.5224015Z Setting up fonts-wqy-zenhei (0.9.45-8) ...
+2026-07-18T20:28:05.5360653Z Setting up fonts-freefont-ttf (20211204+svn4273-2) ...
+2026-07-18T20:28:05.5384476Z Setting up libasound2-data (1.2.11-1ubuntu0.3) ...
+2026-07-18T20:28:05.5408243Z Setting up libasound2t64:amd64 (1.2.11-1ubuntu0.3) ...
+2026-07-18T20:28:05.5434604Z Setting up fonts-tlwg-loma-otf (1:0.7.3-1) ...
+2026-07-18T20:28:05.5459732Z Setting up xfonts-encodings (1:1.0.5-0ubuntu2) ...
+2026-07-18T20:28:05.5483472Z Setting up fonts-ipafont-gothic (00303-21ubuntu1) ...
+2026-07-18T20:28:05.5554742Z update-alternatives: using /usr/share/fonts/opentype/ipafont-gothic/ipag.ttf to provide /usr/share/fonts/truetype/fonts-japanese-gothic.ttf (fonts-japanese-gothic.ttf) in auto mode
+2026-07-18T20:28:05.5573056Z Setting up fonts-unifont (1:15.1.01-1build1) ...
+2026-07-18T20:28:05.5600571Z Setting up xfonts-utils (1:7.7+6build3) ...
+2026-07-18T20:28:05.5648570Z Setting up xfonts-cyrillic (1:1.0.5+nmu1) ...
+2026-07-18T20:28:05.6055702Z Setting up xfonts-scalable (1:1.0.3-1.3) ...
+2026-07-18T20:28:05.6402498Z Processing triggers for libc-bin (2.39-0ubuntu8.7) ...
+2026-07-18T20:28:05.6706714Z Processing triggers for man-db (2.12.0-4build2) ...
+2026-07-18T20:28:05.6728565Z Not building database; man-db/auto-update is not 'true'.
+2026-07-18T20:28:05.6745439Z Processing triggers for fontconfig (2.15.0-1.1ubuntu2) ...
+2026-07-18T20:28:06.4781203Z 
+2026-07-18T20:28:06.4782048Z Running kernel seems to be up-to-date.
+2026-07-18T20:28:06.4782522Z 
+2026-07-18T20:28:06.4782735Z No services need to be restarted.
+2026-07-18T20:28:06.4783082Z 
+2026-07-18T20:28:06.4783293Z No containers need to be restarted.
+2026-07-18T20:28:06.4783662Z 
+2026-07-18T20:28:06.4783913Z No user sessions are running outdated binaries.
+2026-07-18T20:28:06.4784347Z 
+2026-07-18T20:28:06.4784741Z No VM guests are running outdated hypervisor (qemu) binaries on this host.
+2026-07-18T20:28:07.4400212Z ##[group]Run python3 check_status.py
+2026-07-18T20:28:07.4400611Z [36;1mpython3 check_status.py[0m
+2026-07-18T20:28:07.4459387Z shell: /usr/bin/bash -e {0}
+2026-07-18T20:28:07.4459655Z env:
+2026-07-18T20:28:07.4459856Z   ENABLE_POST_CHECK: true
+2026-07-18T20:28:07.4460173Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:28:07.4460621Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.15/x64/lib/pkgconfig
+2026-07-18T20:28:07.4461087Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:28:07.4461507Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:28:07.4461912Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:28:07.4462323Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.15/x64/lib
+2026-07-18T20:28:07.4462672Z   WIN_MIN: 27
+2026-07-18T20:28:07.4462879Z   FORCE_POST_CHECK: true
+2026-07-18T20:28:07.4463715Z   BLIVE_CONFIG: ***
+2026-07-18T20:28:07.4463953Z ##[endgroup]
+2026-07-18T20:28:07.5338062Z 2026-07-18 20:28:07 [INFO] __main__  开始检测 10 个房间...
+2026-07-18T20:28:08.4093165Z 2026-07-18 20:28:08 [INFO] __main__  B站批量查询成功，获取 1 个房间数据
+2026-07-18T20:28:08.4094241Z 2026-07-18 20:28:08 [INFO] __main__    [峰哥亡命天涯] offline - be一下
+2026-07-18T20:28:10.2905971Z 2026-07-18 20:28:10 [INFO] __main__    [长春小猪装机（只做性价比 谁坑人谁是🐶] offline - 100元帮粉丝装机无偿写配置避坑只做性价比899—8000
+2026-07-18T20:28:11.5690018Z 2026-07-18 20:28:11 [INFO] __main__    [27～] offline - 正在直播
+2026-07-18T20:28:13.2858892Z 2026-07-18 20:28:13 [INFO] __main__    [Yifei] offline - 想你了
+2026-07-18T20:28:14.6061925Z 2026-07-18 20:28:14 [INFO] __main__    [披萨解说] offline - 实况Theshy冲2000分
+2026-07-18T20:28:16.3182099Z 2026-07-18 20:28:16 [INFO] __main__    [肖粽子] offline - 哈咯
+2026-07-18T20:28:17.6544925Z 2026-07-18 20:28:17 [INFO] __main__    [x ..] offline - 无为大润发旺卤集市 来看看哦
+2026-07-18T20:28:18.9685655Z 2026-07-18 20:28:18 [INFO] __main__    [小曲开心] offline - 与美萌女孩们聊天
+2026-07-18T20:28:20.1412638Z 2026-07-18 20:28:20 [INFO] __main__    [piiiiikiepie] offline - piiiiikiepie正在直播
+2026-07-18T20:28:21.3378874Z 2026-07-18 20:28:21 [INFO] __main__    [Sayonal_] offline - TRNA
+2026-07-18T20:28:21.3559477Z 2026-07-18 20:28:21 [INFO] __main__  检测完成，状态已更新
+2026-07-18T20:28:21.3750382Z ##[group]Run # 新作品检测降频：仅当 UTC 分钟为 15 的倍数时运行（即每 15 分钟一次）；
+2026-07-18T20:28:21.3750800Z [36;1m# 新作品检测降频：仅当 UTC 分钟为 15 的倍数时运行（即每 15 分钟一次）；[0m
+2026-07-18T20:28:21.3751162Z [36;1m# 但若本次由 post_rooms.json 的 push 触发（用户增删账号），则立即抓取不受限。[0m
+2026-07-18T20:28:21.3751520Z [36;1mif [ "${FORCE_POST_CHECK}" != "true" ]; then[0m
+2026-07-18T20:28:21.3751817Z [36;1m  MIN=${WIN_MIN}[0m
+2026-07-18T20:28:21.3752066Z [36;1m  if [ $((MIN % 15)) -ne 0 ]; then[0m
+2026-07-18T20:28:21.3752395Z [36;1m    echo "非新作品检测窗口（每 15 分钟一次，当前 UTC 分钟 $MIN），跳过"[0m
+2026-07-18T20:28:21.3752905Z [36;1m    exit 0[0m
+2026-07-18T20:28:21.3753116Z [36;1m  fi[0m
+2026-07-18T20:28:21.3753311Z [36;1mfi[0m
+2026-07-18T20:28:21.3753528Z [36;1mpython3 check_new_posts.py[0m
+2026-07-18T20:28:21.3812650Z shell: /usr/bin/bash -e {0}
+2026-07-18T20:28:21.3812907Z env:
+2026-07-18T20:28:21.3813125Z   ENABLE_POST_CHECK: true
+2026-07-18T20:28:21.3813438Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:28:21.3813938Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.15/x64/lib/pkgconfig
+2026-07-18T20:28:21.3814384Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:28:21.3814773Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:28:21.3815163Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:28:21.3815552Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.15/x64/lib
+2026-07-18T20:28:21.3815876Z   WIN_MIN: 27
+2026-07-18T20:28:21.3816079Z   FORCE_POST_CHECK: true
+2026-07-18T20:28:21.3816642Z   BLIVE_CONFIG: ***
+2026-07-18T20:28:21.3817130Z   DOUYIN_COOKIE: 
+2026-07-18T20:28:21.3817340Z ##[endgroup]
+2026-07-18T20:28:21.4618676Z 2026-07-18 20:28:21 [INFO] __main__  开始检测 2 个抖音用户的新作品...
+2026-07-18T20:28:41.4713992Z 2026-07-18 20:28:41 [INFO] __main__    [艾一古，宋社长煮面仙人] 取到最新作品[count]: count:368 (上次基线: 7663809885399089764)
+2026-07-18T20:28:57.0355737Z 2026-07-18 20:28:57 [INFO] __main__    [Sayonal_] 取到最新作品[api]: 7627471964336119177 (上次基线: 7627471964336119177)
+2026-07-18T20:28:57.1112968Z 2026-07-18 20:28:57 [INFO] __main__  新作品检测完成
+2026-07-18T20:28:57.1515364Z ##[group]Run if [ "${FORCE_POST_CHECK}" != "true" ]; then
+2026-07-18T20:28:57.1515807Z [36;1mif [ "${FORCE_POST_CHECK}" != "true" ]; then[0m
+2026-07-18T20:28:57.1516122Z [36;1m  MIN=${WIN_MIN}[0m
+2026-07-18T20:28:57.1516387Z [36;1m  if [ $((MIN % 15)) -ne 0 ]; then[0m
+2026-07-18T20:28:57.1517027Z [36;1m    echo "非新作品检测窗口（每 15 分钟一次，当前 UTC 分钟 $MIN），跳过封面转存"[0m
+2026-07-18T20:28:57.1517382Z [36;1m    exit 0[0m
+2026-07-18T20:28:57.1517601Z [36;1m  fi[0m
+2026-07-18T20:28:57.1517832Z [36;1mfi[0m
+2026-07-18T20:28:57.1518325Z [36;1mpython3 transcode_covers.py --owner racheko-lab --repo blive-monitor --branch master --covers-dir assets/covers[0m
+2026-07-18T20:28:57.1577771Z shell: /usr/bin/bash -e {0}
+2026-07-18T20:28:57.1578033Z env:
+2026-07-18T20:28:57.1578246Z   ENABLE_POST_CHECK: true
+2026-07-18T20:28:57.1578559Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:28:57.1579002Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.15/x64/lib/pkgconfig
+2026-07-18T20:28:57.1579486Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:28:57.1579892Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:28:57.1580285Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:28:57.1580696Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.15/x64/lib
+2026-07-18T20:28:57.1581022Z   WIN_MIN: 27
+2026-07-18T20:28:57.1581229Z   FORCE_POST_CHECK: true
+2026-07-18T20:28:57.1581467Z ##[endgroup]
+2026-07-18T20:28:58.5086152Z [transcode_covers] total=2 changed=2 downloaded=2
+2026-07-18T20:28:58.5211873Z ##[group]Run python3 auto_summary.py
+2026-07-18T20:28:58.5212224Z [36;1mpython3 auto_summary.py[0m
+2026-07-18T20:28:58.5270951Z shell: /usr/bin/bash -e {0}
+2026-07-18T20:28:58.5271216Z env:
+2026-07-18T20:28:58.5271418Z   ENABLE_POST_CHECK: true
+2026-07-18T20:28:58.5271728Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:28:58.5272169Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.15/x64/lib/pkgconfig
+2026-07-18T20:28:58.5272600Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:28:58.5272985Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:28:58.5273376Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:28:58.5273774Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.15/x64/lib
+2026-07-18T20:28:58.5274098Z   WIN_MIN: 27
+2026-07-18T20:28:58.5274303Z   FORCE_POST_CHECK: true
+2026-07-18T20:28:58.5274881Z   BLIVE_CONFIG: ***
+2026-07-18T20:28:58.5275416Z ##[endgroup]
+2026-07-18T20:28:58.6100177Z ##[group]Run git config user.name "github-actions[bot]"
+2026-07-18T20:28:58.6100694Z [36;1mgit config user.name "github-actions[bot]"[0m
+2026-07-18T20:28:58.6101119Z [36;1mgit config user.email "github-actions[bot]@users.noreply.com"[0m
+2026-07-18T20:28:58.6101529Z [36;1m# 关键：用语义合并替代 git pull --rebase。[0m
+2026-07-18T20:28:58.6101877Z [36;1m# 旧方案 `git pull --rebase` 在状态文件有本地改动时会失败（远端也改了同一文件），[0m
+2026-07-18T20:28:58.6102265Z [36;1m# abort 后提交基于旧 base、push 非快进被拒 → 状态丢失 → 下一轮重复推送。[0m
+2026-07-18T20:28:58.6102656Z [36;1m# 新方案：fetch 远端（不 rebase），用 merge_state.py 按字段语义合并状态文件，[0m
+2026-07-18T20:28:58.6103018Z [36;1m# 然后 reset 到远端 HEAD 再覆盖合并后的文件，确保 push 快进成功。[0m
+2026-07-18T20:28:58.6103343Z [36;1mgit fetch origin master 2>&1 || true[0m
+2026-07-18T20:28:58.6103659Z [36;1mpython3 merge_state.py origin/master[0m
+2026-07-18T20:28:58.6103979Z [36;1m# 保存合并后的状态文件到临时目录（含 status.json——它由脚本每轮重写，[0m
+2026-07-18T20:28:58.6104374Z [36;1m# 必须随工作区最新版保留，否则 reset --hard 会回滚到远端旧版，导致前端一直[0m
+2026-07-18T20:28:58.6104668Z [36;1m# 显示「状态获取中」）[0m
+2026-07-18T20:28:58.6104890Z [36;1mTMPD=$(mktemp -d)[0m
+2026-07-18T20:28:58.6105479Z [36;1mfor f in state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json status.json summary_state.json; do[0m
+2026-07-18T20:28:58.6106100Z [36;1m  [ -f "$f" ] && cp "$f" "$TMPD/"[0m
+2026-07-18T20:28:58.6106364Z [36;1mdone[0m
+2026-07-18T20:28:58.6106605Z [36;1m# reset 到远端 HEAD，使后续 commit 基于最新远端（确保 push 快进）[0m
+2026-07-18T20:28:58.6107243Z [36;1mgit reset --hard origin/master 2>/dev/null || true[0m
+2026-07-18T20:28:58.6107593Z [36;1m# 恢复合并后的状态文件（status.json 取本地最新，其余按语义合并后结果）[0m
+2026-07-18T20:28:58.6108212Z [36;1mfor f in state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json status.json summary_state.json; do[0m
+2026-07-18T20:28:58.6108840Z [36;1m  [ -f "$TMPD/$f" ] && cp "$TMPD/$f" .[0m
+2026-07-18T20:28:58.6109115Z [36;1mdone[0m
+2026-07-18T20:28:58.6109332Z [36;1mrm -rf "$TMPD"[0m
+2026-07-18T20:28:58.6109705Z [36;1m# 状态文件被 .gitignore 忽略，用 -f 强制纳入版本控制；notify_dedup.json 为去重账本，同样需持久化[0m
+2026-07-18T20:28:58.6110157Z [36;1m# status.json 由脚本每轮重写（含 updated/time 等易变时间戳）。前端新鲜度由 Pages 每次部署时从[0m
+2026-07-18T20:28:58.6110613Z [36;1m# 工作区拷贝最新 status.json 保证（见 Build Pages 步骤），故 git 提交只在「meaningful 内容变化」时[0m
+2026-07-18T20:28:58.6111027Z [36;1m# 纳入 status.json，忽略纯时间戳变动，避免每 5 分钟空推一条 commit。[0m
+2026-07-18T20:28:58.6111674Z [36;1mgit add -f state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json summary_state.json assets/covers[0m
+2026-07-18T20:28:58.6112418Z [36;1m# status.json：仅当其 meaningful 内容（去掉 updated 与每房间 time/live_duration）相比 HEAD 变化才提交[0m
+2026-07-18T20:28:58.6112938Z [36;1m# 内联 heredoc（python3 - <<'PY'）会被 GitHub Actions 的 js-yaml 误判合并键而解析失败，[0m
+2026-07-18T20:28:58.6113380Z [36;1m# 故抽取为独立脚本 tools/strip_status.py（与 96802b1 的「消除重复推送」同目标）。[0m
+2026-07-18T20:28:58.6113744Z [36;1mpython3 tools/strip_status.py[0m
+2026-07-18T20:28:58.6114470Z [36;1m# 防刷屏：仅当状态文件真有变化才提交；否则跳过 push，避免每 5 分钟空推一条 commit。[0m
+2026-07-18T20:28:58.6114853Z [36;1m# 保活（防 60 天自动停用 schedule）改为：距上次 keepalive 超过 30 天才更新时间戳并轻量提交一次。[0m
+2026-07-18T20:28:58.6115224Z [36;1mif git diff --cached --quiet; then[0m
+2026-07-18T20:28:58.6115512Z [36;1m  echo "状态无变化，跳过提交"[0m
+2026-07-18T20:28:58.6115782Z [36;1m  # 仅当超过 30 天未保活时才更新 .keepalive 时间戳（轻量保活，不刷屏）[0m
+2026-07-18T20:28:58.6116085Z [36;1m  NEED_KEEPALIVE=false[0m
+2026-07-18T20:28:58.6116351Z [36;1m  if [ -f .keepalive ]; then[0m
+2026-07-18T20:28:58.6116701Z [36;1m    LAST=$(date -d "$(cat .keepalive)" +%s 2>/dev/null || echo 0)[0m
+2026-07-18T20:28:58.6117483Z [36;1m    NOW=$(date -u +%s)[0m
+2026-07-18T20:28:58.6117867Z [36;1m    if [ "$LAST" != "0" ] && [ $((NOW - LAST)) -gt 2592000 ]; then NEED_KEEPALIVE=true; fi[0m
+2026-07-18T20:28:58.6118254Z [36;1m  else[0m
+2026-07-18T20:28:58.6118468Z [36;1m    NEED_KEEPALIVE=true[0m
+2026-07-18T20:28:58.6118715Z [36;1m  fi[0m
+2026-07-18T20:28:58.6119186Z [36;1m  if [ "$NEED_KEEPALIVE" = "true" ]; then[0m
+2026-07-18T20:28:58.6119528Z [36;1m    date -u +"%Y-%m-%dT%H:%M:%SZ" > .keepalive[0m
+2026-07-18T20:28:58.6119834Z [36;1m    git add .keepalive[0m
+2026-07-18T20:28:58.6120130Z [36;1m    git commit -m "📡 keepalive [skip ci]" || true[0m
+2026-07-18T20:28:58.6120447Z [36;1m    for i in 1 2; do[0m
+2026-07-18T20:28:58.6120727Z [36;1m      git push origin HEAD:master 2>&1 && break[0m
+2026-07-18T20:28:58.6121056Z [36;1m      git fetch origin master 2>&1 || true[0m
+2026-07-18T20:28:58.6121408Z [36;1m      git reset --hard origin/master 2>/dev/null || true[0m
+2026-07-18T20:28:58.6121770Z [36;1m      date -u +"%Y-%m-%dT%H:%M:%SZ" > .keepalive[0m
+2026-07-18T20:28:58.6122079Z [36;1m      git add .keepalive[0m
+2026-07-18T20:28:58.6122376Z [36;1m      git commit -m "📡 keepalive [skip ci]" || true[0m
+2026-07-18T20:28:58.6122727Z [36;1m    done || echo "keepalive push failed"[0m
+2026-07-18T20:28:58.6123015Z [36;1m  fi[0m
+2026-07-18T20:28:58.6123212Z [36;1melse[0m
+2026-07-18T20:28:58.6123441Z [36;1m  # 每次运行更新时间戳，保证仓库持续有活动（防 60 天自动停用 schedule）[0m
+2026-07-18T20:28:58.6123768Z [36;1m  date -u +"%Y-%m-%dT%H:%M:%SZ" > .keepalive[0m
+2026-07-18T20:28:58.6124062Z [36;1m  git add .keepalive[0m
+2026-07-18T20:28:58.6124352Z [36;1m  git commit -m "📡 update state [skip ci]" || true[0m
+2026-07-18T20:28:58.6124665Z [36;1mfi[0m
+2026-07-18T20:28:58.6124881Z [36;1m# 推送：基于远端 master 提交，应为快进。若失败（远端又推进了），重试[0m
+2026-07-18T20:28:58.6125160Z [36;1mfor i in 1 2; do[0m
+2026-07-18T20:28:58.6125422Z [36;1m  git push origin HEAD:master 2>&1 && break[0m
+2026-07-18T20:28:58.6125745Z [36;1m  echo "push 失败，重试 ($i)... 重新 fetch + 合并"[0m
+2026-07-18T20:28:58.6126050Z [36;1m  git fetch origin master 2>&1 || true[0m
+2026-07-18T20:28:58.6126361Z [36;1m  python3 merge_state.py origin/master[0m
+2026-07-18T20:28:58.6126653Z [36;1m  TMPD=$(mktemp -d)[0m
+2026-07-18T20:28:58.6127516Z [36;1m  for f in state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json status.json summary_state.json; do[0m
+2026-07-18T20:28:58.6128304Z [36;1m    [ -f "$f" ] && cp "$f" "$TMPD/"[0m
+2026-07-18T20:28:58.6128573Z [36;1m  done[0m
+2026-07-18T20:28:58.6128841Z [36;1m  git reset --hard origin/master 2>/dev/null || true[0m
+2026-07-18T20:28:58.6129495Z [36;1m  for f in state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json status.json summary_state.json; do[0m
+2026-07-18T20:28:58.6130118Z [36;1m    [ -f "$TMPD/$f" ] && cp "$TMPD/$f" .[0m
+2026-07-18T20:28:58.6130396Z [36;1m  done[0m
+2026-07-18T20:28:58.6130608Z [36;1m  rm -rf "$TMPD"[0m
+2026-07-18T20:28:58.6131216Z [36;1m  git add -f state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json status.json summary_state.json assets/covers[0m
+2026-07-18T20:28:58.6131864Z [36;1m  # 重试也仅在状态真变时才提交，避免为无变化空推[0m
+2026-07-18T20:28:58.6132212Z [36;1m  if git diff --cached --quiet; then echo "重试：状态无变化，跳过"; break; fi[0m
+2026-07-18T20:28:58.6132766Z [36;1m  date -u +"%Y-%m-%dT%H:%M:%SZ" > .keepalive[0m
+2026-07-18T20:28:58.6133072Z [36;1m  git add .keepalive[0m
+2026-07-18T20:28:58.6133361Z [36;1m  git commit -m "📡 update state [skip ci]" || true[0m
+2026-07-18T20:28:58.6133745Z [36;1mdone || echo "push failed (状态将在下一次 run 自动对齐，去重账本兜底防刷屏)"[0m
+2026-07-18T20:28:58.6192858Z shell: /usr/bin/bash -e {0}
+2026-07-18T20:28:58.6193108Z env:
+2026-07-18T20:28:58.6193315Z   ENABLE_POST_CHECK: true
+2026-07-18T20:28:58.6193624Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:28:58.6194066Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.15/x64/lib/pkgconfig
+2026-07-18T20:28:58.6194499Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:28:58.6194890Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:28:58.6195273Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:28:58.6195661Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.15/x64/lib
+2026-07-18T20:28:58.6196006Z   WIN_MIN: 27
+2026-07-18T20:28:58.6196218Z   FORCE_POST_CHECK: true
+2026-07-18T20:28:58.6196444Z ##[endgroup]
+2026-07-18T20:28:59.1110147Z From https://github.com/racheko-lab/blive-monitor
+2026-07-18T20:28:59.1110877Z  * branch            master     -> FETCH_HEAD
+2026-07-18T20:28:59.1111555Z    2cd8395..05046d2  master     -> origin/master
+2026-07-18T20:28:59.1814037Z   notify_dedup.json: 合并完成 local=27 remote=30 → merged=30
+2026-07-18T20:28:59.1814989Z   post_tracking.json: 合并完成 local=2 remote=18 → merged=18
+2026-07-18T20:28:59.1815673Z   post_rooms.json: 无变化
+2026-07-18T20:28:59.1816261Z   history.json: 合并完成 local=499 remote=500 → merged=500
+2026-07-18T20:28:59.1817280Z   state.json: 保留本地版本（本 run 最新）
+2026-07-18T20:28:59.1817826Z   tracking.json: 保留本地版本（本 run 最新）
+2026-07-18T20:28:59.1818293Z 状态文件合并完成，有变更需要提交
+2026-07-18T20:28:59.2369112Z HEAD is now at 05046d2 📡 update state [skip ci]
+2026-07-18T20:28:59.2842239Z status.json meaningful 内容变化，已 git add -f
+2026-07-18T20:28:59.3058177Z [master f363faa] 📡 update state [skip ci]
+2026-07-18T20:28:59.3058657Z  6 files changed, 341 insertions(+), 340 deletions(-)
+2026-07-18T20:29:00.3264935Z To https://github.com/racheko-lab/blive-monitor
+2026-07-18T20:29:00.3265538Z    05046d2..f363faa  HEAD -> master
+2026-07-18T20:29:00.3370961Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-07-18T20:29:00.3372247Z ##[group]Run actions/upload-artifact@v4
+2026-07-18T20:29:00.3372519Z with:
+2026-07-18T20:29:00.3372719Z   name: runtime-logs
+2026-07-18T20:29:00.3372947Z   path: logs/
+2026-07-18T20:29:00.3373152Z   if-no-files-found: ignore
+2026-07-18T20:29:00.3373392Z   compression-level: 6
+2026-07-18T20:29:00.3373610Z   overwrite: false
+2026-07-18T20:29:00.3373833Z   include-hidden-files: false
+2026-07-18T20:29:00.3374262Z env:
+2026-07-18T20:29:00.3374451Z   ENABLE_POST_CHECK: true
+2026-07-18T20:29:00.3374748Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:29:00.3375204Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.15/x64/lib/pkgconfig
+2026-07-18T20:29:00.3375636Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:29:00.3376016Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:29:00.3376397Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:29:00.3377211Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.15/x64/lib
+2026-07-18T20:29:00.3377557Z   WIN_MIN: 27
+2026-07-18T20:29:00.3377758Z   FORCE_POST_CHECK: true
+2026-07-18T20:29:00.3377983Z ##[endgroup]
+2026-07-18T20:29:00.5039588Z (node:3348) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-07-18T20:29:00.5040897Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-07-18T20:29:00.5150454Z With the provided path, there will be 1 file uploaded
+2026-07-18T20:29:00.5151449Z Artifact name is valid!
+2026-07-18T20:29:00.5151885Z Root directory input is valid!
+2026-07-18T20:29:00.8393522Z Beginning upload of artifact content to blob storage
+2026-07-18T20:29:00.8592139Z (node:3348) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+2026-07-18T20:29:01.1354581Z Uploaded bytes 820
+2026-07-18T20:29:01.2146101Z Finished uploading artifact content to blob storage!
+2026-07-18T20:29:01.2147880Z SHA256 digest of uploaded artifact zip is c6a9a2d780605b768ce4fe95a5a882e33f66868086a13a8393467cbd31f6fd47
+2026-07-18T20:29:01.2149058Z Finalizing artifact upload
+2026-07-18T20:29:01.4499678Z Artifact runtime-logs.zip successfully finalized. Artifact ID 8433964215
+2026-07-18T20:29:01.4505511Z Artifact runtime-logs has been successfully uploaded! Final size is 820 bytes. Artifact ID is 8433964215
+2026-07-18T20:29:01.4507588Z Artifact download URL: https://github.com/racheko-lab/blive-monitor/actions/runs/29659704384/artifacts/8433964215
+2026-07-18T20:29:01.4634904Z ##[group]Run mkdir -p _site
+2026-07-18T20:29:01.4635238Z [36;1mmkdir -p _site[0m
+2026-07-18T20:29:01.4635495Z [36;1mcp monitor.html _site/[0m
+2026-07-18T20:29:01.4635795Z [36;1mcp libsodium.js _site/ 2>/dev/null || true[0m
+2026-07-18T20:29:01.4636150Z [36;1mcp monitor-*.html _site/ 2>/dev/null || true[0m
+2026-07-18T20:29:01.4636481Z [36;1mcp index.html _site/ 2>/dev/null || true[0m
+2026-07-18T20:29:01.4637516Z [36;1mcp strata.html _site/ 2>/dev/null || true[0m
+2026-07-18T20:29:01.4637857Z [36;1mcp rooms.json _site/[0m
+2026-07-18T20:29:01.4638118Z [36;1mcp status.json _site/[0m
+2026-07-18T20:29:01.4638381Z [36;1mcp history.json _site/[0m
+2026-07-18T20:29:01.4638655Z [36;1mcp post_rooms.json _site/[0m
+2026-07-18T20:29:01.4638935Z [36;1mcp post_tracking.json _site/[0m
+2026-07-18T20:29:01.4697679Z shell: /usr/bin/bash -e {0}
+2026-07-18T20:29:01.4697950Z env:
+2026-07-18T20:29:01.4698152Z   ENABLE_POST_CHECK: true
+2026-07-18T20:29:01.4698507Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:29:01.4698954Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.15/x64/lib/pkgconfig
+2026-07-18T20:29:01.4699414Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:29:01.4699819Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:29:01.4700220Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:29:01.4700628Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.15/x64/lib
+2026-07-18T20:29:01.4700956Z   WIN_MIN: 27
+2026-07-18T20:29:01.4701169Z   FORCE_POST_CHECK: true
+2026-07-18T20:29:01.4701400Z ##[endgroup]
+2026-07-18T20:29:01.5023302Z ##[group]Run actions/upload-pages-artifact@v3
+2026-07-18T20:29:01.5023860Z with:
+2026-07-18T20:29:01.5024212Z   name: github-pages
+2026-07-18T20:29:01.5024772Z   path: _site/
+2026-07-18T20:29:01.5025240Z   retention-days: 1
+2026-07-18T20:29:01.5025540Z env:
+2026-07-18T20:29:01.5025905Z   ENABLE_POST_CHECK: true
+2026-07-18T20:29:01.5026358Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:29:01.5027175Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.15/x64/lib/pkgconfig
+2026-07-18T20:29:01.5027761Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:29:01.5028297Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:29:01.5028836Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:29:01.5029311Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.15/x64/lib
+2026-07-18T20:29:01.5029818Z   WIN_MIN: 27
+2026-07-18T20:29:01.5030154Z   FORCE_POST_CHECK: true
+2026-07-18T20:29:01.5030610Z ##[endgroup]
+2026-07-18T20:29:01.5117249Z ##[group]Run echo ::group::Archive artifact
+2026-07-18T20:29:01.5117758Z [36;1mecho ::group::Archive artifact[0m
+2026-07-18T20:29:01.5118214Z [36;1mtar \[0m
+2026-07-18T20:29:01.5118638Z [36;1m  --dereference --hard-dereference \[0m
+2026-07-18T20:29:01.5119100Z [36;1m  --directory "$INPUT_PATH" \[0m
+2026-07-18T20:29:01.5119567Z [36;1m  -cvf "$RUNNER_TEMP/artifact.tar" \[0m
+2026-07-18T20:29:01.5119949Z [36;1m  --exclude=.git \[0m
+2026-07-18T20:29:01.5120358Z [36;1m  --exclude=.github \[0m
+2026-07-18T20:29:01.5120765Z [36;1m  .[0m
+2026-07-18T20:29:01.5121111Z [36;1mecho ::endgroup::[0m
+2026-07-18T20:29:01.5181813Z shell: /usr/bin/sh -e {0}
+2026-07-18T20:29:01.5182219Z env:
+2026-07-18T20:29:01.5182602Z   ENABLE_POST_CHECK: true
+2026-07-18T20:29:01.5183040Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:29:01.5183610Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.15/x64/lib/pkgconfig
+2026-07-18T20:29:01.5184220Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:29:01.5184780Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:29:01.5185330Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:29:01.5185836Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.15/x64/lib
+2026-07-18T20:29:01.5186333Z   WIN_MIN: 27
+2026-07-18T20:29:01.5186912Z   FORCE_POST_CHECK: true
+2026-07-18T20:29:01.5187430Z   INPUT_PATH: _site/
+2026-07-18T20:29:01.5187840Z ##[endgroup]
+2026-07-18T20:29:01.5261913Z ##[group]Archive artifact
+2026-07-18T20:29:01.5274667Z ./
+2026-07-18T20:29:01.5275069Z ./monitor-feed.html
+2026-07-18T20:29:01.5275399Z ./index.html
+2026-07-18T20:29:01.5275621Z ./status.json
+2026-07-18T20:29:01.5275839Z ./monitor-a.html
+2026-07-18T20:29:01.5278024Z ./libsodium.js
+2026-07-18T20:29:01.5279813Z ./history.json
+2026-07-18T20:29:01.5281737Z ./monitor-b.html
+2026-07-18T20:29:01.5284599Z ./monitor-dashboard.html
+2026-07-18T20:29:01.5285065Z ./monitor-hero.html
+2026-07-18T20:29:01.5285481Z ./rooms.json
+2026-07-18T20:29:01.5285831Z ./monitor.html
+2026-07-18T20:29:01.5288000Z ./post_rooms.json
+2026-07-18T20:29:01.5288464Z ./post_tracking.json
+2026-07-18T20:29:01.5288896Z ./strata.html
+2026-07-18T20:29:01.5291996Z ##[endgroup]
+2026-07-18T20:29:01.5347201Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-07-18T20:29:01.5348460Z ##[group]Run actions/upload-artifact@v4
+2026-07-18T20:29:01.5348737Z with:
+2026-07-18T20:29:01.5348943Z   name: github-pages
+2026-07-18T20:29:01.5349196Z   path: /home/runner/work/_temp/artifact.tar
+2026-07-18T20:29:01.5349498Z   retention-days: 1
+2026-07-18T20:29:01.5349722Z   if-no-files-found: error
+2026-07-18T20:29:01.5349965Z   compression-level: 6
+2026-07-18T20:29:01.5350406Z   overwrite: false
+2026-07-18T20:29:01.5350640Z   include-hidden-files: false
+2026-07-18T20:29:01.5350890Z env:
+2026-07-18T20:29:01.5351095Z   ENABLE_POST_CHECK: true
+2026-07-18T20:29:01.5351545Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:29:01.5351989Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.15/x64/lib/pkgconfig
+2026-07-18T20:29:01.5352428Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:29:01.5352820Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:29:01.5353213Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+2026-07-18T20:29:01.5353609Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.15/x64/lib
+2026-07-18T20:29:01.5353954Z   WIN_MIN: 27
+2026-07-18T20:29:01.5354161Z   FORCE_POST_CHECK: true
+2026-07-18T20:29:01.5354397Z ##[endgroup]
+2026-07-18T20:29:01.7030632Z (node:3374) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-07-18T20:29:01.7031905Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-07-18T20:29:01.7095788Z With the provided path, there will be 1 file uploaded
+2026-07-18T20:29:01.7102119Z Artifact name is valid!
+2026-07-18T20:29:01.7130668Z Root directory input is valid!
+2026-07-18T20:29:02.0494166Z Beginning upload of artifact content to blob storage
+2026-07-18T20:29:02.0937686Z (node:3374) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+2026-07-18T20:29:02.6282578Z Uploaded bytes 234361
+2026-07-18T20:29:02.7089912Z Finished uploading artifact content to blob storage!
+2026-07-18T20:29:02.7091084Z SHA256 digest of uploaded artifact zip is 3b547e7ed2a8d1198ae4ed0f9022e757acdaf26440ea879fd57b1f41a76a1b43
+2026-07-18T20:29:02.7092145Z Finalizing artifact upload
+2026-07-18T20:29:02.9378940Z Artifact github-pages.zip successfully finalized. Artifact ID 8433964457
+2026-07-18T20:29:02.9380166Z Artifact github-pages has been successfully uploaded! Final size is 234361 bytes. Artifact ID is 8433964457
+2026-07-18T20:29:02.9387131Z Artifact download URL: https://github.com/racheko-lab/blive-monitor/actions/runs/29659704384/artifacts/8433964457
+2026-07-18T20:29:02.9580936Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-07-18T20:29:02.9582228Z Post job cleanup.
+2026-07-18T20:29:03.0681743Z Cache hit occurred on the primary key playwright-1.58.0, not saving cache.
+2026-07-18T20:29:03.0684020Z (node:3386) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-07-18T20:29:03.0685183Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-07-18T20:29:03.0812602Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-07-18T20:29:03.0813870Z Post job cleanup.
+2026-07-18T20:29:03.2112368Z (node:3394) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-07-18T20:29:03.2113342Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-07-18T20:29:03.2291186Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-07-18T20:29:03.2292457Z Post job cleanup.
+2026-07-18T20:29:03.3176389Z [command]/usr/bin/git version
+2026-07-18T20:29:03.3222067Z git version 2.54.0
+2026-07-18T20:29:03.3265306Z Temporarily overriding HOME='/home/runner/work/_temp/d254bce7-4c0a-4dd4-9034-03b0cd3ab0bb' before making global git config changes
+2026-07-18T20:29:03.3267403Z Adding repository directory to the temporary git global config as a safe directory
+2026-07-18T20:29:03.3273100Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/blive-monitor/blive-monitor
+2026-07-18T20:29:03.3321434Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-07-18T20:29:03.3367260Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-07-18T20:29:03.3632602Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-07-18T20:29:03.3663463Z http.https://github.com/.extraheader
+2026-07-18T20:29:03.3675840Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+2026-07-18T20:29:03.3714056Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-07-18T20:29:03.4028157Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-07-18T20:29:03.4072133Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-07-18T20:29:03.4465290Z Cleaning up orphan processes
+2026-07-18T20:29:03.4778815Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/cache@v4, actions/checkout@v4, actions/setup-python@v5, actions/upload-artifact@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
