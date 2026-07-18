@@ -2272,68 +2272,7 @@ img { outline: 1px solid rgba(255, 255, 255, 0.1); outline-offset: -1px; }
   opacity: 0;
   gap: 0;
 }
-/* 未开播卡片：单列中卡（横向布局：头像+名字+状态+meta，不显示标题/操作按钮） */
-.blm-live-group-offline .blm-room-card {
-  padding: var(--spacing-sm) var(--spacing-md);
-}
-.blm-live-group-offline .blm-room-card .blm-room-title,
-.blm-live-group-offline .blm-room-card .blm-room-actions {
-  display: none;
-}
-.blm-live-group-offline .blm-room-card .blm-room-header {
-  flex-direction: row;
-  gap: var(--spacing-sm);
-}
-.blm-live-group-offline .blm-room-card .blm-room-head-right .blm-live-badge,
-.blm-live-group-offline .blm-room-card .blm-room-head-right .blm-offline-badge {
-  font-size: var(--font-size-tiny);
-  padding: 2px 6px;
-}
-.blm-live-group-offline .blm-room-card .blm-room-name {
-  font-size: var(--font-size-caption);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
-}
-.blm-live-group-offline .blm-room-card .blm-room-meta {
-  font-size: var(--font-size-tiny);
-  color: var(--color-text-tertiary);
-}
-.blm-live-group-offline .blm-room-card .blm-room-link {
-  font-size: var(--font-size-tiny);
-  white-space: nowrap;
-}
-.blm-live-group-offline .blm-room-card-inner {
-  flex-direction: row;
-  gap: var(--spacing-sm);
-  align-items: center;
-}
-.blm-live-group-offline .blm-room-card .room-avatar,
-.blm-live-group-offline .blm-room-card .ava-bili,
-.blm-live-group-offline .blm-room-card .ava-douyin,
-.blm-live-group-offline .blm-room-card .ava-def {
-  width: 36px;
-  height: 36px;
-  flex-shrink: 0;
-}
-
-/* 单列中卡：保持 flex 列方向（不要 grid 多列） */
-@media (min-width: 400px) {
-  .blm-live-group-offline .blm-live-group-body {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-sm);
-  }
-}
-@media (min-width: 640px) {
-  .blm-live-group-offline .blm-live-group-body {
-    /* 桌面端可双列 */
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: var(--spacing-sm);
-  }
-}
+/* B 方案：直播中/未开播卡片统一布局（横向 flex，仅 .live 状态控制红色边框） */
 
 /* ===== B 方案：日志页仪表盘入口 ===== */
 .blm-log-dashboard-entry {
