@@ -1491,6 +1491,8 @@ body.batch-mode #postBatchModeBtn { display: none; }
   width: 48px;
   height: 48px;
   border-radius: var(--radius-full);
+  overflow: hidden;
+  position: relative;
   align-items: center;
   justify-content: center;
   font-weight: var(--font-weight-bold);
@@ -1498,6 +1500,13 @@ body.batch-mode #postBatchModeBtn { display: none; }
   color: #fff;
   background: linear-gradient(135deg, #25F4EE, #00C2C7);
   user-select: none;
+}
+.blm-work-avatar img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 /* grid 视图：显示视频封面 + placeholder，隐藏头像 */
 .blm-works-grid:not(.list) .blm-work-avatar { display: none; }
@@ -3005,7 +3014,7 @@ function roomAvatar(r, s){
   var ch = (name || '?').replace(/\s+/g, '').charAt(0) || '?';
   var url = ((s && s.avatar) ? s.avatar : ((r && r.avatar) ? r.avatar : ''));
   var cls = (r && r.platform === 'bilibili') ? 'ava-bili' : ((r && r.platform === 'douyin') ? 'ava-douyin' : 'ava-def');
-  var img = url ? '<img src="' + e(url) + '" alt="" loading="lazy" onerror="this.style.display=\'none\'">' : '';
+  var img = url ? '<img src="' + e(url) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display=\'none\'">' : '';
   var u = (r && r.platform === 'bilibili') ? 'https://live.bilibili.com/'+r.id
         : (r && r.platform === 'douyin') ? 'https://live.douyin.com/'+r.id : '#';
   var inner = '<span class="blm-room-avatar ' + cls + '" aria-hidden="true">' + img + e(ch) + '</span>';
@@ -3150,7 +3159,7 @@ function renderPosts(){
     /* 横条视图用头像（真实头像优先，缺省回退首字母彩色圆），与卡片视图的视频封面区分 */
     var _ach=(name||'?').replace(/\s+/g,'').charAt(0)||'?';
     var _avaUrl = tt.avatar || '';
-    var _avaImg = _avaUrl ? '<img src="'+e(_avaUrl)+'" alt="" loading="lazy" onerror="this.style.display=\'none\'">' : '';
+    var _avaImg = _avaUrl ? '<img src="'+e(_avaUrl)+'" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display=\'none\'">' : '';
     var avatarHtml='<span class="blm-work-avatar ava-douyin" aria-hidden="true">'+_avaImg+e(_ach)+'</span>';
     var titleLine=name, descLine='', linkLine=link;
     if(aid && !String(aid).startsWith('count:')){
