@@ -572,13 +572,6 @@ body {
   gap: var(--spacing-sm);
 }
 
-.blm-update-time {
-  font-size: var(--font-size-caption);
-  color: var(--color-text-tertiary);
-  text-align: center;
-  padding: var(--spacing-sm) 0;
-}
-
 .blm-room-card {
   background: var(--color-bg-surface);
   border: 1px solid var(--color-border-subtle);
@@ -828,15 +821,6 @@ body {
 }
 .blm-icon-btn-sm:hover { color: var(--color-text-secondary); background: var(--color-bg-surface-elevated); }
 .blm-icon-btn-sm.danger:hover { background: var(--state-error-bg); color: var(--state-error); }
-
-.blm-update-time {
-  text-align: center;
-  font-size: var(--font-size-tiny);
-  color: var(--color-text-quaternary);
-  margin-bottom: var(--spacing-md);
-  font-variant-numeric: tabular-nums;
-  padding: var(--spacing-sm) 0;
-}
 
 /* ===== Status indicator dot (legacy .dot) ===== */
 .blm-status-pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--color-text-tertiary); flex-shrink: 0; transition: .3s; }
@@ -1701,7 +1685,6 @@ body {
     gap: var(--spacing-md);
     align-items: start;
   }
-  #liveBody > .blm-update-time { grid-column: 1 / -1; }
 }
 
 /* 桌面端 ≥ 1024px */
@@ -1720,7 +1703,6 @@ body {
     gap: var(--spacing-md);
     align-items: start;
   }
-  #liveBody > .blm-update-time { grid-column: 1 / -1; }
   .blm-works-grid {
     grid-template-columns: repeat(4, 1fr);
     gap: var(--spacing-md);
@@ -2759,8 +2741,7 @@ function renderLive(){
   /* ★ 阶段二 2b B4：排序（default=状态排名稳定次序；live/platform/recent 见 applySort） */
   rs = (typeof applySort==='function') ? applySort(rs, typeof sortKey!=='undefined'?sortKey:'default', {statusRank:_rm, lastActive:_lastActive}) : rs;
   if(!rs.length){lb.innerHTML='<div class="empty">'+(q?'未找到匹配「'+e(q)+'」':(fl!=='all'?'该平台暂无房间':'暂无监控房间'))+'</div>';return;}
-  var up=(stat&&stat.updated)||'等待数据';
-  var h='<div class="blm-update-time blm-mono">更新于 '+e(up)+'</div>';
+  var h='';
   for(var i=0;i<rs.length;i++){
     var r=rs[i],s=null;
     if(stat&&stat.rooms){for(var j=0;j<stat.rooms.length;j++){if(stat.rooms[j].platform===r.platform&&String(stat.rooms[j].id)===String(r.id)){s=stat.rooms[j];break;}}}
