@@ -57,3 +57,5 @@ logs/
 
 # 原子写临时文件（common.save_json_file 产生，勿提交）
 *.json.tmp
+_check_logs*.txt
+_test_logs*.txt
