@@ -449,6 +449,7 @@ body {
 .blm-add-room-btn:hover { border-color: var(--brand-primary); color: var(--brand-primary); }
 .blm-add-room-btn:active { background: var(--brand-primary-light); }
 .blm-add-room-btn-ghost { background: transparent; border-color: var(--color-border-subtle); }
+.blm-add-room-btn-active { background: var(--brand-primary); border-color: var(--brand-primary); color: #fff; }
 
 /* toolbar 行：filter + add 同行，小屏自动换行 */
 .blm-toolbar-row {
@@ -589,6 +590,10 @@ body {
   margin: -11px;
   flex-shrink: 0;
 }
+/* B 方案：默认隐藏勾选框，进入批量模式（body.batch-mode）才显示 */
+body:not(.batch-mode) .blm-room-select-wrap,
+body:not(.batch-mode) .blm-work-select-wrap { display: none; }
+body:not(.batch-mode) .blm-batch-bar { display: none !important; }
 .blm-room-select {
   width: 22px;
   height: 22px;
@@ -2362,7 +2367,8 @@ img { outline: 1px solid rgba(255, 255, 255, 0.1); outline-offset: -1px; }
         <div class="blm-toolbar-row">
           <div class="blm-toolbar-actions">
             <button class="blm-add-room-btn" onclick="toggleAddForm()">＋ 添加</button>
-            <button class="blm-add-room-btn blm-add-room-btn-ghost" onclick="toggleBatchAdd()" id="batchToggleBtn">批量</button>
+            <button class="blm-add-room-btn blm-add-room-btn-ghost" onclick="toggleBatchAdd()" id="batchToggleBtn">批量添加</button>
+            <button class="blm-add-room-btn blm-add-room-btn-ghost" onclick="toggleBatchMode()" id="batchModeBtn">批量管理</button>
           </div>
         </div>
 
@@ -2434,7 +2440,8 @@ img { outline: 1px solid rgba(255, 255, 255, 0.1); outline-offset: -1px; }
           </div>
           <div class="blm-toolbar-actions">
             <button class="blm-add-room-btn" onclick="togglePostAddForm()">＋ 添加</button>
-            <button class="blm-add-room-btn blm-add-room-btn-ghost" onclick="togglePostBatchAdd()" id="postBatchToggleBtn">批量</button>
+            <button class="blm-add-room-btn blm-add-room-btn-ghost" onclick="togglePostBatchAdd()" id="postBatchToggleBtn">批量添加</button>
+            <button class="blm-add-room-btn blm-add-room-btn-ghost" onclick="toggleBatchMode()" id="postBatchModeBtn">批量管理</button>
           </div>
         </div>
 
@@ -4310,6 +4317,19 @@ function toggleBatchAdd(force){
   var show = (force===undefined) ? (box.style.display==='none') : force;
   box.style.display = show ? 'block' : 'none';
   if(show){ toggleAddForm(false); }
+}
+
+/** B 方案：批量管理模式开关 —— 默认隐藏勾选框，点击后显示勾选框 + 底部批量操作条。 */
+function toggleBatchMode(force){
+  var on = (force===undefined) ? !document.body.classList.contains('batch-mode') : force;
+  document.body.classList.toggle('batch-mode', on);
+  var btns = document.querySelectorAll('#batchModeBtn, #postBatchModeBtn');
+  for(var i=0;i<btns.length;i++){ if(btns[i]) btns[i].classList.toggle('blm-add-room-btn-active', on); }
+  if(!on){
+    /* 退出批量模式时清空选中，避免残留状态 */
+    selected = {};
+    try{ renderLive(); renderPosts(); updateBatchBar(); }catch(_e){}
+  }
 }
 
 function togglePostAddForm(force){
