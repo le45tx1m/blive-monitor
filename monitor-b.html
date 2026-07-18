@@ -3011,6 +3011,14 @@ function renderLive(){
   }
 
   if(!rs.length){lb.innerHTML='<div class="empty">'+(q?'未找到匹配「'+e(q)+'」':'暂无监控房间')+'</div>';return;}
+  /* 默认排序：直播中 → 回放 → 状态获取中 → 未开播 → 检测失败，同状态按最近活跃时间倒序 */
+  rs.sort(function(a, b){
+    var ka = a.platform + '|' + String(a.id), kb = b.platform + '|' + String(b.id);
+    var ra = _rm.hasOwnProperty(ka) ? _rm[ka] : 2, rb = _rm.hasOwnProperty(kb) ? _rm[kb] : 2;
+    if (ra !== rb) return ra - rb;
+    var ta = _lastActive[ka] || 0, tb = _lastActive[kb] || 0;
+    return tb - ta;
+  });
   var h='';
   for(var i=0;i<rs.length;i++){
     var r=rs[i],s=null;
