@@ -385,14 +385,6 @@ body {
 }
 .blm-filter-chip:active, .chip:active, .lchip:active { transform: scale(0.96); }
 
-/* ===== Sort Bar ===== */
-.blm-sort-bar {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  margin-top: var(--spacing-xs);
-  margin-bottom: var(--spacing-sm);
-}
 .blm-select {
   appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M3 4.5L6 7.5L9 4.5' stroke='%23999' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
@@ -467,7 +459,6 @@ body {
   margin: var(--spacing-sm) 0;
   flex-wrap: wrap;
 }
-.blm-toolbar-row .blm-filter-bar { margin-top: 0; padding-bottom: 0; flex: 1; min-width: 0; }
 .blm-toolbar-left { display: flex; align-items: center; gap: var(--spacing-sm); flex: 1; min-width: 0; flex-wrap: wrap; }
 .blm-toolbar-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 .blm-count-text { font-size: var(--font-size-caption); color: var(--color-text-tertiary); font-weight: var(--font-weight-medium); white-space: nowrap; }
@@ -480,28 +471,6 @@ body {
 }
 
 /* inline 折叠筛选（用于 live toolbar actions 内） */
-.blm-filter-details-inline { position: relative; }
-.blm-filter-details-inline > summary {
-  padding: 6px 12px;
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
-  background: transparent;
-  font-size: var(--font-size-caption);
-  color: var(--color-text-tertiary);
-}
-.blm-filter-details-inline[open] > summary { border-color: var(--brand-primary); color: var(--brand-primary); }
-.blm-filter-details-inline[open] > :not(summary) {
-  position: absolute;
-  top: calc(100% + 4px);
-  right: 0;
-  z-index: 70;
-  background: var(--color-bg-surface-raised);
-  border: 1px solid var(--color-border-default);
-  border-radius: var(--radius-md);
-  padding: var(--spacing-sm);
-  min-width: 220px;
-  box-shadow: var(--shadow-lg);
-}
 
 .blm-add-form {
   display: none;
@@ -570,13 +539,6 @@ body {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-sm);
-}
-
-.blm-update-time {
-  font-size: var(--font-size-caption);
-  color: var(--color-text-tertiary);
-  text-align: center;
-  padding: var(--spacing-sm) 0;
 }
 
 .blm-room-card {
@@ -828,15 +790,6 @@ body {
 }
 .blm-icon-btn-sm:hover { color: var(--color-text-secondary); background: var(--color-bg-surface-elevated); }
 .blm-icon-btn-sm.danger:hover { background: var(--state-error-bg); color: var(--state-error); }
-
-.blm-update-time {
-  text-align: center;
-  font-size: var(--font-size-tiny);
-  color: var(--color-text-quaternary);
-  margin-bottom: var(--spacing-md);
-  font-variant-numeric: tabular-nums;
-  padding: var(--spacing-sm) 0;
-}
 
 /* ===== Status indicator dot (legacy .dot) ===== */
 .blm-status-pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--color-text-tertiary); flex-shrink: 0; transition: .3s; }
@@ -1701,7 +1654,6 @@ body {
     gap: var(--spacing-md);
     align-items: start;
   }
-  #liveBody > .blm-update-time { grid-column: 1 / -1; }
 }
 
 /* 桌面端 ≥ 1024px */
@@ -1720,7 +1672,6 @@ body {
     gap: var(--spacing-md);
     align-items: start;
   }
-  #liveBody > .blm-update-time { grid-column: 1 / -1; }
   .blm-works-grid {
     grid-template-columns: repeat(4, 1fr);
     gap: var(--spacing-md);
@@ -1966,39 +1917,6 @@ img { outline: 1px solid rgba(255, 255, 255, 0.1); outline-offset: -1px; }
 }
 .blm-list-toolbar > .blm-filter-bar { margin: 0; }
 
-/* 3. 次级筛选折叠（标签 / 排序） */
-.blm-filter-details {
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-lg);
-  background: var(--color-bg-surface);
-  margin: var(--spacing-sm) 0 0;
-  overflow: hidden;
-}
-.blm-filter-details > summary {
-  list-style: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px var(--spacing-md);
-  font-size: var(--font-size-caption);
-  font-weight: var(--font-weight-medium);
-  color: var(--color-text-secondary);
-  -webkit-tap-highlight-color: transparent;
-}
-.blm-filter-details > summary::-webkit-details-marker { display: none; }
-.blm-filter-details > summary::after {
-  content: "\2304";
-  font-size: var(--font-size-h3);
-  line-height: 1;
-  color: var(--color-text-tertiary);
-  transition: transform var(--motion-fast) var(--ease-out);
-}
-.blm-filter-details[open] > summary::after { transform: rotate(180deg); }
-.blm-filter-details > :not(summary) { padding: 0 var(--spacing-md) var(--spacing-md); }
-.blm-filter-details > :not(summary).blm-filter-bar { padding-top: var(--spacing-xs); }
-.blm-filter-details .blm-filter-bar,
-.blm-filter-details .blm-sort-bar { margin: 0; }
 
 /* 4. 批量操作条：选中时吸底常驻（悬浮于 Tab 之上） */
 .blm-batch-bar {
@@ -2491,25 +2409,7 @@ img { outline: 1px solid rgba(255, 255, 255, 0.1); outline-offset: -1px; }
 
         <!-- toolbar 行：filter + add 同行 -->
         <div class="blm-toolbar-row">
-          <div class="blm-filter-bar">
-            <button class="blm-filter-chip chip active" onclick="fil('all')">全部</button>
-            <button class="blm-filter-chip chip" onclick="fil('bilibili')">哔哩哔哩</button>
-            <button class="blm-filter-chip chip" onclick="fil('douyin')">抖音</button>
-          </div>
           <div class="blm-toolbar-actions">
-            <details class="blm-filter-details blm-filter-details-inline">
-              <summary>筛选</summary>
-              <div class="blm-filter-bar" id="liveTagBar"></div>
-              <div class="blm-sort-bar">
-                <span class="blm-config-item-title" style="margin:0">排序</span>
-                <select id="sortSel" class="blm-input blm-select" onchange="onSortChange(this.value)" style="max-width:180px">
-                  <option value="default">默认</option>
-                  <option value="live">直播中优先</option>
-                  <option value="platform">平台（B站→抖音）</option>
-                  <option value="recent">最近活跃</option>
-                </select>
-              </div>
-            </details>
             <button class="blm-add-room-btn" onclick="toggleAddForm()">＋ 添加</button>
             <button class="blm-add-room-btn blm-add-room-btn-ghost" onclick="toggleBatchAdd()" id="batchToggleBtn">批量</button>
           </div>
@@ -2561,7 +2461,7 @@ img { outline: 1px solid rgba(255, 255, 255, 0.1); outline-offset: -1px; }
         </div>
     </section>
 
-    <!-- New Works Section（去 section-title；toolbar 行内化 view-toggle + count + tag-bar + add） -->
+    <!-- New Works Section（去 section-title；toolbar 行内化 view-toggle + count + add） -->
     <section class="view" id="view-posts">
         <!-- 阶段二 2b B3：抖音号批量操作条（与直播共用 selected 全局） -->
         <div id="batchBarPosts" class="blm-batch-bar" style="display:none">
@@ -2572,7 +2472,7 @@ img { outline: 1px solid rgba(255, 255, 255, 0.1); outline-offset: -1px; }
           <span id="batchCountPosts" class="blm-batch-count">已选 0</span>
         </div>
 
-        <!-- toolbar：count + view-toggle + tag-bar + add 同行 -->
+        <!-- toolbar：count + view-toggle + add 同行 -->
         <div class="blm-toolbar-row">
           <div class="blm-toolbar-left">
             <span class="blm-count-text" id="postsCount"></span>
@@ -2580,7 +2480,6 @@ img { outline: 1px solid rgba(255, 255, 255, 0.1); outline-offset: -1px; }
               <button type="button" class="blm-view-btn active" data-view="grid" onclick="setPostsView('grid')" title="卡片视图">▦</button>
               <button type="button" class="blm-view-btn" data-view="list" onclick="setPostsView('list')" title="横条视图">▤</button>
             </div>
-            <div class="blm-filter-bar" id="postsTagBar" style="margin:0"></div>
           </div>
           <div class="blm-toolbar-actions">
             <button class="blm-add-room-btn" onclick="togglePostAddForm()">＋ 添加</button>
@@ -3023,10 +2922,8 @@ img { outline: 1px solid rgba(255, 255, 255, 0.1); outline-offset: -1px; }
     </div>
 
 <script>
-var stat=null,rooms=[],hist=[],postRooms=[],postTrack={},fl='all',q='';
-/* 阶段二 2b：列表筛选 / 排序 / 批量启停 全局状态 */
-var tag='';                       // 当前标签筛选（''=全部；与 fl/q AND 叠加）
-var sortKey='default';            // 'default'|'live'|'platform'|'recent'
+var stat=null,rooms=[],hist=[],postRooms=[],postTrack={},q='';
+/* 阶段二 2b：批量启停 全局状态 */
 var selected={};                // 批量选中：'platform|id' -> true
 window.__channels=[];           // A2 多通道（前端 schema + UI，CI 多通道消费留后续）
 window.__routes=[];             // A2 路由规则
@@ -3074,7 +2971,6 @@ function show(t){
   if(t==='posts') applyPostsView();   // 切到新作监控时同步布局偏好（含横条/卡片切换）
 }
 
-function fil(f){fl=f;var cs=document.querySelectorAll('.chip');cs[0].className='chip'+(f==='all'?' active':'');cs[1].className='chip'+(f==='bilibili'?' active':'');cs[2].className='chip'+(f==='douyin'?' active':'');renderLive();}
 
 /* ===== P0-4 列表文本搜索：输入 handler（写全局 q → 仅重渲染本 tab body，严禁调 ld） ===== */
 /* ===== P0-4 列表文本搜索：匹配函数（大小写不敏感子串匹配，不触发网络/ld） ===== */
@@ -3106,14 +3002,8 @@ function renderLive(){
   var lb=document.getElementById('liveBody');
   if(!rooms.length){lb.innerHTML='<div class="empty">📭 暂无监控房间</div>';return;}
   var rs=rooms.slice();
-  /* ★ 阶段二 2b B2：刷新标签 chip 行 */
-  try{ renderTagChips('liveTagBar'); }catch(_e){}
-  if(fl==='bilibili')rs=rs.filter(function(r){return r.platform==='bilibili';});
-  else if(fl==='douyin')rs=rs.filter(function(r){return r.platform==='douyin';});
-  /* ★ P0-4 文本搜索：与 fl 顺序 AND 叠加（仅过滤已加载数据，绝不调用 ld） */
+  /* ★ P0-4 文本搜索：匹配 name/id 子串（仅过滤已加载数据，绝不调用 ld） */
   if(q) rs = rs.filter(function(r){ return matchQ(r, q); });
-  /* ★ 阶段二 2b B2：标签筛选（与 fl/q AND 叠加；缺 tags 视为无标签） */
-  if(typeof tag!=='undefined' && tag && typeof applyTagsFilter==='function') rs = applyTagsFilter(rs, tag);
   var _rk={live:0,replay:1,offline:2,error:3}, _rm={};
   if(stat&&stat.rooms){for(var k=0;k<stat.rooms.length;k++){var _x=stat.rooms[k];var _key=_x.platform+'|'+_x.id;_rm[_key]=(_rk.hasOwnProperty(_x.status)?_rk[_x.status]:2);}}
   /* ★ 阶段二 2b B4：最近活跃依据（hist 中最近 live_on/new_post 时间；无记录排末尾） */
@@ -3128,11 +3018,9 @@ function renderLive(){
       if(!_lastActive.hasOwnProperty(_hk) || _hts>_lastActive[_hk]) _lastActive[_hk]=_hts;
     }
   }
-  /* ★ 阶段二 2b B4：排序（default=状态排名稳定次序；live/platform/recent 见 applySort） */
-  rs = (typeof applySort==='function') ? applySort(rs, typeof sortKey!=='undefined'?sortKey:'default', {statusRank:_rm, lastActive:_lastActive}) : rs;
-  if(!rs.length){lb.innerHTML='<div class="empty">'+(q?'未找到匹配「'+e(q)+'」':(fl!=='all'?'该平台暂无房间':'暂无监控房间'))+'</div>';return;}
-  var up=(stat&&stat.updated)||'等待数据';
-  var h='<div class="blm-update-time blm-mono">更新于 '+e(up)+'</div>';
+
+  if(!rs.length){lb.innerHTML='<div class="empty">'+(q?'未找到匹配「'+e(q)+'」':'暂无监控房间')+'</div>';return;}
+  var h='';
   for(var i=0;i<rs.length;i++){
     var r=rs[i],s=null;
     if(stat&&stat.rooms){for(var j=0;j<stat.rooms.length;j++){if(stat.rooms[j].platform===r.platform&&String(stat.rooms[j].id)===String(r.id)){s=stat.rooms[j];break;}}}
@@ -3202,12 +3090,8 @@ function renderPosts(){
   var cnt=document.getElementById('postsCount');
   if(!postRooms||!postRooms.length){body.innerHTML='<div class="empty">⌛ 暂无监控的抖音号</div>';if(cnt)cnt.textContent='';return;}
   var list=postRooms.slice();
-  /* ★ 阶段二 2b B2：刷新标签 chip 行 */
-  try{ renderTagChips('postsTagBar'); }catch(_e){}
   /* ★ P0-4 文本搜索：name/id/nickname 任一命中（仅过滤已加载数据，绝不调用 ld） */
   if(q) list=list.filter(function(r){return matchPostQ(r,q);});
-  /* ★ 阶段二 2b B2：标签筛选（与 q AND 叠加；缺 tags 视为无标签） */
-  if(typeof tag!=='undefined' && tag && typeof applyTagsFilter==='function') list = applyTagsFilter(list, tag);
   /* ★ 阶段二 2b B4：按最近活跃（postTrack.latest_ct）排序（recent 生效） */
   var _postLast={};
   for(var pi=0;pi<list.length;pi++){
@@ -3215,7 +3099,7 @@ function renderPosts(){
     var _ct=parseInt(_tt.latest_ct||'0',10)||0;
     _postLast['douyin|'+String(list[pi].id)] = _ct;
   }
-  list = (typeof applySort==='function') ? applySort(list, typeof sortKey!=='undefined'?sortKey:'default', {statusRank:{}, lastActive:_postLast}) : list;
+
   if(!list.length){
     body.innerHTML='<div class="empty">'+(q?'未找到匹配「'+e(q)+'」':'⌛ 暂无监控的抖音号')+'</div>';
     if(cnt)cnt.textContent='';   // 搜索态空：清空计数，避免与「未找到匹配」矛盾
@@ -5189,46 +5073,11 @@ checkApi();
 document.addEventListener('DOMContentLoaded',ld);
 
 /* =========================================================================
- * 阶段二 2b：A3 静默 / B2 标签 / B3 启停 / B4 排序 / A2 路由 / A4 模板
- * 纯函数下沉（applyTagsFilter/applySort/renderTemplate/resolveChannel 等），
- * 视图层仅在 renderLive/renderPosts 排序/筛选层叠加，核心状态查询/卡片 HTML 逻辑不动。
+ * 阶段二 2b：A3 静默 / B3 启停 / A2 路由 / A4 模板
+ * 视图层（renderLive/renderPosts）直接复用核心状态查询与卡片 HTML，
+ * 不再单独做标签筛选 / 排序层（已移除）。
  * 数据层既有函数（ld/ghGetFile/ghWriteWithRetry/...）名称/签名/逻辑不动。
  * ========================================================================= */
-
-/* ---------------- B2：标签筛选（与 fl/q AND 叠加） ---------------- */
-/** 仅返回含 tag 的房间（缺失 tags 视为无标签，不报错）。 */
-function applyTagsFilter(rooms, tag){
-  if(!tag) return rooms;
-  var out=[];
-  for(var i=0;i<rooms.length;i++){
-    var r=rooms[i];
-    var tags=r.tags;
-    if(!tags||!tags.length) continue;
-    if(tags.indexOf(tag)>=0) out.push(r);
-  }
-  return out;
-}
-/** 设全局 tag，重渲染两列表（与 fl/q AND 叠加）。 */
-function onTagFilter(t){
-  tag = t || '';
-  renderLive(); renderPosts();
-}
-/** 动态渲染标签 chip 行（全部 + 各 tag；与当前 tag 高亮）。 */
-function renderTagChips(containerId){
-  var el=document.getElementById(containerId);
-  if(!el) return;
-  var tagsSet={};
-  for(var i=0;i<rooms.length;i++){ var ts=rooms[i]&&rooms[i].tags; if(ts&&ts.length) for(var j=0;j<ts.length;j++) tagsSet[ts[j]]=true; }
-  for(var k=0;k<postRooms.length;k++){ var pts=postRooms[k]&&postRooms[k].tags; if(pts&&pts.length) for(var j=0;j<pts.length;j++) tagsSet[pts[j]]=true; }
-  var tagKeys=Object.keys(tagsSet);
-  if(!tagKeys.length){ el.style.display='none'; return; }
-  el.style.display='flex';
-  var html='<button class="blm-filter-chip'+(tag===''?' active':'')+'" onclick="onTagFilter(\'\')">全部标签</button>';
-  for(var tk in tagsSet) if(tagsSet.hasOwnProperty(tk)){
-    html+='<button class="blm-filter-chip'+(tag===tk?' active':'')+'" data-tag="'+e(tk)+'" onclick="onTagFilter(\''+e(tk)+'\')">'+e(tk)+'</button>';
-  }
-  el.innerHTML=html;
-}
 
 /* ---------------- B3：批量启停 ---------------- */
 /** 维护全局 selected（platform|id -> true），并更新批量条。 */
@@ -5377,51 +5226,6 @@ function saveRoomEdit(){
     if(isPost) postRooms=res.rooms; else rooms=res.rooms;
     renderLive(); renderPosts(); closeRoomEdit(); toast('已保存编辑', true);
   }).catch(function(err){ toast(err&&err.message||'保存失败', false); });
-}
-
-/* ---------------- B4：排序（仅排序层生效，不改数据源/不网络） ---------------- */
-/**
- * 重排序（与 fl/q/tag AND 叠加由调用方先过滤）。
- * @param {Array} rs 已过滤的房间数组
- * @param {string} sortKey 'default'|'live'|'platform'|'recent'
- * @param {{statusRank:object,lastActive:object}} ctx
- *   statusRank: platform|id -> 状态排名（live 最前）
- *   lastActive: platform|id -> 最近 live_on/new_post 的 epoch 毫秒（无则 0，排末尾）
- */
-function applySort(rs, sortKey, ctx){
-  ctx = ctx || {};
-  var statusRank = ctx.statusRank || {};
-  var lastActive = ctx.lastActive || {};
-  var arr = rs.slice();
-  if(sortKey==='platform'){
-    var pfRank={'bilibili':0,'douyin':1};
-    arr.sort(function(a,b){
-      var pa=pfRank.hasOwnProperty(a.platform)?pfRank[a.platform]:9;
-      var pb=pfRank.hasOwnProperty(b.platform)?pfRank[b.platform]:9;
-      if(pa!==pb) return pa-pb;
-      var ka=a.platform+'|'+a.id, kb=b.platform+'|'+b.id;
-      return (statusRank.hasOwnProperty(ka)?statusRank[ka]:1)-(statusRank.hasOwnProperty(kb)?statusRank[kb]:1);
-    });
-  } else if(sortKey==='recent'){
-    arr.sort(function(a,b){
-      var ka=a.platform+'|'+a.id, kb=b.platform+'|'+b.id;
-      var la=lastActive.hasOwnProperty(ka)?lastActive[ka]:0;
-      var lb=lastActive.hasOwnProperty(kb)?lastActive[kb]:0;
-      return lb-la;  // 最近活跃在前
-    });
-  } else {
-    // default / live：状态排名（直播中优先），稳定次序
-    arr.sort(function(a,b){
-      var ka=a.platform+'|'+a.id, kb=b.platform+'|'+b.id;
-      return (statusRank.hasOwnProperty(ka)?statusRank[ka]:1)-(statusRank.hasOwnProperty(kb)?statusRank[kb]:1);
-    });
-  }
-  return arr;
-}
-/** 设全局 sortKey，重渲染（不网络）。 */
-function onSortChange(v){
-  sortKey = v || 'default';
-  renderLive(); renderPosts();
 }
 
 /* ---------------- A2：多通道路由（前端 schema + UI，CI 多通道消费留后续） ---------------- */
@@ -5642,8 +5446,6 @@ async function _encryptSaveBlive(fullCfg, statusEl){
 /* ---------------- 阶段二 2b：配置/列表 UI 联动 ---------------- */
 /** ld() 成功后调用：填充标签 chip / 静默镜像 / 通道路由 / 模板编辑器 / 批量条。 */
 function loadPhase2UI(){
-  try{ renderTagChips('liveTagBar'); }catch(_e){}
-  try{ renderTagChips('postsTagBar'); }catch(_e){}
   try{ loadSilenceUI(); }catch(_e){}
   try{ renderChannelRoutes(); }catch(_e){}
   try{ renderTemplateEditor(); }catch(_e){}
