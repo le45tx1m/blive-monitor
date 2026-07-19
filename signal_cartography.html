@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Signal Cartography</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&family=Lora:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --anthropic-dark: #141413;
+            --anthropic-light: #faf9f5;
+            --anthropic-mid-gray: #b0aea5;
+            --anthropic-light-gray: #e8e6dc;
+            --anthropic-orange: #d97757;
+            --anthropic-blue: #6a9bcc;
+            --anthropic-green: #788c5d;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, var(--anthropic-light) 0%, #f5f3ee 100%);
+            min-height: 100vh;
+            color: var(--anthropic-dark);
+        }
+        .container {
+            display: flex;
+            min-height: 100vh;
+            padding: 20px;
+            gap: 20px;
+        }
+        .sidebar {
+            width: 320px;
+            flex-shrink: 0;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(20, 20, 19, 0.1);
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+        .sidebar h1 {
+            font-family: 'Lora', serif;
+            font-size: 24px;
+            font-weight: 500;
+            color: var(--anthropic-dark);
+            margin-bottom: 8px;
+        }
+        .sidebar .subtitle {
+            color: var(--anthropic-mid-gray);
+            font-size: 14px;
+            margin-bottom: 32px;
+            line-height: 1.4;
+        }
+        .control-section { margin-bottom: 32px; }
+        .control-section h3 {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--anthropic-dark);
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .control-section h3::before {
+            content: '•';
+            color: var(--anthropic-orange);
+            font-weight: bold;
+        }
+        .seed-input {
+            width: 100%;
+            background: var(--anthropic-light);
+            padding: 12px;
+            border-radius: 8px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            margin-bottom: 12px;
+            border: 1px solid var(--anthropic-light-gray);
+            text-align: center;
+        }
+        .seed-input:focus {
+            outline: none;
+            border-color: var(--anthropic-orange);
+            box-shadow: 0 0 0 2px rgba(217, 119, 87, 0.1);
+            background: white;
+        }
+        .seed-controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .regen-button { margin-bottom: 0; }
+        .control-group { margin-bottom: 20px; }
+        .control-group label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--anthropic-dark);
+            margin-bottom: 8px;
+        }
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .slider-container input[type="range"] {
+            flex: 1;
+            height: 4px;
+            background: var(--anthropic-light-gray);
+            border-radius: 2px;
+            outline: none;
+            -webkit-appearance: none;
+        }
+        .slider-container input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: var(--anthropic-orange);
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .slider-container input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.1); background: #c86641; }
+        .slider-container input[type="range"]::-moz-range-thumb {
+            width: 16px; height: 16px;
+            background: var(--anthropic-orange);
+            border-radius: 50%; border: none; cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .value-display {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: var(--anthropic-mid-gray);
+            min-width: 50px;
+            text-align: right;
+        }
+        .button {
+            background: var(--anthropic-orange);
+            color: white; border: none; padding: 10px 16px;
+            border-radius: 6px; font-size: 14px; font-weight: 500;
+            cursor: pointer; transition: all 0.2s ease; width: 100%;
+        }
+        .button:hover { background: #c86641; transform: translateY(-1px); }
+        .button:active { transform: translateY(0); }
+        .button.secondary { background: var(--anthropic-blue); }
+        .button.secondary:hover { background: #5a8bb8; }
+        .button.tertiary { background: var(--anthropic-green); }
+        .button.tertiary:hover { background: #6b7b52; }
+        .button-row { display: flex; gap: 8px; }
+        .button-row .button { flex: 1; }
+        .canvas-area {
+            flex: 1; display: flex; align-items: center; justify-content: center; min-width: 0;
+        }
+        #canvas-container {
+            width: 100%; max-width: 1000px; border-radius: 12px;
+            overflow: hidden; box-shadow: 0 20px 40px rgba(20, 20, 19, 0.15);
+            background: #0a0e1a;
+        }
+        #canvas-container canvas { display: block; width: 100% !important; height: auto !important; }
+        .loading {
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px; color: var(--anthropic-mid-gray); padding: 60px;
+        }
+        @media (max-width: 600px) {
+            .container { flex-direction: column; }
+            .sidebar { width: 100%; }
+            .canvas-area { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <h1>Signal Cartography</h1>
+            <div class="subtitle">Pulses traveling through monitored networks. Nodes in a dark field, connected by invisible threads of data.</div>
+
+            <div class="control-section">
+                <h3>Seed</h3>
+                <input type="number" id="seed-input" class="seed-input" value="27463" onchange="updateSeed()">
+                <div class="seed-controls">
+                    <button class="button secondary" onclick="previousSeed()">← Prev</button>
+                    <button class="button secondary" onclick="nextSeed()">Next →</button>
+                </div>
+                <button class="button tertiary regen-button" onclick="randomSeedAndUpdate()">↻ Random</button>
+            </div>
+
+            <div class="control-section">
+                <h3>Parameters</h3>
+
+                <div class="control-group">
+                    <label>Node Count</label>
+                    <div class="slider-container">
+                        <input type="range" id="nodeCount" min="20" max="120" step="5" value="60" oninput="updateParam('nodeCount', this.value)">
+                        <span class="value-display" id="nodeCount-value">60</span>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label>Connection Radius</label>
+                    <div class="slider-container">
+                        <input type="range" id="connectRadius" min="80" max="300" step="10" value="180" oninput="updateParam('connectRadius', this.value)">
+                        <span class="value-display" id="connectRadius-value">180</span>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label>Pulse Speed</label>
+                    <div class="slider-container">
+                        <input type="range" id="pulseSpeed" min="0.5" max="4.0" step="0.1" value="1.8" oninput="updateParam('pulseSpeed', this.value)">
+                        <span class="value-display" id="pulseSpeed-value">1.8</span>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label>Pulse Frequency</label>
+                    <div class="slider-container">
+                        <input type="range" id="pulseRate" min="0.005" max="0.05" step="0.005" value="0.02" oninput="updateParam('pulseRate', this.value)">
+                        <span class="value-display" id="pulseRate-value">0.02</span>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label>Trail Decay</label>
+                    <div class="slider-container">
+                        <input type="range" id="trailDecay" min="2" max="30" step="1" value="10" oninput="updateParam('trailDecay', this.value)">
+                        <span class="value-display" id="trailDecay-value">10</span>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label>Global Sweep</label>
+                    <div class="slider-container">
+                        <input type="range" id="sweepRate" min="0" max="0.01" step="0.001" value="0.003" oninput="updateParam('sweepRate', this.value)">
+                        <span class="value-display" id="sweepRate-value">0.003</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="control-section">
+                <h3>Colors</h3>
+                <div class="control-group">
+                    <label>Cyan (Idle)</label>
+                    <div style="display:flex;align-items:center;gap:8px">
+                        <input type="color" id="colorCyan" value="#22d3ee" onchange="updateColor('cyan', this.value)" style="width:32px;height:32px;border:none;border-radius:6px;cursor:pointer;background:none">
+                        <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--anthropic-mid-gray)" id="colorCyan-value">#22d3ee</span>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label>Amber (Warning)</label>
+                    <div style="display:flex;align-items:center;gap:8px">
+                        <input type="color" id="colorAmber" value="#f59e0b" onchange="updateColor('amber', this.value)" style="width:32px;height:32px;border:none;border-radius:6px;cursor:pointer;background:none">
+                        <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--anthropic-mid-gray)" id="colorAmber-value">#f59e0b</span>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label>Green (Live)</label>
+                    <div style="display:flex;align-items:center;gap:8px">
+                        <input type="color" id="colorGreen" value="#22c55e" onchange="updateColor('green', this.value)" style="width:32px;height:32px;border:none;border-radius:6px;cursor:pointer;background:none">
+                        <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--anthropic-mid-gray)" id="colorGreen-value">#22c55e</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="control-section">
+                <h3>Actions</h3>
+                <div class="button-row">
+                    <button class="button" onclick="resetParameters()">Reset</button>
+                    <button class="button secondary" onclick="downloadPNG()">↓ PNG</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="canvas-area">
+            <div id="canvas-container">
+                <div class="loading">Initializing signal network...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let params = {
+            seed: 27463,
+            nodeCount: 55,
+            connectRadius: 200,
+            pulseSpeed: 2.0,
+            pulseRate: 0.035,
+            trailDecay: 12,
+            sweepRate: 0.004,
+            colors: {
+                cyan:  '#22d3ee',
+                amber: '#f59e0b',
+                green: '#22c55e'
+            }
+        };
+        let defaultParams = JSON.parse(JSON.stringify(params));
+
+        let nodes = [];
+        let pulses = [];
+        let sweeps = [];
+        let trailLayer;
+        let bgColor = '#0a0e1a';
+        let sweepTimer = 0;
+
+        function hexToRgb(hex) {
+            const r = parseInt(hex.slice(1,3),16);
+            const g = parseInt(hex.slice(3,5),16);
+            const b = parseInt(hex.slice(5,7),16);
+            return [r,g,b];
+        }
+
+        function setup() {
+            let canvas = createCanvas(1000, 1000);
+            canvas.parent('canvas-container');
+            trailLayer = createGraphics(width, height);
+            trailLayer.background(bgColor);
+            initializeSystem();
+            document.querySelector('.loading').style.display = 'none';
+        }
+
+        function initializeSystem() {
+            randomSeed(params.seed);
+            noiseSeed(params.seed);
+            nodes = [];
+            pulses = [];
+            sweeps = [];
+            sweepTimer = 0;
+
+            const minDist = params.connectRadius * 0.45;
+            let attempts = 0;
+            while (nodes.length < params.nodeCount && attempts < params.nodeCount * 50) {
+                attempts++;
+                const x = random(60, width - 60);
+                const y = random(60, height - 60);
+                let ok = true;
+                for (const n of nodes) {
+                    if (dist(x, y, n.x, n.y) < minDist) { ok = false; break; }
+                }
+                if (ok) {
+                    const r = random();
+                    let type;
+                    if (r < 0.6) type = 'cyan';
+                    else if (r < 0.85) type = 'amber';
+                    else type = 'green';
+                    nodes.push({
+                        x, y, type,
+                        glow: 0,
+                        phase: random(TWO_PI),
+                        pulseTimer: random(120),
+                        connections: [],
+                        activity: random(0.1, 0.4)
+                    });
+                }
+            }
+
+            for (let i = 0; i < nodes.length; i++) {
+                nodes[i].connections = [];
+                for (let j = 0; j < nodes.length; j++) {
+                    if (i === j) continue;
+                    const d = dist(nodes[i].x, nodes[i].y, nodes[j].x, nodes[j].y);
+                    if (d < params.connectRadius) {
+                        nodes[i].connections.push(j);
+                    }
+                }
+            }
+
+            trailLayer.background(bgColor);
+        }
+
+        function spawnPulse(fromIdx, isSweep) {
+            const from = nodes[fromIdx];
+            if (!from.connections.length) return;
+            const toIdx = from.connections[floor(random(from.connections.length))];
+            const to = nodes[toIdx];
+            const d = dist(from.x, from.y, to.x, to.y);
+            pulses.push({
+                from: fromIdx,
+                to: toIdx,
+                x: from.x, y: from.y,
+                sx: from.x, sy: from.y,
+                ex: to.x, ey: to.y,
+                t: 0,
+                speed: params.pulseSpeed * random(0.8, 1.2) / d * 60,
+                color: from.type,
+                size: isSweep ? 4 : random(2.5, 4),
+                alpha: isSweep ? 220 : random(160, 230),
+                isSweep: !!isSweep
+            });
+        }
+
+        function spawnSweep() {
+            const startIdx = floor(random(nodes.length));
+            const visited = new Set([startIdx]);
+            const queue = [startIdx];
+            while (queue.length) {
+                const curr = queue.shift();
+                for (const neighbor of nodes[curr].connections) {
+                    if (!visited.has(neighbor) && random() < 0.6) {
+                        visited.add(neighbor);
+                        queue.push(neighbor);
+                        pulses.push({
+                            from: curr, to: neighbor,
+                            x: nodes[curr].x, y: nodes[curr].y,
+                            sx: nodes[curr].x, sy: nodes[curr].y,
+                            ex: nodes[neighbor].x, ey: nodes[neighbor].y,
+                            t: 0,
+                            speed: params.pulseSpeed * random(0.9, 1.3) / dist(nodes[curr].x,nodes[curr].y,nodes[neighbor].x,nodes[neighbor].y) * 60,
+                            color: nodes[curr].type,
+                            size: 2.5, alpha: 160, isSweep: true,
+                            delay: visited.size * random(3, 8)
+                        });
+                    }
+                }
+            }
+            nodes[startIdx].glow = 1.0;
+        }
+
+        function draw() {
+            const decayAlpha = map(params.trailDecay, 2, 30, 25, 4);
+
+            trailLayer.noStroke();
+            trailLayer.fill(10, 14, 26, decayAlpha);
+            trailLayer.rect(0, 0, width, height);
+
+            if (random() < params.sweepRate) spawnSweep();
+
+            for (const n of nodes) {
+                n.glow *= 0.96;
+                n.activity *= 0.995;
+                n.pulseTimer--;
+                if (n.pulseTimer <= 0) {
+                    n.pulseTimer = random(60, 300) / params.pulseRate;
+                    if (n.connections.length > 0 && random() < params.pulseRate * 80) {
+                        spawnPulse(nodes.indexOf(n), false);
+                        n.glow = max(n.glow, 0.5);
+                    }
+                }
+            }
+
+            for (let i = pulses.length - 1; i >= 0; i--) {
+                const p = pulses[i];
+                if (p.delay && p.delay > 0) { p.delay--; continue; }
+                p.t += p.speed;
+                const tt = p.t;
+                const sigmoid = 1 / (1 + Math.exp(-6 * (tt - 0.5)));
+                p.x = lerp(p.sx, p.ex, sigmoid);
+                p.y = lerp(p.sy, p.ey, sigmoid);
+
+                const col = hexToRgb(params.colors[p.color]);
+                const a = p.alpha * (1 - tt * tt * 0.3);
+                trailLayer.noStroke();
+                for (let r = p.size * 5; r > 0; r -= 1) {
+                    const ra = a * (1 - r / (p.size * 5)) * 0.12;
+                    trailLayer.fill(col[0], col[1], col[2], ra);
+                    trailLayer.ellipse(p.x, p.y, r * 2, r * 2);
+                }
+                trailLayer.fill(col[0], col[1], col[2], a * 0.8);
+                trailLayer.ellipse(p.x, p.y, p.size * 2, p.size * 2);
+
+                if (tt >= 1) {
+                    const targetNode = nodes[p.to];
+                    if (targetNode) {
+                        targetNode.glow = max(targetNode.glow, p.isSweep ? 0.7 : 0.4);
+                        targetNode.activity = min(1, targetNode.activity + 0.1);
+                        if (p.isSweep && random() < 0.4 && targetNode.connections.length > 0) {
+                            const nextIdx = targetNode.connections[floor(random(targetNode.connections.length))];
+                            const next = nodes[nextIdx];
+                            pulses.push({
+                                from: p.to, to: nextIdx,
+                                x: targetNode.x, y: targetNode.y,
+                                sx: targetNode.x, sy: targetNode.y,
+                                ex: next.x, ey: next.y,
+                                t: 0,
+                                speed: params.pulseSpeed * random(0.9, 1.3) / dist(targetNode.x,targetNode.y,next.x,next.y) * 60,
+                                color: p.color, size: 2.5, alpha: 140, isSweep: true, delay: 0
+                            });
+                        }
+                    }
+                    pulses.splice(i, 1);
+                }
+            }
+
+            image(trailLayer, 0, 0);
+
+            for (const n of nodes) {
+                const col = hexToRgb(params.colors[n.type]);
+
+                if (n.connections.length > 0) {
+                    noFill();
+                    stroke(col[0], col[1], col[2], 6 + n.glow * 15 + n.activity * 8);
+                    strokeWeight(0.4);
+                    for (const ci of n.connections) {
+                        const c = nodes[ci];
+                        line(n.x, n.y, c.x, c.y);
+                    }
+                }
+
+                noStroke();
+                const glowR = 25 + n.glow * 40;
+                for (let r = glowR; r > 2; r -= 2) {
+                    const a = (1 - r / glowR) * (10 + n.glow * 35) * (0.3 + n.activity * 0.7);
+                    fill(col[0], col[1], col[2], a);
+                    ellipse(n.x, n.y, r * 2, r * 2);
+                }
+
+                fill(col[0], col[1], col[2], 80 + n.glow * 130);
+                ellipse(n.x, n.y, 4 + n.glow * 4, 4 + n.glow * 4);
+
+                fill(255, 255, 255, 100 + n.glow * 100);
+                ellipse(n.x, n.y, 2, 2);
+            }
+
+            noStroke();
+            for (const p of pulses) {
+                if (p.delay && p.delay > 0) continue;
+                const col = hexToRgb(params.colors[p.color]);
+                const tt = p.t;
+                const pulseBright = p.alpha * (1 - tt * tt * 0.4);
+                for (let r = p.size * 2.5; r > 0; r -= 1) {
+                    const ra = pulseBright * (1 - r / (p.size * 2.5)) * 0.3;
+                    fill(col[0], col[1], col[2], ra);
+                    ellipse(p.x, p.y, r * 2, r * 2);
+                }
+                fill(255, 255, 255, pulseBright * 0.9);
+                ellipse(p.x, p.y, p.size * 0.8, p.size * 0.8);
+                fill(col[0], col[1], col[2], pulseBright);
+                ellipse(p.x, p.y, p.size * 1.8, p.size * 1.8);
+            }
+        }
+
+        function updateParam(name, value) {
+            const v = parseFloat(value);
+            params[name] = v;
+            document.getElementById(name + '-value').textContent =
+                name === 'pulseRate' || name === 'sweepRate' ? v.toFixed(3) :
+                name === 'pulseSpeed' ? v.toFixed(1) : Math.round(v);
+            if (name === 'nodeCount' || name === 'connectRadius') {
+                initializeSystem();
+            }
+        }
+
+        function updateColor(name, value) {
+            params.colors[name] = value;
+            document.getElementById('color' + name.charAt(0).toUpperCase() + name.slice(1) + '-value').textContent = value;
+        }
+
+        function updateSeedDisplay() {
+            document.getElementById('seed-input').value = params.seed;
+        }
+
+        function updateSeed() {
+            let input = document.getElementById('seed-input');
+            let newSeed = parseInt(input.value);
+            if (newSeed && newSeed > 0) {
+                params.seed = newSeed;
+                initializeSystem();
+            } else { updateSeedDisplay(); }
+        }
+
+        function previousSeed() {
+            params.seed = Math.max(1, params.seed - 1);
+            updateSeedDisplay();
+            initializeSystem();
+        }
+
+        function nextSeed() {
+            params.seed = params.seed + 1;
+            updateSeedDisplay();
+            initializeSystem();
+        }
+
+        function randomSeedAndUpdate() {
+            params.seed = Math.floor(Math.random() * 999999) + 1;
+            updateSeedDisplay();
+            initializeSystem();
+        }
+
+        function resetParameters() {
+            params = JSON.parse(JSON.stringify(defaultParams));
+            const sliderIds = ['nodeCount','connectRadius','pulseSpeed','pulseRate','trailDecay','sweepRate'];
+            sliderIds.forEach(id => {
+                document.getElementById(id).value = params[id];
+                document.getElementById(id + '-value').textContent =
+                    id === 'pulseRate' || id === 'sweepRate' ? params[id].toFixed(3) :
+                    id === 'pulseSpeed' ? params[id].toFixed(1) : params[id];
+            });
+            ['cyan','amber','green'].forEach(c => {
+                const el = document.getElementById('color' + c.charAt(0).toUpperCase() + c.slice(1));
+                if (el) el.value = params.colors[c];
+                const vel = document.getElementById('color' + c.charAt(0).toUpperCase() + c.slice(1) + '-value');
+                if (vel) vel.textContent = params.colors[c];
+            });
+            updateSeedDisplay();
+            initializeSystem();
+        }
+
+        function downloadPNG() {
+            saveCanvas('signal-cartography-' + params.seed, 'png');
+        }
+
+        window.addEventListener('load', function() {
+            updateSeedDisplay();
+        });
+    </script>
+</body>
+</html>
