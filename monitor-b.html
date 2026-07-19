@@ -2249,39 +2249,53 @@ img { outline: 1px solid rgba(255, 255, 255, 0.06); outline-offset: -1px; }
   backdrop-filter: blur(40px) saturate(1.8);
   -webkit-backdrop-filter: blur(40px) saturate(1.8);
   border-bottom: 1px solid rgba(255,255,255,0.06);
-  padding: var(--spacing-sm) var(--spacing-lg) var(--spacing-sm);
+  padding: 10px var(--spacing-lg) 0;
+  position: sticky;
+  top: 0;
+  z-index: 50;
 }
 .blm-hero-compact {
-  padding: var(--spacing-sm) var(--spacing-lg) var(--spacing-sm);
+  padding: 10px var(--spacing-lg) 0;
 }
 .blm-hero-compact .blm-hero-row-top {
   border-bottom: none;
   margin-bottom: 0;
   padding-bottom: 0;
-  min-height: 36px;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.blm-hero-compact .blm-hero-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
 }
 .blm-hero-stats-bar {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 0 8px;
-  flex-wrap: wrap;
+  gap: 4px;
+  padding: 0;
+  margin-left: auto;
+  flex-wrap: nowrap;
 }
 .blm-stat-pill {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 4px 10px;
+  gap: 4px;
+  padding: 3px 8px;
   border-radius: 999px;
   background: rgba(255,255,255,0.04);
   border: 1px solid rgba(255,255,255,0.05);
-  font-size: 12px;
+  font-size: 11px;
   line-height: 1;
   transition: all 0.2s ease;
 }
 .blm-stat-pill b {
   font-weight: 700;
-  font-size: 13px;
+  font-size: 12px;
   color: var(--color-text-primary);
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
@@ -2289,10 +2303,10 @@ img { outline: 1px solid rgba(255, 255, 255, 0.06); outline-offset: -1px; }
 .blm-stat-pill .label {
   color: var(--color-text-tertiary);
   font-weight: 500;
-  font-size: 11px;
+  font-size: 10px;
 }
 .blm-stat-pill .dot {
-  width: 6px; height: 6px;
+  width: 5px; height: 5px;
   border-radius: 50%;
   background: var(--color-text-quaternary);
 }
@@ -2302,7 +2316,7 @@ img { outline: 1px solid rgba(255, 255, 255, 0.06); outline-offset: -1px; }
 }
 .blm-stat-pill.live .dot {
   background: var(--state-live);
-  box-shadow: 0 0 0 3px rgba(255, 45, 85, 0.15), 0 0 10px rgba(255, 45, 85, 0.5);
+  box-shadow: 0 0 0 2px rgba(255, 45, 85, 0.15), 0 0 8px rgba(255, 45, 85, 0.5);
   animation: pulse-dot 1.8s ease-in-out infinite;
 }
 .blm-stat-pill.live b {
@@ -2316,10 +2330,83 @@ img { outline: 1px solid rgba(255, 255, 255, 0.06); outline-offset: -1px; }
   50% { opacity: 0.6; transform: scale(0.85); }
 }
 
-/* --- 工具栏按钮 --- */
+/* --- 新鲜度条：极度精简，无分隔线，小字融入底部 --- */
+.blm-hero-freshness {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 0 8px;
+  font-size: 10px;
+  line-height: 1;
+  border-top: none;
+  margin-top: 4px;
+}
+.blm-freshness-bar,
+.blm-hero-freshness {
+  color: var(--color-text-tertiary);
+  border-top-color: transparent;
+}
+.blm-hero-freshness .blm-freshness-text { color: var(--color-text-quaternary) !important; font-size: 10px; }
+.blm-hero-freshness.ok .blm-freshness-text { color: var(--color-text-quaternary) !important; }
+.blm-hero-freshness.warn .blm-freshness-text { color: var(--state-warning) !important; }
+.blm-hero-freshness.stale .blm-freshness-text,
+.blm-hero-freshness.fail .blm-freshness-text { color: var(--state-error) !important; }
+.blm-freshness-time { color: var(--color-text-quaternary) !important; font-size: 10px; }
+
+/* --- 工具栏按钮：缩小，融入头部 --- */
 .blm-toolbar {
-  padding: var(--spacing-sm) var(--spacing-lg) var(--spacing-md);
-  gap: var(--spacing-sm);
+  padding: 0 var(--spacing-lg);
+  gap: 0;
+}
+.blm-toolbar-row {
+  display: flex;
+  align-items: center;
+  padding: 4px 0 6px;
+}
+.blm-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  opacity: 0.6;
+  transition: opacity 0.2s ease;
+}
+.blm-toolbar-actions:hover { opacity: 1; }
+
+/* --- view-toggle / 数量文字 轻量化 --- */
+.blm-view-toggle {
+  background: transparent;
+  border-color: transparent;
+  padding: 0;
+  opacity: 0.5;
+  transition: opacity 0.2s ease;
+}
+.blm-view-toggle:hover { opacity: 1; }
+.blm-view-btn {
+  min-width: 24px; min-height: 24px;
+  font-size: 12px;
+  border-radius: 6px;
+}
+.blm-view-btn.active {
+  box-shadow: 0 0 0 1px rgba(255,45,85,0.3);
+}
+.blm-count-text {
+  font-size: 11px;
+  color: var(--color-text-quaternary);
+  margin-right: 4px;
+}
+.blm-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  opacity: 0.5;
+  transition: opacity 0.2s ease;
+}
+.blm-toolbar:hover .blm-toolbar-left,
+.blm-toolbar-left:hover { opacity: 1; }
+.blm-toolbar:hover .blm-toolbar-actions { opacity: 1; }
+.blm-toolbar-row {
+  border-bottom: none;
 }
 .blm-btn {
   height: 32px;
@@ -2726,9 +2813,9 @@ img { outline: 1px solid rgba(255, 255, 255, 0.06); outline-offset: -1px; }
   .blm-toolbar, .blm-filter-chips, .blm-works-grid {
     padding-left: var(--spacing-xl) !important; padding-right: var(--spacing-xl) !important;
   }
-  .blm-hero { padding: var(--spacing-sm) var(--spacing-xl) var(--spacing-sm); }
-  .blm-hero-compact { padding: var(--spacing-sm) var(--spacing-xl) var(--spacing-sm); }
-  .blm-hero-freshness { padding-left: var(--spacing-xl); padding-right: var(--spacing-xl); margin-left: calc(-1 * var(--spacing-xl)); margin-right: calc(-1 * var(--spacing-xl)); }
+  .blm-hero { padding: 10px var(--spacing-xl) 0; }
+  .blm-hero-compact { padding: 10px var(--spacing-xl) 0; }
+  .blm-hero-freshness { padding: 6px 0 8px; margin: 4px calc(-1 * var(--spacing-xl)) 0; padding-left: var(--spacing-xl); padding-right: var(--spacing-xl); border-top: 1px solid var(--color-border-subtle); }
   .blm-works-grid:not(.list) {
     grid-template-columns: repeat(4, 1fr) !important;
     gap: 14px !important;
@@ -2774,6 +2861,22 @@ img { outline: 1px solid rgba(255, 255, 255, 0.06); outline-offset: -1px; }
         </div>
         <span class="blm-hero-title" id="heroTitle">直播监控</span>
       </div>
+      <!-- 精致统计条（嵌入标题行右侧） -->
+      <div class="blm-hero-stats-bar">
+        <div class="blm-stat-pill live" id="statPillLive">
+          <span class="dot"></span>
+          <b id="visLive">0</b>
+          <span class="label">直播中</span>
+        </div>
+        <div class="blm-stat-pill">
+          <b id="visRooms">0</b>
+          <span class="label">监控</span>
+        </div>
+        <div class="blm-stat-pill">
+          <b id="visPosts">0</b>
+          <span class="label">新作</span>
+        </div>
+      </div>
       <button class="blm-icon-btn" onclick="ld()" title="刷新">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
           <path d="M2 8a6 6 0 0 1 10.3-4.2L14 2v4h-4l1.5-1.5A4 4 0 1 0 12 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -2789,24 +2892,7 @@ img { outline: 1px solid rgba(255, 255, 255, 0.06); outline-offset: -1px; }
       <span id="liveSignal"></span>
     </div>
 
-    <!-- 精致统计条 -->
-    <div class="blm-hero-stats-bar">
-      <div class="blm-stat-pill live" id="statPillLive">
-        <span class="dot"></span>
-        <b id="visLive">0</b>
-        <span class="label">直播中</span>
-      </div>
-      <div class="blm-stat-pill">
-        <b id="visRooms">0</b>
-        <span class="label">监控</span>
-      </div>
-      <div class="blm-stat-pill">
-        <b id="visPosts">0</b>
-        <span class="label">新作</span>
-      </div>
-    </div>
-
-    <!-- freshness 内嵌为 hero 底部细线（数据新鲜度自检） -->
+    <!-- freshness 内嵌为 hero 底部极细状态行 -->
     <div class="blm-hero-freshness" id="healthBar">
       <span class="blm-freshness-text">监控自检中…</span>
       <span class="blm-freshness-time blm-mono">--</span>
