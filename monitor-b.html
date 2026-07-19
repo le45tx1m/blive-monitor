@@ -2701,8 +2701,12 @@ img { outline: 1px solid rgba(255, 255, 255, 0.06); outline-offset: -1px; }
   color: var(--color-text-tertiary);
   border-top-color: var(--color-border-subtle);
 }
-.blm-freshness-text { color: var(--state-warning); }
-.blm-freshness-time { color: var(--color-text-quaternary); }
+.blm-hero-freshness .blm-freshness-text { color: var(--color-text-tertiary) !important; }
+.blm-hero-freshness.ok .blm-freshness-text { color: var(--color-text-tertiary) !important; }
+.blm-hero-freshness.warn .blm-freshness-text { color: var(--state-warning) !important; }
+.blm-hero-freshness.stale .blm-freshness-text,
+.blm-hero-freshness.fail .blm-freshness-text { color: var(--state-error) !important; }
+.blm-freshness-time { color: var(--color-text-quaternary) !important; }
 
 /* --- actions 区域 --- */
 .blm-room-actions, .blm-work-actions {
