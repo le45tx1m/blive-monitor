@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#141413">
+<meta name="theme-color" content="#0A0B10">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -14,53 +14,54 @@
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600;1,700&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style id="theme-vars">
 /* ============================================================
-   Anthropic Design System — Live Monitor
-   Warm charcoal + terracotta palette, Lora serif body, Poppins UI
+   Refactored Design System — Cool Dark Monitor
+   Cold deep-space palette, Poppins UI, Lora serif body
    ============================================================ */
 
 :root {
-  /* === Anthropic Warm Neutrals === */
-  --bg-body:       #141413;
-  --bg-surface:    #1c1b1a;
-  --bg-surface-2:  #1e1d1c;
-  --bg-elevated:   #262523;
-  --bg-highlight:  #31302d;
-  --bg-input:      #1a1918;
+  /* === Cool Dark Neutrals === */
+  --bg-body:       #0A0B10;
+  --bg-surface:    #11131A;
+  --bg-surface-2:  #151821;
+  --bg-elevated:   #1C2030;
+  --bg-highlight:  #262C40;
+  --bg-input:      #141722;
 
   /* Text */
-  --text-primary:   #faf9f5;
-  --text-secondary: #b0aea5;
-  --text-tertiary:  rgba(176, 174, 165, 0.6);
-  --text-subtle:    #e8e6dc;
+  --text-primary:   #F0F2F7;
+  --text-secondary: rgba(240, 242, 247, 0.6);
+  --text-tertiary:  rgba(240, 242, 247, 0.38);
+  --text-subtle:    rgba(240, 242, 247, 0.2);
 
   /* Borders */
-  --border-subtle:  rgba(250, 249, 245, 0.06);
-  --border-default: rgba(250, 249, 245, 0.1);
-  --border-strong:  rgba(250, 249, 245, 0.16);
+  --border-subtle:  rgba(255, 255, 255, 0.05);
+  --border-default: rgba(255, 255, 255, 0.08);
+  --border-strong:  rgba(255, 255, 255, 0.14);
 
   /* === Brand Accents === */
-  --brand:          #d97757;
-  --brand-hover:    #e38d6f;
-  --brand-light:    rgba(217, 119, 87, 0.12);
-  --brand-lighter:  rgba(217, 119, 87, 0.06);
+  --brand:          #FF4D6A;
+  --brand-hover:    #FF6B82;
+  --brand-light:    rgba(255, 77, 106, 0.12);
+  --brand-lighter:  rgba(255, 77, 106, 0.05);
 
-  --info:           #6a9bcc;
-  --info-light:     rgba(106, 155, 204, 0.12);
+  --info:           #5B9BDE;
+  --info-light:     rgba(91, 155, 222, 0.12);
 
-  --success:        #788c5d;
-  --success-light:  rgba(120, 140, 93, 0.12);
+  --success:        #4ADE80;
+  --success-light:  rgba(74, 222, 128, 0.1);
 
-  --warning:        #c9a048;
-  --warning-light:  rgba(201, 160, 72, 0.12);
+  --warning:        #F5B942;
+  --warning-light:  rgba(245, 185, 66, 0.1);
 
-  --error:          #c45c5c;
-  --error-light:    rgba(196, 92, 92, 0.12);
+  --error:          #F85858;
+  --error-light:    rgba(248, 88, 88, 0.1);
 
   /* Platform */
-  --bili:           #6a9bcc;
-  --bili-bg:        rgba(106, 155, 204, 0.12);
-  --douyin:         #d97757;
-  --douyin-bg:      rgba(217, 119, 87, 0.12);
+  --bili:           #00C3F0;
+  --bili-bg:        rgba(0, 195, 240, 0.1);
+  --douyin:         #FF2D55;
+  --douyin-bg:      rgba(255, 45, 85, 0.1);
+  --douyin-cyan:    #25F4EE;
 
   /* === Typography === */
   --font-serif:    'Lora', 'Noto Sans SC', Georgia, serif;
@@ -88,8 +89,8 @@
   --shadow-lg:  0 12px 32px rgba(0,0,0,0.3);
 
   /* Header/Tabbar frosted */
-  --glass-bg:    rgba(20, 20, 19, 0.72);
-  --glass-border: rgba(250,249,245,0.08);
+  --glass-bg:    rgba(10, 11, 16, 0.78);
+  --glass-border: rgba(255,255,255,0.07);
 
   /* === Legacy aliases (for inline SVG / inline style / JS compatibility) === */
   --spacing-xs: 4px;
@@ -122,7 +123,8 @@ html {
 
 body {
   font-family: var(--font-serif);
-  background: var(--bg-body);
+  background: radial-gradient(ellipse 80% 50% at 50% -5%, rgba(91, 155, 222, 0.06) 0%, transparent 60%),
+              linear-gradient(180deg, #0E1018 0%, var(--bg-body) 100%);
   color: var(--text-primary);
   line-height: 1.6;
   min-height: 100vh;
@@ -157,12 +159,13 @@ a { color: inherit; }
 
 /* ===================== Layout ===================== */
 .mobile-container {
-  max-width: 480px;
+  max-width: 100%;
   margin: 0 auto;
   min-height: 100vh;
   position: relative;
   padding-bottom: 80px;
-  background: var(--bg-body);
+  background: radial-gradient(ellipse 80% 50% at 50% -5%, rgba(91, 155, 222, 0.06) 0%, transparent 60%),
+              linear-gradient(180deg, #0E1018 0%, var(--bg-body) 100%);
 }
 
 .blm-content {
@@ -231,12 +234,13 @@ a { color: inherit; }
 .blm-logo {
   width: 28px;
   height: 28px;
-  background: var(--brand);
+  background: linear-gradient(135deg, var(--brand), #D63352);
   border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(255, 77, 106, 0.25), inset 0 1px 0 rgba(255,255,255,0.15);
 }
 .blm-logo svg { color: var(--text-primary); }
 
@@ -930,9 +934,9 @@ body.batch-mode .blm-work-select-wrap {
   position: absolute;
   inset: 0;
 }
-.blm-room-avatar.ava-bili { background: linear-gradient(135deg, #6a9bcc, #4a7bac); }
-.blm-room-avatar.ava-douyin { background: linear-gradient(135deg, #d97757, #b85a3d); }
-.blm-room-avatar.ava-def { background: var(--bg-highlight); color: var(--text-secondary); }
+.blm-room-avatar.ava-bili { background: linear-gradient(135deg, #00C3F0, #0088C9); }
+.blm-room-avatar.ava-douyin { background: linear-gradient(135deg, #FF2D55, #25F4EE); }
+.blm-room-avatar.ava-def { background: linear-gradient(135deg, #7B6FE8, #5B4FC9); color: #fff; }
 
 .blm-room-avatar-link {
   text-decoration: none;
@@ -1165,7 +1169,7 @@ body.batch-mode .blm-room-actions { opacity: 1; }
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #d97757, #b85a3d);
+  background: linear-gradient(135deg, #7B6FE8, #5B4FC9);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1938,9 +1942,9 @@ body.batch-mode .blm-work-actions { opacity: 1; }
   background: var(--bg-highlight);
   color: var(--text-tertiary);
 }
-.blm-rank-num.gold { background: linear-gradient(135deg, #c9a048, #a88530); color: #141413; }
-.blm-rank-num.silver { background: linear-gradient(135deg, #8a8a82, #6a6a63); color: #141413; }
-.blm-rank-num.bronze { background: linear-gradient(135deg, #a0704a, #805a3a); color: #141413; }
+.blm-rank-num.gold { background: linear-gradient(135deg, #F5C842, #D9A520); color: #0A0B10; }
+.blm-rank-num.silver { background: linear-gradient(135deg, #B8BCC8, #8A8F9F); color: #0A0B10; }
+.blm-rank-num.bronze { background: linear-gradient(135deg, #C97B4A, #A86038); color: #0A0B10; }
 .blm-rank-info { flex: 1; min-width: 0; }
 .blm-rank-name {
   font-family: var(--font-sans);
