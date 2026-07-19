@@ -12,16 +12,23 @@ import check_status as cs
     (None, "live", True),
     (None, "replay", True),
     (None, "offline", False),
+    (None, "error", False),
     ("offline", "live", True),
     ("offline", "replay", True),
     ("offline", "offline", False),
+    ("offline", "error", False),
     ("live", "offline", False),
     ("live", "live", False),
-    ("error", "live", False),   # error→live 不推送，避免检测抖动误报
+    ("live", "error", False),
+    ("live", "replay", False),
+    ("error", "live", True),    # error→live 允许推送，由 dedup 账本（2h冷却）吸收抖动
+    ("error", "replay", True),  # error→replay 同理
+    ("error", "offline", False),
+    ("unknown", "live", True),  # unknown（首次批量失败后）→live 须推送，否则新房间永远漏推
+    ("unknown", "replay", True),
     ("replay", "live", True),
     ("replay", "replay", False),
-    ("offline", "error", False),
-    ("live", "error", False),
+    ("replay", "offline", False),
 ])
 def test_should_push(prev, curr, expected):
     assert cs.should_push(prev, curr) is expected

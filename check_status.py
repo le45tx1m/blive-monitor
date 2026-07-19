@@ -475,6 +475,9 @@ def _as_int(v: Any) -> int:
 def should_push(prev_status: Optional[str], curr_status: str) -> bool:
     """判断是否需要推送通知
 
+    去重的核心防线是 notify_dedup（2h 冷却/永久去重），state.json 的状态转换只做粗筛。
+    因此 error/unknown 等「非正常」前态不再硬挡——dedup 会吸收闪烁/状态丢失造成的重复。
+
     Args:
         prev_status: 之前的状态
         curr_status: 当前状态
@@ -484,17 +487,16 @@ def should_push(prev_status: Optional[str], curr_status: str) -> bool:
     """
     if curr_status == "offline" or curr_status == "error":
         return False
+    if curr_status not in ("live", "replay"):
+        return False
     if prev_status is None:
-        return curr_status in ("live", "replay")
-
-    # 只有从「离线」状态变为「直播/回放」才推送（error 状态不触发，避免检测失败导致反复推送）
-    if prev_status == "offline" and curr_status in ("live", "replay"):
         return True
-    # 从回放变为直播，需要推送
-    if prev_status == "replay" and curr_status == "live":
-        return True
-
-    return False
+    # 确定性「已在播/已回放」→ 不重复推
+    if prev_status in ("live", "replay"):
+        # replay→live 视为升级，仍需推送
+        return prev_status == "replay" and curr_status == "live"
+    # offline / error / unknown 或其他异常前态 → 允许推送，由 dedup 账本拦截重复
+    return True
 
 
 def bili_status_on_batch_failure(prev_status: Optional[str]) -> str:
@@ -944,11 +946,29 @@ def main() -> None:
                     for s in group_rooms:
                         for le in queued_index.get(f"{s['platform']}_{s['rid']}", []):
                             le["push"] = "pushed_fail"
+                        # 关键修复：推送失败时回退 state 为上次已知状态，让下一轮 CI 重新检测到
+                        # 「offline→live」等状态变化从而补推；否则 new_state[key]=live 会阻断
+                        # should_push 的状态变化判断，失败的推送永远不会重试。
+                        sk = f"{s['platform']}_{s['rid']}"
+                        prev_val = prev_state.get(sk)
+                        if prev_val is not None:
+                            new_state[sk] = prev_val
+                        else:
+                            new_state.pop(sk, None)
         except Exception as e:
             logger.error("推送异常: %s", e)
             for le in log_entries:
                 if le["push"] == "queued":
                     le["push"] = "push_error"
+            # 异常兜底：所有 queued 房间同样回退 state
+            for le in log_entries:
+                if le.get("push") == "push_error":
+                    sk = f"{le.get('platform', 'bilibili')}_{le.get('rid', '')}"
+                    prev_val = prev_state.get(sk)
+                    if prev_val is not None:
+                        new_state[sk] = prev_val
+                    else:
+                        new_state.pop(sk, None)
 
     # 保存状态文件
     save_json_file(STATE_FILE, new_state)

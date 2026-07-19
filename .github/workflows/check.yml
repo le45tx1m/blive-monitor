@@ -146,12 +146,15 @@ jobs:
           for f in state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json status.json summary_state.json; do
             [ -f "$f" ] && cp "$f" "$TMPD/"
           done
+          # 备份新转存的封面图（reset --hard 会回滚到远端版本，导致新封面丢失）
+          [ -d assets/covers ] && cp -r assets/covers "$TMPD/covers"
           # reset 到远端 HEAD，使后续 commit 基于最新远端（确保 push 快进）
           git reset --hard origin/master 2>/dev/null || true
           # 恢复合并后的状态文件（status.json 取本地最新，其余按语义合并后结果）
           for f in state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json status.json summary_state.json; do
             [ -f "$TMPD/$f" ] && cp "$TMPD/$f" .
           done
+          [ -d "$TMPD/covers" ] && mkdir -p assets/covers && cp -r "$TMPD/covers/"* assets/covers/ 2>/dev/null || true
           rm -rf "$TMPD"
           # 状态文件被 .gitignore 忽略，用 -f 强制纳入版本控制；notify_dedup.json 为去重账本，同样需持久化
           # status.json 由脚本每轮重写（含 updated/time 等易变时间戳）。前端新鲜度由 Pages 每次部署时从
@@ -204,12 +207,15 @@ jobs:
             for f in state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json status.json summary_state.json; do
               [ -f "$f" ] && cp "$f" "$TMPD/"
             done
+            [ -d assets/covers ] && cp -r assets/covers "$TMPD/covers"
             git reset --hard origin/master 2>/dev/null || true
             for f in state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json status.json summary_state.json; do
               [ -f "$TMPD/$f" ] && cp "$TMPD/$f" .
             done
+            [ -d "$TMPD/covers" ] && mkdir -p assets/covers && cp -r "$TMPD/covers/"* assets/covers/ 2>/dev/null || true
             rm -rf "$TMPD"
-            git add -f state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json status.json summary_state.json assets/covers
+            git add -f state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json summary_state.json assets/covers
+            python3 tools/strip_status.py
             # 重试也仅在状态真变时才提交，避免为无变化空推
             if git diff --cached --quiet; then echo "重试：状态无变化，跳过"; break; fi
             date -u +"%Y-%m-%dT%H:%M:%SZ" > .keepalive
