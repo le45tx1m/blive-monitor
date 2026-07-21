@@ -256,7 +256,7 @@ a { color: inherit; }
 
 /* ===================== Layout ===================== */
 .mobile-container {
-  max-width: 100%;
+  max-width: 1400px;
   margin: 0 auto;
   min-height: 100vh;
   position: relative;
@@ -275,6 +275,12 @@ a { color: inherit; }
 }
 .view.active {
   display: block;
+}
+
+@media (min-width: 641px) {
+  .blm-content {
+    padding: 0 var(--space-6);
+  }
 }
 
 .empty {
@@ -309,6 +315,12 @@ a { color: inherit; }
   -webkit-backdrop-filter: saturate(180%) blur(20px);
   border-bottom: 1px solid var(--glass-border);
   padding: var(--space-4) var(--space-4) var(--space-3);
+}
+
+@media (min-width: 641px) {
+  .blm-hero {
+    padding: var(--space-4) var(--space-6) var(--space-3);
+  }
 }
 
 .blm-hero-compact { padding-top: max(env(safe-area-inset-top), var(--space-4)); }
@@ -440,8 +452,8 @@ a { color: inherit; }
   background: var(--bg-surface-2);
   transition: background 0.3s;
 }
-.blm-hero-freshness.ok { background: var(--bg-surface-2); }
-.blm-hero-freshness.ok .blm-freshness-text { color: var(--text-tertiary); }
+.blm-hero-freshness.ok { background: var(--success-light); }
+.blm-hero-freshness.ok .blm-freshness-text { color: var(--success); }
 .blm-hero-freshness.warn { background: var(--warning-light); }
 .blm-hero-freshness.warn .blm-freshness-text { color: var(--warning); }
 .blm-hero-freshness.stale,
