@@ -440,8 +440,8 @@ a { color: inherit; }
   background: var(--bg-surface-2);
   transition: background 0.3s;
 }
-.blm-hero-freshness.ok { background: var(--success-light); }
-.blm-hero-freshness.ok .blm-freshness-text { color: var(--success); }
+.blm-hero-freshness.ok { background: var(--bg-surface-2); }
+.blm-hero-freshness.ok .blm-freshness-text { color: var(--text-tertiary); }
 .blm-hero-freshness.warn { background: var(--warning-light); }
 .blm-hero-freshness.warn .blm-freshness-text { color: var(--warning); }
 .blm-hero-freshness.stale,
@@ -982,7 +982,6 @@ body.batch-mode .blm-work-select-wrap {
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
-  margin-bottom: var(--space-2);
   transition: all 0.2s ease;
   box-shadow: var(--shadow-sm);
 }
@@ -1176,38 +1175,44 @@ body.batch-mode .blm-room-actions { opacity: 1; }
 #liveBody {
   display: grid;
   grid-template-columns: 1fr;
-  gap: var(--space-4);
+  gap: var(--space-3);
+  align-content: start;
 }
 #liveBody.grid-mode {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: var(--space-3);
+  gap: var(--space-2);
+  align-content: start;
 }
 .blm-room-list {
   display: grid;
   grid-template-columns: 1fr;
-  gap: var(--space-4);
+  gap: var(--space-3);
+  align-content: start;
+}
+.blm-live-group-body {
+  align-content: start;
 }
 
 @media (min-width: 641px) {
   #liveBody, #liveBody.grid-mode,
   .blm-room-list, .blm-live-group-body {
     grid-template-columns: repeat(2, 1fr);
-    gap: var(--space-5);
+    gap: var(--space-4);
   }
 }
 @media (min-width: 1100px) {
   #liveBody, #liveBody.grid-mode,
   .blm-room-list, .blm-live-group-body {
     grid-template-columns: repeat(3, 1fr);
-    gap: var(--space-5);
+    gap: var(--space-4);
   }
 }
 @media (min-width: 1500px) {
   #liveBody, #liveBody.grid-mode,
   .blm-room-list, .blm-live-group-body {
     grid-template-columns: repeat(4, 1fr);
-    gap: var(--space-6);
+    gap: var(--space-5);
   }
 }
 
@@ -1215,12 +1220,13 @@ body.batch-mode .blm-room-actions { opacity: 1; }
 .blm-works-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: var(--space-4);
+  gap: var(--space-3);
+  align-content: start;
 }
 .blm-works-grid.list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-2);
 }
 
 .blm-work-card {
