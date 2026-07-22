@@ -11,7 +11,8 @@
 <title>直播 &amp; 新作监控</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet"></noscript>
 <style id="theme-vars">
 :root {
   --brand-primary: #FF4D6A;
@@ -2516,8 +2517,7 @@ img { outline: 1px solid rgba(255, 255, 255, 0.1); outline-offset: -1px; }
   </nav>
 </div>
 
-<!-- 多通道推送加密依赖（libsodium，用于把 BLIVE_CONFIG 加密写入 Actions Secret） -->
-<script src="libsodium.js"></script>
+<!-- 多通道推送加密依赖（libsodium，用于把 BLIVE_CONFIG 加密写入 Actions Secret）；按需懒加载，不再阻塞首屏 -->
 
     <!-- 阶段二 2b B3：编辑房间（轻量弹层：名称 + 标签 + 启停开关） -->
     <div id="roomEdit" class="blm-modal" style="display:none">
@@ -4225,6 +4225,21 @@ function buildPushConfig(){
 function bytesToB64(bytes){var s='';for(var i=0;i<bytes.length;i++)s+=String.fromCharCode(bytes[i]);return btoa(s);}
 function b64ToBytes(b64){var s=atob(b64);var o=new Uint8Array(s.length);for(var i=0;i<s.length;i++)o[i]=s.charCodeAt(i);return o;}
 function escapeHtml(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+/* 按需加载 libsodium（仅配置页写 Secret 时需要，避免 121KB 拖慢首屏） */
+var _sodiumPromise=null;
+function loadSodium(){
+  if(window.sodium) return Promise.resolve(window.sodium);
+  if(!_sodiumPromise){
+    _sodiumPromise=new Promise(function(res,rej){
+      var el=document.createElement('script');
+      el.src='libsodium.js';
+      el.onload=function(){ window.sodium.ready.then(function(){res(window.sodium);},rej); };
+      el.onerror=function(){ _sodiumPromise=null; rej(new Error('加密库加载失败，请检查网络')); };
+      document.head.appendChild(el);
+    });
+  }
+  return _sodiumPromise;
+}
 function ghBase(){return GH_API.split('/contents')[0];}
 async function savePushConfig(){
   var cfg=buildPushConfig(); if(!cfg)return;
@@ -4437,7 +4452,7 @@ async function saveSummaryConfig(){
       var pkResp = await fetch(base + '/actions/secrets/public-key', {headers:{'Authorization':'Bearer '+getGhToken(),'Accept':'application/vnd.github+json'}});
       if(!pkResp.ok) throw new Error('获取公钥失败 HTTP ' + pkResp.status);
       var pk = await pkResp.json();
-      await sodium.ready;
+      var sodium=await loadSodium();
       var sealed = sodium.crypto_box_seal(new TextEncoder().encode(json), b64ToBytes(pk.key));
       var putResp = await fetch(base + '/actions/secrets/BLIVE_CONFIG', {method:'PUT', headers:{'Authorization':'Bearer '+getGhToken(),'Accept':'application/vnd.github+json','Content-Type':'application/json'}, body: JSON.stringify({encrypted_value: bytesToB64(sealed), key_id: pk.key_id})});
       if(!putResp.ok) throw new Error('写入 Secret 失败 HTTP ' + putResp.status);
@@ -5060,7 +5075,7 @@ async function _encryptSaveBlive(fullCfg, statusEl){
     var pkResp=await fetch(base+'/actions/secrets/public-key',{headers:{'Authorization':'Bearer '+tok,'Accept':'application/vnd.github+json'}});
     if(!pkResp.ok) throw new Error('获取公钥失败 HTTP '+pkResp.status);
     var pk=await pkResp.json();
-    await sodium.ready;
+    var sodium=await loadSodium();
     var sealed=sodium.crypto_box_seal(new TextEncoder().encode(json), b64ToBytes(pk.key));
     var putResp=await fetch(base+'/actions/secrets/BLIVE_CONFIG',{method:'PUT',headers:{'Authorization':'Bearer '+tok,'Accept':'application/vnd.github+json','Content-Type':'application/json'},body:JSON.stringify({encrypted_value:bytesToB64(sealed),key_id:pk.key_id})});
     if(!putResp.ok) throw new Error('写入 Secret 失败 HTTP '+putResp.status);
