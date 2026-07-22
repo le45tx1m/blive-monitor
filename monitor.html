@@ -773,6 +773,15 @@ body {
   white-space: nowrap;
 }
 .blm-room-link:hover { background: rgba(255, 77, 106, 0.2); }
+/* live 房间主操作：实心高亮，引导进入直播间 */
+.blm-room-card.live .blm-room-link {
+  background: var(--state-live);
+  color: #fff;
+  font-weight: var(--font-weight-semibold);
+  box-shadow: 0 2px 10px rgba(255, 59, 48, 0.32), var(--shadow-glow-live);
+}
+.blm-room-card.live .blm-room-link:hover { background: #FF5147; }
+.blm-room-card.live .blm-room-link:active { transform: scale(0.95); }
 
 .blm-icon-btn-sm {
   min-width: 40px;
@@ -948,6 +957,27 @@ body {
 
 /* ===== Empty State ===== */
 .empty { text-align: center; padding: 48px 16px; color: var(--color-text-tertiary); font-size: var(--font-size-body); line-height: 1.6; }
+
+/* ===== Skeleton Loading（骨架屏，替换纯文字“加载中”） ===== */
+@keyframes blm-shimmer { to { transform: translateX(100%); } }
+.blm-skel-card {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-md);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+}
+.blm-skel { position: relative; overflow: hidden; background: var(--color-bg-surface-raised); border-radius: var(--radius-sm); }
+.blm-skel::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.07), transparent);
+  transform: translateX(-100%);
+  animation: blm-shimmer 1.5s ease-in-out infinite;
+}
 
 /* ===== Phase-1 保留类 - 必须保留（文档§2.3，测试保护） ===== */
 .blm-status-pill .txt { font-size: var(--font-size-caption); font-weight: var(--font-weight-medium); }
@@ -2094,7 +2124,7 @@ img { outline: 1px solid rgba(255, 255, 255, 0.1); outline-offset: -1px; }
           </div>
         </div>
 
-        <div id="liveBody"><div class="empty">🔄 加载中…</div></div>
+        <div id="liveBody"><div class="blm-skel-card"><div class="blm-skel" style="width:48px;height:48px;border-radius:50%;flex-shrink:0"></div><div style="flex:1;min-width:0"><div class="blm-skel" style="height:15px;width:38%;margin-bottom:10px"></div><div class="blm-skel" style="height:12px;width:72%;margin-bottom:12px"></div><div class="blm-skel" style="height:12px;width:52%"></div></div></div><div class="blm-skel-card"><div class="blm-skel" style="width:48px;height:48px;border-radius:50%;flex-shrink:0"></div><div style="flex:1;min-width:0"><div class="blm-skel" style="height:15px;width:38%;margin-bottom:10px"></div><div class="blm-skel" style="height:12px;width:72%;margin-bottom:12px"></div><div class="blm-skel" style="height:12px;width:52%"></div></div></div><div class="blm-skel-card"><div class="blm-skel" style="width:48px;height:48px;border-radius:50%;flex-shrink:0"></div><div style="flex:1;min-width:0"><div class="blm-skel" style="height:15px;width:38%;margin-bottom:10px"></div><div class="blm-skel" style="height:12px;width:72%;margin-bottom:12px"></div><div class="blm-skel" style="height:12px;width:52%"></div></div></div></div>
     </section>
 
     <!-- New Works Section（去 section-title；toolbar 行内化 view-toggle + count + add） -->
@@ -2557,7 +2587,7 @@ img { outline: 1px solid rgba(255, 255, 255, 0.1); outline-offset: -1px; }
     </div>
 
 <script>
-var stat=null,rooms=[],hist=[],postRooms=[],postTrack={},q='';
+var stat=null,rooms=[],hist=[],postRooms=[],postTrack={};
 /* 阶段二 2b：批量启停 全局状态 */
 var selected={};                // 批量选中：'platform|id' -> true
 window.__channels=[];           // A2 多通道（前端 schema + UI，CI 多通道消费留后续）
@@ -2600,21 +2630,6 @@ function show(t){
 }
 
 
-/* ===== P0-4 列表文本搜索：输入 handler（写全局 q → 仅重渲染本 tab body，严禁调 ld） ===== */
-/* ===== P0-4 列表文本搜索：匹配函数（大小写不敏感子串匹配，不触发网络/ld） ===== */
-function matchQ(r, q){
-  var s = (q || '').toLowerCase();
-  return (r.name || '').toLowerCase().indexOf(s) >= 0
-      || String(r.id || '').toLowerCase().indexOf(s) >= 0;
-}
-function matchPostQ(r, q){
-  var s = (q || '').toLowerCase();
-  var tt = postTrack['douyin_' + r.id] || {};
-  return (r.name || '').toLowerCase().indexOf(s) >= 0
-      || String(r.id || '').toLowerCase().indexOf(s) >= 0
-      || (tt.nickname || '').toLowerCase().indexOf(s) >= 0;
-}
-
 function roomAvatar(r, s){
   /* 监控对象头像：优先真实照片(status.json 的 s.avatar，CI 抓取时顺手存)，
      其次 rooms.json 的 r.avatar，都没有则回退首字母彩色圆。 */
@@ -2630,8 +2645,6 @@ function renderLive(){
   var lb=document.getElementById('liveBody');
   if(!rooms.length){lb.innerHTML='<div class="empty">📭 暂无监控房间</div>';return;}
   var rs=rooms.slice();
-  /* ★ P0-4 文本搜索：匹配 name/id 子串（仅过滤已加载数据，绝不调用 ld） */
-  if(q) rs = rs.filter(function(r){ return matchQ(r, q); });
   var _rk={live:0,replay:1,offline:2,error:3}, _rm={};
   if(stat&&stat.rooms){for(var k=0;k<stat.rooms.length;k++){var _x=stat.rooms[k];var _key=_x.platform+'|'+_x.id;_rm[_key]=(_rk.hasOwnProperty(_x.status)?_rk[_x.status]:2);}}
   /* ★ 阶段二 2b B4：最近活跃依据（hist 中最近 live_on/new_post 时间；无记录排末尾） */
@@ -2647,7 +2660,7 @@ function renderLive(){
     }
   }
 
-  if(!rs.length){lb.innerHTML='<div class="empty">'+(q?'未找到匹配「'+e(q)+'」':'暂无监控房间')+'</div>';return;}
+  if(!rs.length){lb.innerHTML='<div class="empty">暂无监控房间</div>';return;}
   var h='';
   for(var i=0;i<rs.length;i++){
     var r=rs[i],s=null;
@@ -2718,8 +2731,6 @@ function renderPosts(){
   var cnt=document.getElementById('postsCount');
   if(!postRooms||!postRooms.length){body.innerHTML='<div class="empty">⌛ 暂无监控的抖音号</div>';if(cnt)cnt.textContent='';return;}
   var list=postRooms.slice();
-  /* ★ P0-4 文本搜索：name/id/nickname 任一命中（仅过滤已加载数据，绝不调用 ld） */
-  if(q) list=list.filter(function(r){return matchPostQ(r,q);});
   /* ★ 阶段二 2b B4：按最近活跃（postTrack.latest_ct）排序（recent 生效） */
   var _postLast={};
   for(var pi=0;pi<list.length;pi++){
@@ -2729,11 +2740,11 @@ function renderPosts(){
   }
 
   if(!list.length){
-    body.innerHTML='<div class="empty">'+(q?'未找到匹配「'+e(q)+'」':'⌛ 暂无监控的抖音号')+'</div>';
-    if(cnt)cnt.textContent='';   // 搜索态空：清空计数，避免与「未找到匹配」矛盾
+    body.innerHTML='<div class="empty">⌛ 暂无监控的抖音号</div>';
+    if(cnt)cnt.textContent='';   // 空态清空计数
     return;
   }
-  if(cnt)cnt.textContent=q?('匹配 '+list.length+' / '+postRooms.length):('共 '+postRooms.length+' 个');
+  if(cnt)cnt.textContent='共 '+postRooms.length+' 个';
   var h='';
   for(var i=0;i<list.length;i++){
     var r=list[i],id=r.id;
