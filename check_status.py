@@ -365,8 +365,129 @@ def _extract_douyin_avatar(html: str) -> str:
     return url
 
 
+def _get_douyin_ttwid() -> str:
+    """获取抖音 ttwid cookie（设备标识，无需登录）。
+
+    通过 ttwid.bytedance.com 注册接口获取，用于 webcast/room/web/enter 接口。
+    失败返回空字符串（接口仍可尝试不带 ttwid 请求）。
+    """
+    try:
+        body = json.dumps({
+            "region": "cn",
+            "aid": 1768,
+            "needFid": False,
+            "service": "www.douyin.com",
+            "migrate_info": {"ticket": "", "source": "node"},
+            "cbUrlProtocol": "https",
+            "union": True,
+        }).encode()
+        req = urllib.request.Request(
+            "https://ttwid.bytedance.com/ttwid/union/register/",
+            data=body,
+            headers={"Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            set_cookie = resp.headers.get("Set-Cookie", "")
+            match = re.search(r"ttwid=([^;]+)", set_cookie)
+            if match:
+                return match.group(1)
+    except Exception as e:
+        logger.debug("获取 ttwid 失败: %s", e)
+    return ""
+
+
+def _fetch_douyin_enter(web_rid: str) -> Optional[Dict[str, Any]]:
+    """通过 webcast/room/web/enter 接口获取抖音直播间结构化数据。
+
+    该接口返回 JSON 格式的房间信息，比 HTML 解析更稳定。
+    需要 ttwid cookie（通过 _get_douyin_ttwid 获取）。
+
+    Args:
+        web_rid: 直播间 web_rid（即 URL 中的短ID）
+
+    Returns:
+        包含 status/title/online/nickname/sec_uid/avatar 的字典，失败返回 None
+    """
+    now_str = bjnow().strftime("%Y-%m-%d %H:%M:%S")
+    ttwid = _get_douyin_ttwid()
+
+    params = {
+        "aid": "6383",
+        "app_name": "douyin_web",
+        "live_id": "1",
+        "device_platform": "web",
+        "language": "zh-CN",
+        "browser_language": "zh-CN",
+        "browser_platform": "Win32",
+        "browser_name": "Chrome",
+        "browser_version": "116.0.0.0",
+        "web_rid": web_rid,
+    }
+    url = f"https://live.douyin.com/webcast/room/web/enter/?{urllib.parse.urlencode(params)}"
+
+    headers = {
+        "User-Agent": DEFAULT_USER_AGENT,
+        "Accept": "application/json",
+        "Referer": f"https://live.douyin.com/{web_rid}",
+    }
+    if ttwid:
+        headers["Cookie"] = f"ttwid={ttwid}"
+
+    try:
+        raw = fetch_with_retry(url, headers=headers, retries=1, timeout=8)
+        data = json.loads(raw)
+
+        room_list = data.get("data", {}).get("data", [])
+        if not room_list:
+            logger.debug("抖音 enter 接口无 room 数据: %s", web_rid)
+            return None
+
+        room = room_list[0]
+        status_code = room.get("status", 0)
+        title = room.get("title", "")
+        user_count = _as_int(room.get("user_count_str", room.get("user_count", 0)))
+
+        # room_status: 0=正在直播, 2=未在直播
+        # room.status: 2=正在直播(DOUYIN_STATUS_LIVE), 4=未在直播(DOUYIN_STATUS_OFFLINE)
+        status = "live" if status_code == DOUYIN_STATUS_LIVE else "offline"
+
+        # 从 user 对象提取主播信息
+        user = data.get("data", {}).get("user", {})
+        nickname = user.get("nickname", "")
+        sec_uid = user.get("sec_uid", "")
+        avatar = ""
+        avatar_thumb = user.get("avatar_thumb", {})
+        if isinstance(avatar_thumb, dict):
+            url_list = avatar_thumb.get("url_list", [])
+            if url_list:
+                avatar = url_list[0] if isinstance(url_list, list) else str(url_list)
+
+        result = {
+            "status": status,
+            "title": title,
+            "online": user_count,
+            "area": "",
+            "nickname": nickname,
+            "sec_uid": sec_uid,
+            "avatar": avatar,
+            "time": now_str,
+        }
+        logger.debug("抖音 enter 接口成功: %s → %s", web_rid, status)
+        return result
+
+    except Exception as e:
+        logger.debug("抖音 enter 接口失败 (%s): %s", web_rid, e)
+        return None
+
+
 def fetch_douyin(web_rid: str) -> Dict[str, Any]:
     """抖音直播间检测 - 多种策略兜底提取
+
+    策略优先级：
+    0. webcast/room/web/enter 接口（结构化 JSON，最稳定）
+    1. RENDER_DATA 提取
+    2. 分享 meta 提取
+    3. 页面文本关键词推断（兜底）
 
     Args:
         web_rid: 直播间 web_rid
@@ -374,8 +495,16 @@ def fetch_douyin(web_rid: str) -> Dict[str, Any]:
     Returns:
         直播间状态字典
     """
-    url = f"https://live.douyin.com/{web_rid}"
     now_str = bjnow().strftime("%Y-%m-%d %H:%M:%S")
+
+    # 策略0: webcast/room/web/enter 接口（优先，结构化 JSON 最稳定）
+    result = _fetch_douyin_enter(web_rid)
+    if result:
+        logger.debug("抖音策略0成功 (enter API): %s", web_rid)
+        return result
+
+    # 策略1-3: 回退到 HTML 解析
+    url = f"https://live.douyin.com/{web_rid}"
 
     try:
         raw = fetch_with_retry(
@@ -454,12 +583,12 @@ def fetch_douyin(web_rid: str) -> Dict[str, Any]:
     return {
         "status": "offline",
         "title": "",
-            "online": 0,
-            "area": "",
-            "nickname": nickname,
-            "sec_uid": sec_uid,
-            "avatar": avatar,
-            "time": now_str,
+        "online": 0,
+        "area": "",
+        "nickname": nickname,
+        "sec_uid": sec_uid,
+        "avatar": avatar,
+        "time": now_str,
     }
 
 
