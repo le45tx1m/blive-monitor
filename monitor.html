@@ -382,63 +382,6 @@ a { color: inherit; }
   letter-spacing: -0.02em;
 }
 
-.blm-hero-stats-bar {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  flex: 1;
-  justify-content: center;
-}
-
-.blm-stat-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 10px;
-  border-radius: var(--radius-pill);
-  background: var(--bg-surface-2);
-  border: 1px solid var(--border-subtle);
-  font-family: var(--font-sans);
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-  transition: all 0.2s;
-}
-.blm-stat-pill b {
-  font-weight: 600;
-  font-size: 0.8rem;
-  color: var(--text-primary);
-  font-family: var(--font-mono);
-}
-.blm-stat-pill .label {
-  font-weight: 400;
-  font-size: 0.7rem;
-  color: var(--text-tertiary);
-}
-.blm-stat-pill .dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--text-tertiary);
-}
-.blm-stat-pill.live,
-.blm-stat-pill.active {
-  background: var(--brand-light);
-  border-color: rgba(255,77,106,0.25);
-}
-.blm-stat-pill.live b,
-.blm-stat-pill.active b { color: var(--brand); }
-.blm-stat-pill.live .dot,
-.blm-stat-pill.active .dot {
-  background: var(--brand);
-  box-shadow: 0 0 6px var(--brand);
-  animation: blink-dot 2s ease-in-out infinite;
-}
-
-@keyframes blink-dot {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
-}
-
 /* Icon button */
 .blm-icon-btn {
   width: 34px;
@@ -2338,22 +2281,6 @@ body.batch-mode .blm-work-card {
           </svg>
         </div>
         <span class="blm-hero-title" id="heroTitle">直播监控</span>
-      </div>
-      <!-- 精致统计条（嵌入标题行右侧） -->
-      <div class="blm-hero-stats-bar">
-        <div class="blm-stat-pill live" id="statPillLive">
-          <span class="dot"></span>
-          <b id="visLive">0</b>
-          <span class="label">直播中</span>
-        </div>
-        <div class="blm-stat-pill">
-          <b id="visRooms">0</b>
-          <span class="label">监控</span>
-        </div>
-        <div class="blm-stat-pill">
-          <b id="visPosts">0</b>
-          <span class="label">新作</span>
-        </div>
       </div>
       <button class="blm-btn" onclick="ld()" title="刷新">
         <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style="margin-right:2px">
