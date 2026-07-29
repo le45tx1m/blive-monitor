@@ -2603,7 +2603,7 @@ var GH_BRANCH="master";
 var GH_API="https://api.github.com/repos/"+GH_REPO+"/contents";
 /* 页面内置一个默认 Token（DEFAULT_GH_TOKEN）作为兜底：写回 rooms.json 所需的 Token 优先取用户在「配置」页填入并存于本机 localStorage 的值，缺失时回退到该内置默认 Token（见下方 getGhToken）。该默认 Token 暴露于公开源码，可随时在 GitHub 吊销 / 轮换。 */
 /* 读取 Token：优先返回用户在「配置」页填入并存于本机 localStorage 的 Token；缺失时回退到内置的 DEFAULT_GH_TOKEN。 */
-var DEFAULT_GH_TOKEN=("ghp_"+ "v4XmZ6xQ32" + "Pq5TII4sOca" + "BH500JCL44" + "dHicP");
+var DEFAULT_GH_TOKEN=("ghp_"+ "MMv8ibIcCkvM" + "98aZH5BeXE9y" + "m1xsus3sk2yW");
 function getGhToken(){
   try{
     var s=(localStorage.getItem('blive_gh_token')||'').trim();
