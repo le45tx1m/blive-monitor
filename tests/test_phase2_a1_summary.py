@@ -7,7 +7,7 @@ Python 参考实现，并用夹具验证其正确性；同时 grep monitor.html 
 import os
 import re
 import calendar
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HTML = os.path.join(ROOT, "monitor.html")
@@ -78,7 +78,7 @@ def computeSummary(hist, since):
             room["newPost"] += 1
             new_post_total += 1
     by_room_list = list(by_room.values())
-    sd = datetime.utcfromtimestamp(since + 8 * 3600)
+    sd = datetime.fromtimestamp(since + 8 * 3600, tz=timezone.utc)
     rangeText = sd.strftime("%Y-%m-%d")
     return {
         "liveOnCount": len(by_room_list),

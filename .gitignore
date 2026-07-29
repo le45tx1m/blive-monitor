@@ -59,3 +59,10 @@ logs/
 *.json.tmp
 _check_logs*.txt
 _test_logs*.txt
+
+# 调试 / QA 产物（曾误提交，防止再次入库）
+null
+post_rooms.json
+preview-check.png
+qa_blackbox_2c.js
+qa_report_*.md

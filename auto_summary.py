@@ -23,7 +23,7 @@ import os
 import re
 import sys
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional, Tuple
 
 from common import bjnow, load_json_file, save_json_file, parse_beijing
@@ -108,7 +108,7 @@ def compute_summary(hist: list, since: int) -> Dict[str, Any]:
             room["newPost"] += 1
             new_post_total += 1
     by_room_list = list(by_room.values())
-    sd = datetime.utcfromtimestamp(since + 8 * 3600)
+    sd = datetime.fromtimestamp(since + 8 * 3600, tz=timezone.utc)
     range_text = sd.strftime("%Y-%m-%d")
     return {
         "liveOnCount": len(by_room_list),

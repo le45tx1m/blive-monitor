@@ -9,6 +9,9 @@
 # Python 版本要求: 3.8+
 playwright==1.58.0
 
+# 校验工作流 YAML（test_refactor_edge 等测试需要），CI 安装避免 ImportError
+pyyaml>=6.0
+
 # ===== 阶段四后端依赖 =====
 # Web 框架（sync def 路由 + 线程池）；与 sync SQLAlchemy 零冲突。
 fastapi==0.128.2
