@@ -45,13 +45,22 @@ def test_c3_detail_button_wired():
 
 
 def test_c3_show_five_tab_contract_preserved():
-    """C3 弹层不得改动 show() 的 5-tab 索引契约。"""
+    """C3 弹层不得改动 show() 的 5-tab 视图契约。
+
+    show() 必须以 5 个 view（live/posts/log/config/dashboard）为唯一索引集合，
+    通过 Object.keys(views) 动态切换 active；C3 弹层用 .blm-modal overlay 承载，
+    不得新增第 6 个 view（view-detail）。
+    """
     src = _src()
     # views 字典必须仍是这 5 个 key
     assert "var views={'live':'view-live','posts':'view-posts','log':'view-log','config':'view-config','dashboard':'view-dashboard'}" in src, \
         "show() 的 views 字典 5-key 契约被破坏"
-    # tabs 数组必须仍是这 5 项（与 views 对齐）
-    assert "['live','posts','log','config','dashboard']" in src, \
-        "show() 的 tabs 数组 5 项契约被破坏"
-    # 不得出现第 6 个 tab 索引引用
+    # 切换逻辑应基于 views 的 key 动态遍历（不再依赖硬编码 tabs 数组字面量）
+    assert "Object.keys(views).forEach" in src, "show() 应基于 Object.keys(views) 遍历 5 个 view"
+    # 主 tab 高亮走 .blm-tab-item[data-key]，key 集合应覆盖 live/posts/log/config
+    # （dashboard 按设计不在主 tab 里，由 view-posts/view-dashboard 全屏覆盖承载）
+    for k in ["live", "posts", "log", "config"]:
+        assert ('data-key="%s"' % k in src) or ("data-key='%s'" % k in src), \
+            "show() 主 tab 应含 data-key=%s" % k
+    # 不得出现第 6 个 view（C3 弹层不新增 view）
     assert "view-detail" not in src, "不应新增第 6 个 view（破坏 5-tab 契约）"

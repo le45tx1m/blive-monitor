@@ -37,16 +37,20 @@ def test_monitor_supports_view_param():
     assert "view=hero" in html
 
 
-def test_brothers_are_redirect_shells():
-    for name, target in [
-        ("monitor-dashboard.html", "view=dashboard"),
-        ("monitor-feed.html", "view=feed"),
-        ("monitor-hero.html", "view=hero"),
+def test_no_legacy_brother_frontends():
+    """转正后只保留 monitor.html 一个正式前端；其余变体（dashboard/feed/hero 等）已删除。
+
+    原 test_brothers_are_redirect_shells 守卫 monitor-dashboard/feed/hero 三个重定向壳；
+    本次"前端转正 + 删除其余前端"后这些壳文件已不存在，反向守卫：不得重新出现，
+    避免历史多前端分裂回归。
+    """
+    for name in [
+        "monitor-dashboard.html",
+        "monitor-feed.html",
+        "monitor-hero.html",
+        "monitor-a.html",
+        "monitor-b.html",
+        "strata.html",
     ]:
-        html = _read(name)
-        assert "location.replace" in html, f"{name} 应含 location.replace 重定向"
-        assert target in html, f"{name} 应重定向到 {target}"
-        # 已删除各自重复的日志渲染函数（D 类清理）
-        assert "renderLog(" not in html
-        assert "renderFeed(" not in html
-        assert "renderLogBox(" not in html
+        assert not os.path.exists(os.path.join(REPO, name)), \
+            f"{name} 应已删除（只保留 monitor.html 一个正式前端）"

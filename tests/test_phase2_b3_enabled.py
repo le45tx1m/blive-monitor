@@ -5,7 +5,7 @@ grep 契约：
     batchBar（批量操作条 id）/ editRoom / setRoomEnabled / pauseSelected（函数名）。
   - check_status.py 与 check_new_posts.py 必须含 room_enabled(...) 调用
     （CI 完全跳过 enabled===false 的房间检测）。
-  - 暂停态保留 .blm-room-link（可点击契约不破）+ 灰显「已暂停」徽标。
+  - 暂停态保留可点击进入直播间入口（.blm-room-avatar-link 头像链接，可点击契约不破）+ 灰显「已暂停」徽标。
 
 Python 参考实现镜像 common.room_enabled（缺失 enabled 视为 True）。
 """
@@ -39,8 +39,8 @@ def test_html_preserves_room_link_and_paused_badge():
     # 暂停态：.blm-room-card 追加 .paused + 「已暂停」徽标
     assert "(_paused?' paused':'')" in src, "未对暂停房间加 .paused 类"
     assert "已暂停" in src, "未渲染「已暂停」徽标"
-    # 保留 .blm-room-link（B3 不破坏可点击契约）
-    assert "blm-room-link" in src
+    # 保留可点击进入直播间入口（B3 不破坏可点击契约；monitor-b 以 .blm-room-avatar-link 头像入口实现）
+    assert "blm-room-avatar-link" in src
 
 
 def test_ci_room_enabled_skip():

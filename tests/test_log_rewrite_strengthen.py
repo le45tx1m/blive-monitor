@@ -243,20 +243,10 @@ def test_read_view_param_safe_no_injection():
     assert "'dashboard'" in body and "'feed'" in body and "'hero'" in body
 
 
-# ==================== 三兄弟重定向：无死循环 ====================
-
-@pytest.mark.parametrize("name,target", [
-    ("monitor-dashboard.html", "view=dashboard"),
-    ("monitor-feed.html", "view=feed"),
-    ("monitor-hero.html", "view=hero"),
-])
-def test_brother_redirect_target_is_monitor_not_self(name, target):
-    """重定向目标必须是 canonical monitor.html?view=xxx；自身文件名不再出现，避免重定向死循环。"""
-    html = open(os.path.join(REPO, name), encoding="utf-8").read()
-    assert "monitor.html?view=" in html
-    assert target in html
-    # 自身文件名（如 monitor-dashboard.html）不应再作为重定向目标出现
-    assert name not in html
+# ==================== 三兄弟重定向：已随"前端转正 + 删除其余前端"移除 ====================
+# 原 test_brother_redirect_target_is_monitor_not_self 守卫 monitor-dashboard/feed/hero 三个
+# 重定向壳文件；转正后只保留 monitor.html 一个正式前端，这些壳文件已删除。对应契约改由
+# tests/test_frontend_log.py::test_no_legacy_brother_frontends 反向守卫（不得重新出现）。
 
 
 # ==================== 迁移幂等 + CLI 可直接运行 ====================
