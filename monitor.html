@@ -11,7 +11,7 @@
 <title>直播 &amp; 新作监控</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600;1,700&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600;1,700&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 <style id="theme-vars">
 /* ============================================================
    Refactored Design System — Cool Dark Monitor
@@ -281,6 +281,27 @@ a { color: inherit; }
   .blm-content {
     padding: 0 var(--space-6);
   }
+}
+
+/* ===== Skeleton Loading（骨架屏，替换纯文字"加载中"） ===== */
+@keyframes blm-shimmer { to { transform: translateX(100%); } }
+.blm-skel-card {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-md);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+}
+.blm-skel { position: relative; overflow: hidden; background: var(--color-bg-surface-raised); border-radius: var(--radius-sm); }
+.blm-skel::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.07), transparent);
+  transform: translateX(-100%);
+  animation: blm-shimmer 1.5s ease-in-out infinite;
 }
 
 .empty {
@@ -1052,6 +1073,12 @@ body.batch-mode .blm-work-select-wrap {
   flex-shrink: 0;
   border-radius: 50%;
 }
+/* live 房间：头像外环高亮，引导进入直播间（monitor-b 以可点击头像替代原底部"查看直播间"按钮） */
+.blm-room-card.live .blm-room-avatar-link {
+  box-shadow: 0 0 0 2px var(--state-live), 0 2px 12px rgba(255,59,48,0.35), var(--shadow-glow-live);
+}
+.blm-room-card.live .blm-room-avatar-link:hover { transform: scale(1.05); }
+.blm-room-card.live .blm-room-avatar-link:active { transform: scale(0.96); }
 
 .blm-room-main {
   flex: 1;
@@ -2415,7 +2442,7 @@ body.batch-mode .blm-work-card {
           </div>
         </div>
 
-        <div id="liveBody"><div class="empty">🔄 加载中…</div></div>
+        <div id="liveBody"><div class="blm-skel-card"><div class="blm-skel" style="width:48px;height:48px;border-radius:50%;flex-shrink:0"></div><div style="flex:1;min-width:0"><div class="blm-skel" style="height:15px;width:38%;margin-bottom:10px"></div><div class="blm-skel" style="height:12px;width:72%;margin-bottom:12px"></div><div class="blm-skel" style="height:12px;width:52%"></div></div></div><div class="blm-skel-card"><div class="blm-skel" style="width:48px;height:48px;border-radius:50%;flex-shrink:0"></div><div style="flex:1;min-width:0"><div class="blm-skel" style="height:15px;width:38%;margin-bottom:10px"></div><div class="blm-skel" style="height:12px;width:72%;margin-bottom:12px"></div><div class="blm-skel" style="height:12px;width:52%"></div></div></div><div class="blm-skel-card"><div class="blm-skel" style="width:48px;height:48px;border-radius:50%;flex-shrink:0"></div><div style="flex:1;min-width:0"><div class="blm-skel" style="height:15px;width:38%;margin-bottom:10px"></div><div class="blm-skel" style="height:12px;width:72%;margin-bottom:12px"></div><div class="blm-skel" style="height:12px;width:52%"></div></div></div></div>
 
         <div style="display:none">
           <div id="feedPostsPreview"></div>
@@ -2847,7 +2874,7 @@ body.batch-mode .blm-work-card {
 </div>
 
 <!-- 多通道推送加密依赖（libsodium，用于把 BLIVE_CONFIG 加密写入 Actions Secret） -->
-<script src="libsodium.js"></script>
+<!-- libsodium.js 改为按需懒加载（见 loadSodium），避免 121KB 拖慢首屏 -->
 
     <!-- 阶段二 2b B3：编辑房间（轻量弹层：名称 + 标签 + 启停开关） -->
     <div id="roomEdit" class="blm-modal" style="display:none">
@@ -4598,6 +4625,21 @@ function buildPushConfig(){
 function bytesToB64(bytes){var s='';for(var i=0;i<bytes.length;i++)s+=String.fromCharCode(bytes[i]);return btoa(s);}
 function b64ToBytes(b64){var s=atob(b64);var o=new Uint8Array(s.length);for(var i=0;i<s.length;i++)o[i]=s.charCodeAt(i);return o;}
 function escapeHtml(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+/* 按需加载 libsodium（仅配置页写 Secret 时需要，避免 121KB 拖慢首屏） */
+var _sodiumPromise=null;
+function loadSodium(){
+  if(window.sodium) return Promise.resolve(window.sodium);
+  if(!_sodiumPromise){
+    _sodiumPromise=new Promise(function(res,rej){
+      var el=document.createElement('script');
+      el.src='libsodium.js';
+      el.onload=function(){ window.sodium.ready.then(function(){res(window.sodium);},rej); };
+      el.onerror=function(){ _sodiumPromise=null; rej(new Error('加密库加载失败，请检查网络')); };
+      document.head.appendChild(el);
+    });
+  }
+  return _sodiumPromise;
+}
 function ghBase(){return GH_API.split('/contents')[0];}
 async function savePushConfig(){
   var cfg=buildPushConfig(); if(!cfg)return;
@@ -4810,7 +4852,7 @@ async function saveSummaryConfig(){
       var pkResp = await fetch(base + '/actions/secrets/public-key', {headers:{'Authorization':'Bearer '+getGhToken(),'Accept':'application/vnd.github+json'}});
       if(!pkResp.ok) throw new Error('获取公钥失败 HTTP ' + pkResp.status);
       var pk = await pkResp.json();
-      await sodium.ready;
+      var sodium = await loadSodium();
       var sealed = sodium.crypto_box_seal(new TextEncoder().encode(json), b64ToBytes(pk.key));
       var putResp = await fetch(base + '/actions/secrets/BLIVE_CONFIG', {method:'PUT', headers:{'Authorization':'Bearer '+getGhToken(),'Accept':'application/vnd.github+json','Content-Type':'application/json'}, body: JSON.stringify({encrypted_value: bytesToB64(sealed), key_id: pk.key_id})});
       if(!putResp.ok) throw new Error('写入 Secret 失败 HTTP ' + putResp.status);
@@ -5433,7 +5475,7 @@ async function _encryptSaveBlive(fullCfg, statusEl){
     var pkResp=await fetch(base+'/actions/secrets/public-key',{headers:{'Authorization':'Bearer '+tok,'Accept':'application/vnd.github+json'}});
     if(!pkResp.ok) throw new Error('获取公钥失败 HTTP '+pkResp.status);
     var pk=await pkResp.json();
-    await sodium.ready;
+    var sodium = await loadSodium();
     var sealed=sodium.crypto_box_seal(new TextEncoder().encode(json), b64ToBytes(pk.key));
     var putResp=await fetch(base+'/actions/secrets/BLIVE_CONFIG',{method:'PUT',headers:{'Authorization':'Bearer '+tok,'Accept':'application/vnd.github+json','Content-Type':'application/json'},body:JSON.stringify({encrypted_value:bytesToB64(sealed),key_id:pk.key_id})});
     if(!putResp.ok) throw new Error('写入 Secret 失败 HTTP '+putResp.status);
