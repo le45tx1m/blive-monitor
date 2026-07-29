@@ -94,7 +94,7 @@
     "last_live": "2026-07-28 23:40:08",
     "live_start": "2026-07-29 20:55:14",
     "sec_uid": "MS4wLjABAAAAyCaNA3LEhCAViVcLn86e6YwyW8-GkDAWMPj_3n_pz00",
-    "live_duration": "2h45min",
+    "live_duration": "3min",
     "last_duration": "1h27min"
   },
   "douyin_26341732116": {
@@ -157,5 +157,10 @@
   "bilibili_6": {
     "last_live": "",
     "live_start": ""
+  },
+  "douyin_Ccc_luu.": {
+    "last_live": "",
+    "live_start": "",
+    "sec_uid": "MS4wLjABAAAA5sVk8nvWTIIjCxWyR7zoRLSDRSnxPOtF0aY4ciGx6OM"
   }
 }
