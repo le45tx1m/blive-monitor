@@ -27,7 +27,6 @@ h1{font-size:22px;font-weight:800}
 .opt h2{font-size:17px;font-weight:800}
 .opt .tag{display:inline-block;font-size:10px;font-weight:800;padding:2px 9px;border-radius:999px;margin-left:8px;vertical-align:middle}
 .tag.rec{background:rgba(46,213,115,.18);color:var(--green)}
-.tag.alt{background:rgba(255,255,255,.08);color:var(--text2)}
 .opt p{font-size:13px;color:var(--text2);margin-top:10px;line-height:1.6}
 .opt .go{margin-top:12px;font-size:13px;font-weight:800;color:var(--bili)}
 .opt.official .go{color:var(--green)}
@@ -39,42 +38,20 @@ h1{font-size:22px;font-weight:800}
 <header class="topbar">
   <div class="logo">📡</div>
   <h1>直播 &amp; 新作监控</h1>
-  <p class="sub">已采用 <strong>标签切换式</strong> 作为正式版（底部 tab 切换 直播 / 新作 / 日志）。下方三个为备选结构方案，可随时切换。</p>
+  <p class="sub">正式版采用 <strong>标签切换式</strong>（底部 tab 切换 直播 / 新作 / 日志），集成直播状态、新作品与运行日志。</p>
 </header>
 
 <div class="wrap">
-  <a class="opt official" href="monitor.html?v=20260713b">
+  <a class="opt official" href="monitor.html?v=20260730">
     <span class="arrow">→</span>
-    <div class="row"><div class="ic">🗂️</div><div><h2>标签切换式<span class="tag rec">✅ 当前正式版</span></h2></div></div>
-    <p>底部标签栏切换「直播 / 新作 / 日志」三个独立视图，首页只留概览+正在直播。移动端体验最佳，结构变化最大。</p>
+    <div class="row"><div class="ic">🗂️</div><div><h2>直播 &amp; 新作监控<span class="tag rec">✅ 当前正式版</span></h2></div></div>
+    <p>底部标签栏切换「直播 / 新作 / 日志」三个独立视图，首页只留概览 + 正在直播。支持在页面内增删监控房间，移动端体验最佳。</p>
     <div class="go">进入正式版 →</div>
-  </a>
-
-  <a class="opt" href="monitor-dashboard.html">
-    <span class="arrow">→</span>
-    <div class="row"><div class="ic">🧱</div><div><h2>双栏仪表盘<span class="tag alt">备选方案</span></h2></div></div>
-    <p>桌面端左栏直播房间、右栏新作品+日志；移动端自动堆叠成单列。网格化、信息密度高。</p>
-    <div class="go">查看此方案 →</div>
-  </a>
-
-  <a class="opt" href="monitor-feed.html">
-    <span class="arrow">→</span>
-    <div class="row"><div class="ic">📰</div><div><h2>统一动态流<span class="tag alt">备选方案</span></h2></div></div>
-    <p>把直播状态、新作品、日志合并成一条按时间排序的信息流，正在直播的房间置顶。像社媒时间线。</p>
-    <div class="go">查看此方案 →</div>
-  </a>
-
-  <a class="opt" href="monitor-hero.html">
-    <span class="arrow">→</span>
-    <div class="row"><div class="ic">🌟</div><div><h2>英雄区+网格<span class="tag alt">备选方案</span></h2></div></div>
-    <p>顶部大英雄区展示正在直播（标题/人气/进入按钮），下方新作品网格卡片，日志折叠在底部。突出"当下在播"。</p>
-    <div class="go">查看此方案 →</div>
   </a>
 </div>
 
 <div class="foot">
-  数据每 5 分钟自动刷新 · 切换方案不会丢失监控配置<br>
-  正式版随时可改回其他结构
+  数据每 5 分钟自动刷新 · 在页面内增删房间不会丢失监控配置
 </div>
 </body>
 </html>

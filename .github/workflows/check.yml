@@ -239,9 +239,7 @@ jobs:
           mkdir -p _site
           cp monitor.html _site/
           cp libsodium.js _site/ 2>/dev/null || true
-          cp monitor-*.html _site/ 2>/dev/null || true
           cp index.html _site/ 2>/dev/null || true
-          cp strata.html _site/ 2>/dev/null || true
           cp rooms.json _site/
           cp status.json _site/
           cp history.json _site/
