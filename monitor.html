@@ -939,6 +939,110 @@ body.batch-mode .blm-work-select-wrap {
   100% { transform: scale(1.8); opacity: 0; }
 }
 
+/* ===================== 呼吸感 / 鲜活感动效 ===================== */
+@media (prefers-reduced-motion: reduce) {
+  .blm-room-card,
+  .blm-room-card.live,
+  .blm-status-dot.live,
+  .blm-room-card.live .blm-room-avatar-link,
+  .blm-logo,
+  .blm-btn-primary,
+  .blm-hero-freshness.ok,
+  .blm-live-strata .blm-room-card { animation: none !important; }
+}
+
+/* 直播状态点：心跳脉动（替代静态红点） */
+.blm-status-dot.live {
+  animation: blm-heartbeat 1.6s ease-in-out infinite;
+}
+@keyframes blm-heartbeat {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255,77,106,0.6); transform: scale(1); }
+  25%      { box-shadow: 0 0 0 5px rgba(255,77,106,0); transform: scale(1.18); }
+  50%      { box-shadow: 0 0 0 0 rgba(255,77,106,0); transform: scale(1); }
+  75%      { box-shadow: 0 0 0 3px rgba(255,77,106,0); transform: scale(1.08); }
+}
+
+/* 直播中卡片：呼吸式光晕，边缘微微明灭 */
+.blm-room-card.live {
+  animation: blm-live-breath 3.2s ease-in-out infinite;
+}
+@keyframes blm-live-breath {
+  0%, 100% { box-shadow: 0 1px 3px rgba(255,77,106,0.08), 0 0 0 0 rgba(255,77,106,0); }
+  50%      { box-shadow: 0 2px 10px rgba(255,77,106,0.18), 0 0 0 1px rgba(255,77,106,0.08); }
+}
+
+/* 直播中头像外环：柔和呼吸光圈 */
+.blm-room-card.live .blm-room-avatar-link {
+  animation: blm-avatar-glow 2.8s ease-in-out infinite;
+}
+@keyframes blm-avatar-glow {
+  0%, 100% { box-shadow: 0 0 0 2px var(--state-live), 0 2px 12px rgba(255,59,48,0.25), var(--shadow-glow-live); }
+  50%      { box-shadow: 0 0 0 3px var(--state-live), 0 2px 18px rgba(255,59,48,0.45), var(--shadow-glow-live); }
+}
+
+/* Logo：缓慢呼吸缩放，强化品牌活力 */
+.blm-logo {
+  animation: blm-logo-breath 4s ease-in-out infinite;
+}
+@keyframes blm-logo-breath {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.06); }
+}
+
+/* 主按钮：hover 时的柔和光晕浮动 */
+.blm-btn-primary {
+  position: relative;
+  transition: all 0.25s ease;
+}
+.blm-btn-primary:hover {
+  box-shadow: 0 4px 14px rgba(255,77,106,0.35);
+  transform: translateY(-1px);
+}
+.blm-btn-primary::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(120deg, transparent 30%, rgba(255,255,255,0.25) 50%, transparent 70%);
+  background-size: 200% 100%;
+  background-position: 200% 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.blm-btn-primary:hover::after {
+  opacity: 1;
+  animation: blm-btn-shine 1.2s ease-in-out infinite;
+}
+@keyframes blm-btn-shine {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* 新鲜度徽章（正常状态）：轻微呼吸，提示系统在运行 */
+.blm-hero-freshness.ok {
+  animation: blm-fresh-breath 4.5s ease-in-out infinite;
+}
+@keyframes blm-fresh-breath {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.82; }
+}
+
+/* 卡片入场：淡入 + 轻微上移，逐张错峰呈现 */
+.blm-live-strata .blm-room-card {
+  animation: blm-card-in 0.45s cubic-bezier(0.22, 0.61, 0.36, 1) backwards;
+}
+.blm-live-strata .blm-room-card:nth-child(1) { animation-delay: 0.02s; }
+.blm-live-strata .blm-room-card:nth-child(2) { animation-delay: 0.06s; }
+.blm-live-strata .blm-room-card:nth-child(3) { animation-delay: 0.10s; }
+.blm-live-strata .blm-room-card:nth-child(4) { animation-delay: 0.14s; }
+.blm-live-strata .blm-room-card:nth-child(5) { animation-delay: 0.18s; }
+.blm-live-strata .blm-room-card:nth-child(n+6) { animation-delay: 0.22s; }
+@keyframes blm-card-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 /* Push tags */
 .push-tag {
   display: inline-block;
