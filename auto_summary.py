@@ -289,8 +289,8 @@ def main() -> None:
             logging.warning("摘要投递失败: %s", res.last_error or "(无错误信息)")
         sys.exit(0)
     except Exception as e:  # 兜底：绝不抛出，配合 continue-on-error
-        logging.error("摘要投递异常（已忽略，不影响主流程）: %s", e)
-        sys.exit(0)
+        logging.error("摘要投递异常（已忽略，不影响主流程）: %s", e, exc_info=True)
+        sys.exit(1)
 
 
 def run_summary(*, cfg_all: Dict[str, Any], persist: Any, now: Optional[datetime] = None) -> None:

@@ -30,6 +30,7 @@ from common import (
     room_enabled,
     load_silence_cfg,
     should_skip_by_silence,
+    content_hash,
 )
 import common  # A2/A4 统一路由：common.resolve_channel / common.render_template（dispatch_event 同源）
 # 多通道推送（与 check_new_posts.py 共用 push_utils.py）
@@ -149,10 +150,12 @@ def fetch_with_retry(
         except Exception as e:
             last_err = e
             if i < retries:
-                logger.debug("请求失败，%d秒后重试 (%d/%d): %s", 1, i + 1, retries, e)
-                time.sleep(1)
+                delay = 2 ** i
+                logger.warning("请求失败，%d秒后重试 (%d/%d): %s", delay, i + 1, retries, e)
+                time.sleep(delay)
 
-    assert last_err is not None
+    if last_err is None:
+        raise RuntimeError("fetch_with_retry: 不应到达此处（重试耗尽但无错误）")
     raise last_err
 
 
@@ -420,7 +423,7 @@ def _fetch_douyin_enter(web_rid: str) -> Optional[Dict[str, Any]]:
         "browser_language": "zh-CN",
         "browser_platform": "Win32",
         "browser_name": "Chrome",
-        "browser_version": "116.0.0.0",
+        "browser_version": "130.0.0.0",
         "web_rid": web_rid,
     }
     url = f"https://live.douyin.com/webcast/room/web/enter/?{urllib.parse.urlencode(params)}"
@@ -1137,11 +1140,8 @@ def main() -> None:
 
 
 def _event_content_hash(channel_id: str, event_type: str, content: str) -> str:
-    """推送内容指纹：``hash(channel_id|event_type|content)``（供 notify_log 去重审计）。"""
-    import hashlib
-
-    raw = f"{channel_id}|{event_type}|{content}"
-    return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:32]
+    """推送内容指纹（委托到 common.content_hash，保持调用点不变）。"""
+    return content_hash(channel_id, event_type, content)
 
 
 def _room_model_to_result(model, now_str: str) -> Dict[str, Any]:

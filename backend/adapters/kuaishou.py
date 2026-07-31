@@ -16,14 +16,11 @@ import urllib.request
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
+from common import DEFAULT_USER_AGENT, epoch_to_beijing
 from backend.adapters.base import AdapterGated, PlatformAdapter, PostModel, RoomModel
 
 logger = logging.getLogger(__name__)
 
-_KUAISHOU_UA = (
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
-)
 _DEFAULT_CLIENT_KEY = "3c7cd4d734b53483"
 
 
@@ -33,14 +30,6 @@ def _to_ts(v: Any) -> Optional[int]:
         return int(v)
     except (TypeError, ValueError):
         return None
-
-
-def _ts_to_bj(ts: Optional[int]) -> str:
-    """epoch 秒 -> 北京时间字符串；失败返回空串。"""
-    try:
-        return datetime.fromtimestamp(int(ts)).strftime("%Y-%m-%d %H:%M:%S")
-    except (TypeError, ValueError, OverflowError, OSError):
-        return ""
 
 
 class KuaishouAdapter(PlatformAdapter):
@@ -62,7 +51,7 @@ class KuaishouAdapter(PlatformAdapter):
     # ---- 网络（可被测试 monkeypatch）----
     def _http_get(self, url: str, headers: Optional[Dict[str, str]] = None,
                   timeout: int = 10) -> bytes:
-        hdr = {"User-Agent": _KUAISHOU_UA, "Referer": "https://live.kuaishou.com/"}
+        hdr = {"User-Agent": DEFAULT_USER_AGENT, "Referer": "https://live.kuaishou.com/"}
         if self.cookie:
             hdr["Cookie"] = self.cookie
         if headers:
@@ -167,7 +156,7 @@ class KuaishouAdapter(PlatformAdapter):
                     author=t.get("nickname", "") or p.get("author", ""),
                     url=p.get("url", ""),
                     cover=p.get("coverUrl", ""),
-                    published_at=_ts_to_bj(ts),
+                    published_at=epoch_to_beijing(ts),
                     title=p.get("caption", ""),
                     extra={
                         "conf": "api",
@@ -179,7 +168,7 @@ class KuaishouAdapter(PlatformAdapter):
         if posts:
             last = max(posts, key=lambda x: _to_ts(x.get("timestamp")) or 0)
             t["latest_post_id"] = last.get("photoId", "")
-            t["latest_published_at"] = _ts_to_bj(_to_ts(last.get("timestamp")))
+            t["latest_published_at"] = epoch_to_beijing(_to_ts(last.get("timestamp")))
         return out
 
     def _fetch_graphql_photos(self, rid: str) -> List[Dict[str, Any]]:

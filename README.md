@@ -133,20 +133,37 @@ export BLIVE_CONFIG='{"push": {"type": "wecom", "webhook": "https://qyapi.weixin
 
 ```
 blive-monitor/
-├── check_status.py      # 直播状态检测主脚本
-├── check_new_posts.py   # 抖音新作品检测脚本
-├── monitor.html         # 监控页面
-├── index.html           # 首页重定向
-├── worker.js            # Cloudflare Worker 触发器（已弃用/遗留）
-├── cors-proxy-worker.js # CORS 代理 Worker（已弃用/遗留）
-├── run.sh               # 一键运行脚本
-├── rooms.json           # 监控房间配置
-├── status.json          # 当前状态（自动生成）
-├── state.json           # 状态缓存（自动生成）
-├── tracking.json        # 追踪数据（自动生成）
-├── history.json         # 历史日志（自动生成）
-└── .github/workflows/
-    └── check.yml        # GitHub Actions 配置
+├── monitor.html          # 前端监控页面（直播 + 新作 + 日志 + 仪表盘）
+├── index.html            # 落地页
+├── check_status.py       # 直播状态检测脚本（CI 入口）
+├── check_new_posts.py    # 新作品检测脚本（CI 入口）
+├── common.py             # 共享工具函数
+├── auto_summary.py       # 定时摘要投递
+├── merge_state.py        # CI 状态合并（解决并发冲突）
+├── state_prune.py        # 状态裁剪
+├── notify_dedup.py       # 推送去重账本
+├── push_utils.py         # 推送渠道封装（重试/退避）
+├── log_utils.py          # 日志工具
+├── transcode_covers.py   # 封面转码
+├── rooms.json            # 直播监控房间配置
+├── post_rooms.json       # 新作品监控抖音号配置
+├── backend/              # FastAPI 后端（阶段三/四）
+│   ├── app.py            # FastAPI 应用入口
+│   ├── config.py         # 配置管理
+│   ├── db.py             # SQLAlchemy 数据层
+│   ├── models.py         # ORM 模型
+│   ├── adapters/         # 平台适配器（bilibili/douyin/kuaishou/taobao/xhs）
+│   ├── api/              # REST API 端点
+│   ├── core/             # 核心逻辑（持久化/去重/历史）
+│   └── jobs/             # 定时任务（检测/调度/摘要/转码）
+├── api/rooms.js          # Cloudflare Pages Functions 房间校验
+├── worker.js             # Cloudflare Worker（触发 GitHub Action）
+├── cors-proxy-worker.js  # Cloudflare Worker（CORS 代理）
+├── tests/                # 测试套件（50+ 测试文件）
+├── docs/                 # 设计文档与 PRD
+├── Dockerfile            # 容器化构建
+├── docker-compose.yml    # 容器编排
+└── .github/workflows/    # CI 工作流
 ```
 
 ## ⚙️ 配置说明
@@ -187,9 +204,10 @@ blive-monitor/
 
 ## 🔧 技术栈
 
-- **后端**: Python 3（仅使用标准库，无需额外依赖）
-- **前端**: 原生 HTML + JavaScript
-- **部署**: GitHub Actions(Pages) / Netlify / Cloudflare Pages（纯静态托管；Worker 代理已弃用）
+- **CI 脚本路径**: Python 标准库（urllib）+ Playwright（抖音 SPA 渲染）
+- **后端路径**: FastAPI + SQLAlchemy + APScheduler + Uvicorn
+- **前端**: 原生 HTML/CSS/JS（无框架），libsodium（加密）
+- **部署**: GitHub Actions + GitHub Pages（前端）、Docker（后端可选）
 - **推送**: 多渠道（Bark / Server酱 / 企业微信 / PushPlus / Telegram）
 
 ## 📝 注意事项

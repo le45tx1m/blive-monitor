@@ -13,6 +13,18 @@
 
 export default {
   async fetch(request) {
+    // OPTIONS 预检
+    if (request.method === 'OPTIONS') {
+      return new Response(null, {
+        status: 204,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type',
+        }
+      });
+    }
+
     // 从 URL 参数中获取目标地址
     const url = new URL(request.url);
     const target = url.searchParams.get('url');
@@ -31,7 +43,7 @@ export default {
     ];
     try {
       const targetUrl = new URL(target);
-      if (!allowedHosts.some(h => targetUrl.hostname.includes(h))) {
+      if (!allowedHosts.some(h => targetUrl.hostname === h || targetUrl.hostname.endsWith('.' + h))) {
         return new Response('Blocked host: ' + targetUrl.hostname, {
           status: 403,
           headers: { 'Access-Control-Allow-Origin': '*' }
@@ -45,23 +57,30 @@ export default {
     }
 
     // 转发请求
-    const response = await fetch(target, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
-        'Referer': 'https://live.bilibili.com/',
-        'Accept': 'application/json, text/html',
-      }
-    });
+    try {
+      const response = await fetch(target, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36',
+          'Referer': 'https://live.bilibili.com/',
+          'Accept': 'application/json, text/html',
+        }
+      });
 
-    // 添加 CORS 头，返回给浏览器
-    const newHeaders = new Headers(response.headers);
-    newHeaders.set('Access-Control-Allow-Origin', '*');
-    newHeaders.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    
-    return new Response(response.body, {
-      status: response.status,
-      statusText: response.statusText,
-      headers: newHeaders
-    });
+      // 添加 CORS 头，返回给浏览器
+      const newHeaders = new Headers(response.headers);
+      newHeaders.set('Access-Control-Allow-Origin', '*');
+      newHeaders.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+
+      return new Response(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: newHeaders
+      });
+    } catch(e) {
+      return new Response('Fetch failed: ' + String(e), {
+        status: 502,
+        headers: { 'Access-Control-Allow-Origin': '*' }
+      });
+    }
   }
 };

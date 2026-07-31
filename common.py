@@ -19,12 +19,44 @@ logger = logging.getLogger(__name__)
 # 北京时间（UTC+8）
 BEIJING_TZ = timezone(timedelta(hours=8))
 
-# 默认 User-Agent（B站/抖音接口需要带浏览器 UA）
+# 默认 User-Agent（桌面端，B站/抖音接口需要带浏览器 UA）
 DEFAULT_USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
     "AppleWebKit/537.36 (KHTML, like Gecko) "
-    "Chrome/125.0.0.0 Safari/537.36"
+    "Chrome/130.0.0.0 Safari/537.36"
 )
+
+# 移动端 User-Agent（抖音 SPA 渲染等移动场景）
+DEFAULT_MOBILE_USER_AGENT = (
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) "
+    "AppleWebKit/605.1.15 (KHTML, like Gecko) "
+    "Version/17.5 Mobile/15E148 Safari/604.1"
+)
+
+
+def content_hash(channel_id: str, event_type: str, content: str) -> str:
+    """推送内容指纹：``hash(channel_id|event_type|content)``（供 notify_log 去重审计）。
+
+    合并自 check_status.py 的 _event_content_hash 与 check_new_posts.py 的 _content_hash，
+    逻辑完全一致：``sha256(channel_id|event_type|content)`` 前 32 位。
+    """
+    import hashlib
+
+    raw = f"{channel_id}|{event_type}|{content}"
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:32]
+
+
+def epoch_to_beijing(ts: Any) -> str:
+    """epoch 秒 -> 北京时间字符串 ``YYYY-MM-DD HH:MM:SS``。
+
+    合并自 adapters/douyin.py 的 _epoch_to_bj 与 adapters/kuaishou.py 的 _ts_to_bj。
+    异常（None / 负数 / 非数字）返回空串。
+    """
+    try:
+        dt = datetime.fromtimestamp(int(ts), tz=BEIJING_TZ).replace(tzinfo=None)
+        return dt.strftime("%Y-%m-%d %H:%M:%S")
+    except (TypeError, ValueError, OverflowError, OSError):
+        return ""
 
 
 def bjnow() -> datetime:

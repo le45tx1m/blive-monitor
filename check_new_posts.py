@@ -44,6 +44,9 @@ from common import (
     room_enabled,
     load_silence_cfg,
     should_skip_by_silence,
+    content_hash,
+    DEFAULT_USER_AGENT,
+    DEFAULT_MOBILE_USER_AGENT,
 )
 import common  # A2/A4 统一路由：common.resolve_channel（dispatch_event 同源）
 # 推送实现见 push_utils.py（直播监控与新作品监控共用）
@@ -74,11 +77,7 @@ SETTLE_WAIT = 6000        # 主页加载后等待 SPA 渲染（ms）
 # 移动端 UA / 视口：用于访问 m.douyin.com 的老接口 web/api/v2/aweme/post/，
 # 该接口**无 Cookie 即返回真实作品列表**（含 aweme_id/desc/视频或图文链接），
 # 是所有账号通用、无需登录的「精确检测」首选路径。
-MOBILE_UA = (
-    "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) "
-    "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 "
-    "Mobile/15E148 Safari/604.1"
-)
+MOBILE_UA = DEFAULT_MOBILE_USER_AGENT
 MOBILE_VIEWPORT = {"width": 390, "height": 844}
 
 # ==================== 日志配置 ====================
@@ -740,11 +739,7 @@ def main() -> None:
             ],
         )
         context = browser.new_context(
-            user_agent=(
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/125.0.0.0 Safari/537.36"
-            ),
+            user_agent=DEFAULT_USER_AGENT,
             viewport={"width": 1280, "height": 900},
             locale="zh-CN",
         )
@@ -1082,8 +1077,7 @@ def run_post_check(*, cfg_all: Dict[str, Any], persist: Any, now: Optional[Any] 
     from backend.adapters.base import AdapterGated, AdapterSkip
 
     def _content_hash(channel_id, event_type, content):
-        import hashlib
-        return hashlib.sha256(f"{channel_id}|{event_type}|{content}".encode("utf-8")).hexdigest()[:32]
+        return content_hash(channel_id, event_type, content)
 
     def _append(rid, name, platform, etype, detail="", level=None, push=None):
         persist.append_event({
@@ -1170,9 +1164,7 @@ def run_post_check(*, cfg_all: Dict[str, Any], persist: Any, now: Optional[Any] 
                       "--disable-blink-features=AutomationControlled", "--disable-gpu"],
             )
             context = browser.new_context(
-                user_agent=("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                            "AppleWebKit/537.36 (KHTML, like Gecko) "
-                            "Chrome/125.0.0.0 Safari/537.36"),
+                user_agent=DEFAULT_USER_AGENT,
                 viewport={"width": 1280, "height": 900}, locale="zh-CN",
             )
             cookie = load_douyin_cookie()

@@ -159,6 +159,8 @@ npm install -D wrangler   # 仅在需要回溯旧 Worker 时才需要
 
 ## 五、附录 A：旧版 Cloudflare Worker 代理（已弃用）
 
+> ⚠️ **[已弃用]** 以下 Worker 部署内容为历史方案，2026-07 起前端已直连 GitHub API，Worker 不再需要。保留此节仅供历史参考。其中引用的 `wrangler.toml`、`.dev.vars.example` 等文件已不在仓库中。
+
 `GH_TOKEN` **必须** 作为 Secret 注入，绝不能写进 `wrangler.toml` 或提交到仓库：
 
 ```bash

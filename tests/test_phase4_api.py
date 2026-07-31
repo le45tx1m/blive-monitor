@@ -22,6 +22,8 @@ from backend import app as app_module
 def _tmp_engine(tmp_path, monkeypatch):
     db_file = tmp_path / "blive.db"
     monkeypatch.setenv("BLIVE_DB_PATH", str(db_file))
+    # 隔离 healthz 的 status.json 检查，避免读到仓库根的真实文件
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
     eng = create_engine(
         f"sqlite:///{db_file}",
         connect_args={"check_same_thread": False},
@@ -56,7 +58,9 @@ def auth_client(tmp_path, monkeypatch):
 def test_healthz(client):
     r = client.get("/healthz")
     assert r.status_code == 200
-    assert r.json() == {"status": "ok"}
+    data = r.json()
+    assert data["status"] == "ok"
+    assert data["db"] == "ok"
 
 
 # ==================== rooms CRUD ====================

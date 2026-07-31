@@ -9,6 +9,9 @@ live_status 归一化 BOOL；bilibili 的 replay(2) 状态经 extra["raw_live_st
 import logging
 from typing import Any, Dict, List
 
+# TODO(架构债): 适配器不应直接依赖 CI 脚本 check_status。
+# fetch_bilibili_batch 应下沉到 backend/core/fetchers/ 独立模块。
+# 当前保留 import 作为过渡方案，避免大规模重构引入回归风险。
 import check_status
 from backend.adapters.base import PlatformAdapter, RoomModel
 

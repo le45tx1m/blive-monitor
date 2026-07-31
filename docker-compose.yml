@@ -7,7 +7,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      # 内网默认留空（无鉴权）；公网暴露时设强随机值，API 写接口需带 X-Bearer-Token。
+      # ⚠️ 公网暴露 8000 端口时必须设置强随机值，否则 API 写接口无鉴权！
       - AUTH_TOKEN=${AUTH_TOKEN:-}
       # 默认不自启调度器；如需后端自驱检测设为 "true"。
       - START_SCHEDULER=${START_SCHEDULER:-false}
@@ -16,3 +16,14 @@ services:
       - ./data:/app/data
       - ./assets/covers:/app/assets/covers
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz')"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'

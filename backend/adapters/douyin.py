@@ -11,8 +11,13 @@ import logging
 from typing import Any, Dict, List, Optional
 from datetime import datetime
 
+# TODO(架构债): 适配器不应直接依赖 CI 脚本 check_status / check_new_posts。
+# 被引用的 fetch_douyin / fetch_bilibili_batch / get_latest_aweme 等纯抓取函数
+# 应下沉到 backend/core/fetchers/ 独立模块。当前保留 import 作为过渡方案，
+# 避免大规模重构引入回归风险。
 import check_new_posts
 import check_status
+from common import epoch_to_beijing
 from backend.adapters.base import (
     AdapterGated,
     AdapterSkip,
@@ -25,11 +30,8 @@ logger = logging.getLogger(__name__)
 
 
 def _epoch_to_bj(sec: int) -> str:
-    """epoch 秒 -> 北京时间字符串（与 history/state 逐字节一致）。"""
-    try:
-        return datetime.fromtimestamp(int(sec)).strftime("%Y-%m-%d %H:%M:%S")
-    except (ValueError, TypeError, OverflowError, OSError):
-        return ""
+    """epoch 秒 -> 北京时间字符串（委托到 common.epoch_to_beijing）。"""
+    return epoch_to_beijing(sec)
 
 
 class DouyinAdapter(PlatformAdapter):

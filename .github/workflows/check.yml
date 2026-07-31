@@ -130,9 +130,13 @@ jobs:
 
       # 状态持久化到 Git —— 唯一真相来源，跨 run 可靠，不再依赖易失效的 actions/cache
       - name: Persist state & keepalive
+        if: always()
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.com"
+          # 状态文件列表（DRY：避免 4 处重复拼写错误）
+          STATE_FILES="state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json status.json summary_state.json"
+          PERSIST_FILES="state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json summary_state.json"
           # 关键：用语义合并替代 git pull --rebase。
           # 旧方案 `git pull --rebase` 在状态文件有本地改动时会失败（远端也改了同一文件），
           # abort 后提交基于旧 base、push 非快进被拒 → 状态丢失 → 下一轮重复推送。
@@ -144,7 +148,7 @@ jobs:
           # 必须随工作区最新版保留，否则 reset --hard 会回滚到远端旧版，导致前端一直
           # 显示「状态获取中」）
           TMPD=$(mktemp -d)
-          for f in state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json status.json summary_state.json; do
+          for f in $STATE_FILES; do
             [ -f "$f" ] && cp "$f" "$TMPD/"
           done
           # 备份新转存的封面图（reset --hard 会回滚到远端版本，导致新封面丢失）
@@ -152,7 +156,7 @@ jobs:
           # reset 到远端 HEAD，使后续 commit 基于最新远端（确保 push 快进）
           git reset --hard origin/master 2>/dev/null || true
           # 恢复合并后的状态文件（status.json 取本地最新，其余按语义合并后结果）
-          for f in state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json status.json summary_state.json; do
+          for f in $STATE_FILES; do
             [ -f "$TMPD/$f" ] && cp "$TMPD/$f" .
           done
           [ -d "$TMPD/covers" ] && mkdir -p assets/covers && cp -r "$TMPD/covers/"* assets/covers/ 2>/dev/null || true
@@ -161,7 +165,7 @@ jobs:
           # status.json 由脚本每轮重写（含 updated/time 等易变时间戳）。前端新鲜度由 Pages 每次部署时从
           # 工作区拷贝最新 status.json 保证（见 Build Pages 步骤），故 git 提交只在「meaningful 内容变化」时
           # 纳入 status.json，忽略纯时间戳变动，避免每 5 分钟空推一条 commit。
-          git add -f state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json summary_state.json assets/covers
+          git add -f $PERSIST_FILES assets/covers
           # status.json：仅当其 meaningful 内容（去掉 updated 与每房间 time/live_duration）相比 HEAD 变化才提交
           # 内联 heredoc（python3 - <<'PY'）会被 GitHub Actions 的 js-yaml 误判合并键而解析失败，
           # 故抽取为独立脚本 tools/strip_status.py（与 96802b1 的「消除重复推送」同目标）。
@@ -205,17 +209,17 @@ jobs:
             git fetch origin master 2>&1 || true
             python3 merge_state.py origin/master
             TMPD=$(mktemp -d)
-            for f in state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json status.json summary_state.json; do
+            for f in $STATE_FILES; do
               [ -f "$f" ] && cp "$f" "$TMPD/"
             done
             [ -d assets/covers ] && cp -r assets/covers "$TMPD/covers"
             git reset --hard origin/master 2>/dev/null || true
-            for f in state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json status.json summary_state.json; do
+            for f in $STATE_FILES; do
               [ -f "$TMPD/$f" ] && cp "$TMPD/$f" .
             done
             [ -d "$TMPD/covers" ] && mkdir -p assets/covers && cp -r "$TMPD/covers/"* assets/covers/ 2>/dev/null || true
             rm -rf "$TMPD"
-            git add -f state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json summary_state.json assets/covers
+            git add -f $PERSIST_FILES assets/covers
             python3 tools/strip_status.py
             # 重试也仅在状态真变时才提交，避免为无变化空推
             if git diff --cached --quiet; then echo "重试：状态无变化，跳过"; break; fi
@@ -266,9 +270,18 @@ jobs:
           # 测试作业需同时安装运行时依赖（requirements.txt 含 fastapi/sqlalchemy 等，
           # phase4 与 detection_wiring 测试需要），仅装 requirements-dev.txt 会因缺模块 ImportError。
           pip install -r requirements.txt -r requirements-dev.txt
+          pip install pytest-cov
 
       - name: Run pytest
         run: python -m pytest -q
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: htmlcov/
+          retention-days: 7
 
   deploy:
     needs: check

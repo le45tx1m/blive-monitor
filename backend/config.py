@@ -50,9 +50,9 @@ MISFIRE_GRACE_SEC: int = int(os.environ.get("MISFIRE_GRACE_SEC", "60"))
 COVERS_DIR: str = os.environ.get("BLIVE_COVERS_DIR") or os.path.join(
     _REPO_ROOT, "assets", "covers"
 )
-GITHUB_OWNER: str = os.environ.get("BLIVE_GITHUB_OWNER", "racheko-lab")
-GITHUB_REPO: str = os.environ.get("BLIVE_GITHUB_REPO", "blive-monitor")
-GITHUB_BRANCH: str = os.environ.get("BLIVE_GITHUB_BRANCH", "master")
+GITHUB_OWNER: str = os.environ.get("GITHUB_OWNER") or os.environ.get("BLIVE_GITHUB_OWNER", "racheko-lab")
+GITHUB_REPO: str = os.environ.get("GITHUB_REPO") or os.environ.get("BLIVE_GITHUB_REPO", "blive-monitor")
+GITHUB_BRANCH: str = os.environ.get("GITHUB_BRANCH") or os.environ.get("BLIVE_GITHUB_BRANCH", "master")
 
 # API 前缀（设计 §3.3：/api/v1）。
 API_PREFIX: str = os.environ.get("BLIVE_API_PREFIX", "/api/v1")

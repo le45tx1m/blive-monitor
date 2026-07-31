@@ -1,4 +1,6 @@
 # 开发 / 测试依赖
 pytest>=8.0
+# 覆盖率统计
+pytest-cov>=4.0,<6.0
 # test_refactor_edge 等需要解析 YAML（校验工作流文件），CI 测试环境缺 PyYAML 会 ImportError
 pyyaml>=6.0

@@ -2685,7 +2685,7 @@ body.batch-mode .blm-work-card {
                 <div class="blm-config-item-desc">开启后，直播视图顶部展示「今日/本周摘要」（N 人开播 · M 条新作），可一键复制或请求推送。自动投递由 CI 读取仓库 Secret（BLIVE_CONFIG.summary）完成。</div>
                 <div class="blm-switch-row">
                   <span class="blm-config-item-title">启用定时摘要</span>
-                  <input type="checkbox" id="summaryEnabled" class="blm-switch">
+                  <input type="checkbox" id="summaryEnabled" class="blm-switch" aria-label="启用定时摘要">
                 </div>
                 <div class="blm-config-item-title" style="margin-top:8px">频率</div>
                 <div class="blm-segmented" style="margin-top:4px">
@@ -2733,7 +2733,7 @@ body.batch-mode .blm-work-card {
                 <div class="blm-config-item-desc">设定静默时段后，CI 在推送前会暂缓开播 / 新作推送（仅跳过推送，状态抓取与看板不受影响）。支持跨午夜（如 23:00–08:00）。</div>
                 <div class="blm-switch-row">
                   <span class="blm-config-item-title">启用静默</span>
-                  <input type="checkbox" id="silenceEnabled" class="blm-switch">
+                  <input type="checkbox" id="silenceEnabled" class="blm-switch" aria-label="启用静默">
                 </div>
                 <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
                   <label class="blm-config-item-title">起
@@ -2864,8 +2864,8 @@ body.batch-mode .blm-work-card {
   </main>
 
   <!-- B 方案 Bottom Tab Bar：4 个主 Tab（Feed / 新作 / 日志 / 配置）。dashboard 通过日志页入口进入 -->
-  <nav class="blm-tab-bar">
-    <a class="blm-tab-item tab active" data-key="live" onclick="show('live')">
+  <nav class="blm-tab-bar" role="tablist">
+    <a class="blm-tab-item tab active" data-key="live" role="tab" tabindex="0" onclick="show('live')">
       <span class="blm-tab-icon">
         <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
           <rect x="2" y="5" width="14" height="11" rx="2" stroke="currentColor" stroke-width="1.6"/>
@@ -2874,7 +2874,7 @@ body.batch-mode .blm-work-card {
       </span>
       <span class="blm-tab-label">直播</span>
     </a>
-    <a class="blm-tab-item tab" data-key="posts" onclick="show('posts')">
+    <a class="blm-tab-item tab" data-key="posts" role="tab" tabindex="0" onclick="show('posts')">
       <span class="blm-tab-icon">
         <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
           <rect x="3" y="3" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.6"/>
@@ -2883,7 +2883,7 @@ body.batch-mode .blm-work-card {
       </span>
       <span class="blm-tab-label">新作</span>
     </a>
-    <a class="blm-tab-item tab" data-key="log" onclick="show('log')">
+    <a class="blm-tab-item tab" data-key="log" role="tab" tabindex="0" onclick="show('log')">
       <span class="blm-tab-icon">
         <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
           <rect x="3" y="3" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.6"/>
@@ -2892,7 +2892,7 @@ body.batch-mode .blm-work-card {
       </span>
       <span class="blm-tab-label">日志</span>
     </a>
-    <a class="blm-tab-item tab" data-key="config" onclick="show('config')">
+    <a class="blm-tab-item tab" data-key="config" role="tab" tabindex="0" onclick="show('config')">
       <span class="blm-tab-icon">
         <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
           <circle cx="11" cy="11" r="3" stroke="currentColor" stroke-width="1.6"/>
@@ -2908,10 +2908,10 @@ body.batch-mode .blm-work-card {
 <!-- libsodium.js 改为按需懒加载（见 loadSodium），避免 121KB 拖慢首屏 -->
 
     <!-- 阶段二 2b B3：编辑房间（轻量弹层：名称 + 标签 + 启停开关） -->
-    <div id="roomEdit" class="blm-modal" style="display:none">
+    <div id="roomEdit" class="blm-modal" role="dialog" aria-modal="true" aria-labelledby="roomEditTitle" style="display:none">
       <div class="blm-modal-mask" onclick="closeRoomEdit()"></div>
       <div class="blm-modal-card">
-        <div class="blm-modal-title">编辑房间</div>
+        <div class="blm-modal-title" id="roomEditTitle">编辑房间</div>
         <input type="hidden" id="editKey">
         <div class="blm-config-item-title" style="margin-top:8px">名称</div>
         <input id="editName" class="blm-input" placeholder="名称（可选）">
@@ -2919,7 +2919,7 @@ body.batch-mode .blm-work-card {
         <input id="editTags" class="blm-input" placeholder="如 游戏,学习">
         <div class="blm-switch-row" style="margin-top:10px">
           <span class="blm-config-item-title">启用监控</span>
-          <input type="checkbox" id="editEnabled" class="blm-switch" checked>
+          <input type="checkbox" id="editEnabled" class="blm-switch" aria-label="启用监控" checked>
         </div>
         <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end">
           <button class="blm-btn blm-btn-secondary" onclick="closeRoomEdit()">取消</button>
@@ -2929,7 +2929,7 @@ body.batch-mode .blm-work-card {
     </div>
 
     <!-- 阶段二 2c C3：单房间详情弹层（overlay，不新增 tab，不动 show() 5-tab 索引） -->
-    <div id="roomDetail" class="blm-modal" style="display:none">
+    <div id="roomDetail" class="blm-modal" role="dialog" aria-modal="true" aria-labelledby="roomDetailTitle" style="display:none">
       <div class="blm-modal-mask" onclick="closeRoomDetail()"></div>
       <div class="blm-modal-card">
         <div class="blm-modal-title">
@@ -2976,7 +2976,7 @@ function hasGhToken(){
    普通用户无需配置即可增删监控，也可在「配置」页填入自己的 Token 覆盖默认。 */
 var hasApi=true;
 
-function e(s){return String(s===undefined||s===null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function e(s){if(s==null) return '';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 function ago(ts){if(!ts)return '';var d=Date.now()-ts*1000,m=Math.floor(d/60000);if(m<1)return '刚刚';if(m<60)return m+'分钟前';var h=Math.floor(m/60);if(h<24)return h+'小时前';var day=Math.floor(h/24);if(day<30)return day+'天前';var mo=Math.floor(day/30);if(mo<12)return mo+'个月前';return Math.floor(mo/12)+'年前';}
 
 function show(t){
@@ -3575,7 +3575,7 @@ function renderLogItem(l, idx){
     logRow('详情', e(l.detail))+
     logRow('rid', e(l.rid))+
     '</div>';
-  return '<div class="blm-log-item log-item-clickable'+open+'" onclick="toggleExpand('+idx+')">'+
+  return '<div class="blm-log-item log-item-clickable'+open+'" data-log-idx="'+idx+'" onclick="toggleExpand('+idx+')">'+
     '<span class="blm-log-time">'+timeStr+'</span>'+
     '<span class="blm-log-dot '+cls+'"></span>'+
     '<div class="blm-log-content"><span class="blm-log-room">'+m.i+' '+e(l.name)+'</span>'+chg+pt+title+'</div>'+
@@ -3599,7 +3599,17 @@ function renderLogList(){
 }
 
 /* 点击展开/收起（P0-5） */
-function toggleExpand(idx){ logExpanded[idx]=!logExpanded[idx]; renderLogList(); }
+function toggleExpand(idx){
+  logExpanded[idx]=!logExpanded[idx];
+  var item=document.querySelector('[data-log-idx="'+idx+'"]');
+  if(item){
+    item.classList.toggle('open');
+    var detail=document.getElementById('ld_'+idx);
+    if(detail){ detail.classList.toggle('open'); }
+  } else {
+    renderLogList();
+  }
+}
 
 function renderLog(){
   renderStats();
@@ -4331,7 +4341,7 @@ function submitPostAdd(){
       if(norm.sec_uid){
         toast('已添加抖音号（已带 sec_uid，立即生效）', true);
         // 带 sec_uid 的账号无需等 CI 解析，但触发一次检测以尽快回填昵称/作品
-        triggerMonitor().catch(function(){});
+        triggerMonitor().catch(function(err){ toast('CI 触发失败：'+(err&&err.message?err.message:'未知错误'), false); });
       }else{
         toast('已添加抖音号，正在获取昵称与作品…', true);
         // 主动触发一次 CI：让它在几秒内解析 sec_uid + 昵称并写回 post_rooms.json，
@@ -4461,7 +4471,7 @@ function submitAdd(){
       /* 主动触发 CI 立即抓取新房间状态（省去最长 ~5 分钟等待）。
          此前为修 409 竞态临时去掉了触发；现 ghWriteWithRetry 已增强为基于最新 sha
          重试 ≤5 次、CI 写回也会先合并远端最新，重启用安全。 */
-      triggerMonitor().catch(function(){});
+      triggerMonitor().catch(function(err){ toast('CI 触发失败：'+(err&&err.message?err.message:'未知错误'), false); });
       setTimeout(function(){ ld(); }, 90000);
     })
     .catch(function(err){
@@ -4655,7 +4665,7 @@ function buildPushConfig(){
 }
 function bytesToB64(bytes){var s='';for(var i=0;i<bytes.length;i++)s+=String.fromCharCode(bytes[i]);return btoa(s);}
 function b64ToBytes(b64){var s=atob(b64);var o=new Uint8Array(s.length);for(var i=0;i<s.length;i++)o[i]=s.charCodeAt(i);return o;}
-function escapeHtml(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
 /* 按需加载 libsodium（仅配置页写 Secret 时需要，避免 121KB 拖慢首屏） */
 var _sodiumPromise=null;
 function loadSodium(){
@@ -5026,12 +5036,12 @@ function submitBatchBox(boxId, target){
     var ok = res.ok.map(function(r){ return { id: r.id, name: r.name, tags: r.tags||[] }; });
     var merged = mergeRooms(postRooms, ok);
     ghWriteWithRetry('post_rooms.json', function(rs){ var m = mergeRooms(rs, ok); return { rooms: m.rooms, changed: m.added > 0 }; })
-      .then(function(out){ postRooms = out.rooms; renderPosts(); updateStatPosts(); toast('已批量添加 ' + merged.added + ' 个抖音号' + (merged.skipped ? ('，跳过 ' + merged.skipped + ' 个已存在') : ''), true); box.value=''; triggerMonitor().catch(function(){}); })
+      .then(function(out){ postRooms = out.rooms; renderPosts(); updateStatPosts(); toast('已批量添加 ' + merged.added + ' 个抖音号' + (merged.skipped ? ('，跳过 ' + merged.skipped + ' 个已存在') : ''), true); box.value=''; triggerMonitor().catch(function(err){ toast('CI 触发失败：'+(err&&err.message?err.message:'未知错误'), false); }); })
       .catch(function(err){ toast(err && err.message ? err.message : '批量添加失败', false); });
   } else {
     var merged2 = mergeRooms(rooms, res.ok);
     ghWriteWithRetry('rooms.json', function(rs){ var m = mergeRooms(rs, res.ok); return { rooms: m.rooms, changed: m.added > 0 }; })
-      .then(function(out){ rooms = out.rooms; renderLive(); updateStatRooms(); toast('已批量添加 ' + merged2.added + ' 条' + (merged2.skipped ? ('，跳过 ' + merged2.skipped + ' 条已存在') : ''), true); box.value=''; triggerMonitor().catch(function(){}); })
+      .then(function(out){ rooms = out.rooms; renderLive(); updateStatRooms(); toast('已批量添加 ' + merged2.added + ' 条' + (merged2.skipped ? ('，跳过 ' + merged2.skipped + ' 条已存在') : ''), true); box.value=''; triggerMonitor().catch(function(err){ toast('CI 触发失败：'+(err&&err.message?err.message:'未知错误'), false); }); })
       .catch(function(err){ var msg = err && err.message ? err.message : '批量添加失败'; if(/409|conflict|冲突/i.test(msg)) msg = '并发写入冲突，请稍候几秒再点「批量加入」'; toast(msg, false); });
   }
 }
@@ -5094,7 +5104,7 @@ function importRooms(jsonText){
     renderLive(); renderPosts(); updateStatRooms(); updateStatPosts();
     if(statusEl){ statusEl.style.display='block'; statusEl.style.color='var(--state-success)'; statusEl.innerHTML='✅ 已合并导入（房间 ' + rooms.length + '，新作 ' + postRooms.length + '）。'; }
     toast('导入完成', true);
-    triggerMonitor().catch(function(){});
+    triggerMonitor().catch(function(err){ toast('CI 触发失败：'+(err&&err.message?err.message:'未知错误'), false); });
     return true;
   }).catch(function(err){
     var msg = err && err.message ? err.message : '导入失败';
@@ -5582,7 +5592,7 @@ function renderFeedPostsPreview() {
         var p = display[i];
         var titleHtml = (typeof e === 'function') ? e(p.title) : p.title;
         var timeHtml = p.time ? '<span class="blm-feed-post-time blm-mono">'+(typeof e === 'function' ? e(p.time.substring(5, 16)) : p.time)+'</span>' : '';
-        var coverHtml = p.cover ? '<div class="blm-feed-post-cover" style="background-image:url(\''+p.cover+'\')"></div>' : '<div class="blm-feed-post-cover blm-feed-post-cover-def">📹</div>';
+        var coverHtml = p.cover ? '<div class="blm-feed-post-cover" style="background-image:url(\''+e(p.cover)+'\')"></div>' : '<div class="blm-feed-post-cover blm-feed-post-cover-def">📹</div>';
         var linkHtml = p.url ? '<a href="'+p.url+'" target="_blank" class="blm-feed-post-link">'+coverHtml+'</a>' : coverHtml;
         h += '<div class="blm-feed-post-card">'+
             linkHtml+

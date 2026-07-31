@@ -15,15 +15,10 @@ import re
 import urllib.request
 from typing import Any, Dict, List, Optional
 
+from common import DEFAULT_USER_AGENT
 from backend.adapters.base import PlatformAdapter, RoomModel
 
 logger = logging.getLogger(__name__)
-
-_TAOBAO_UA = (
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
-)
-
 
 class TaobaoLiveAdapter(PlatformAdapter):
     platform = "taobao_live"
@@ -40,7 +35,7 @@ class TaobaoLiveAdapter(PlatformAdapter):
         self.cookie = str(self.credentials.get("cookie") or "")
 
     def _http_get(self, url: str, timeout: int = 10) -> bytes:
-        hdr = {"User-Agent": _TAOBAO_UA, "Referer": "https://live.taobao.com/"}
+        hdr = {"User-Agent": DEFAULT_USER_AGENT, "Referer": "https://live.taobao.com/"}
         if self.cookie:
             hdr["Cookie"] = self.cookie
         req = urllib.request.Request(url, headers=hdr)

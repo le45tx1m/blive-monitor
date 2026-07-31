@@ -1,0 +1,17 @@
+.git/
+tests/
+docs/
+*.md
+node_modules/
+__pycache__/
+*.pyc
+.github/
+logs/
+*.log
+preview-*.png
+null
+qa_*.js
+qa_*.md
+.keepalive
+strata.md
+libsodium.js
