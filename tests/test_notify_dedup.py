@@ -71,3 +71,116 @@ def test_corrupt_ledger_treated_as_allowed(ledger):
     ledger.write_text("{not valid json", encoding="utf-8")
     # 不应抛异常，且视为未记录 → 允许推送
     assert nd.should_notify("live:x:1") is True
+
+
+# ==================== sync_from_remote ====================
+
+
+def test_sync_no_token_returns_zero(ledger, monkeypatch):
+    """无 GITHUB_TOKEN / GH_TOKEN 时静默降级，返回 0。"""
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    monkeypatch.delenv("GH_TOKEN", raising=False)
+    assert nd.sync_from_remote() == 0
+
+
+def test_sync_network_failure_silent(ledger, monkeypatch):
+    """网络失败时不抛异常，静默返回 0。"""
+    monkeypatch.setenv("GITHUB_TOKEN", "fake-token")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "racheko-lab/blive-monitor")
+
+    class _BoomURLError(Exception):
+        pass
+
+    def _boom(*a, **kw):
+        raise _BoomURLError("network down")
+
+    # urlopen 抛异常应被捕获
+    monkeypatch.setattr("urllib.request.urlopen", _boom)
+    assert nd.sync_from_remote() == 0
+
+
+def test_sync_merges_newer_remote(ledger, monkeypatch):
+    """远端条目 ts 更新时覆盖本地；本地更新时保留本地。"""
+    monkeypatch.setenv("GITHUB_TOKEN", "fake-token")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "racheko-lab/blive-monitor")
+
+    # 本地已有一条旧记录 + 一条更新的记录
+    nd.record("live:douyin_a", now=1000.0)
+    nd.record("live:douyin_b", now=5000.0)
+
+    # 远端：douyin_a 有更新的 ts（并发 run 已推送），douyin_b 有更旧的 ts
+    remote = {
+        "live:douyin_a": {"ts": 2000.0},
+        "live:douyin_b": {"ts": 3000.0},
+        "post:MS4w:new": {"ts": 9999.0},  # 本地没有的新条目
+    }
+
+    import base64
+    import json
+
+    class _FakeResp:
+        def __init__(self, payload):
+            self._payload = payload
+
+        def read(self):
+            return json.dumps(self._payload).encode()
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            pass
+
+    def _fake_urlopen(req, timeout=None):
+        payload = {
+            "content": base64.b64encode(
+                json.dumps(remote).encode()
+            ).decode()
+        }
+        return _FakeResp(payload)
+
+    monkeypatch.setattr("urllib.request.urlopen", _fake_urlopen)
+
+    merged = nd.sync_from_remote()
+    # douyin_a(2000>1000) + post:MS4w:new(本地无) = 2 条更新；douyin_b(3000<5000) 不覆盖
+    assert merged == 2
+
+    data = nd._load()
+    assert data["live:douyin_a"]["ts"] == 2000.0  # 被远端覆盖
+    assert data["live:douyin_b"]["ts"] == 5000.0  # 本地保留
+    assert data["post:MS4w:new"]["ts"] == 9999.0  # 远端新增
+
+
+def test_sync_no_change_when_local_newer(ledger, monkeypatch):
+    """所有远端条目都不比本地新时，merged=0 且不写盘。"""
+    monkeypatch.setenv("GITHUB_TOKEN", "fake-token")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "racheko-lab/blive-monitor")
+
+    nd.record("live:douyin_a", now=9000.0)
+
+    remote = {"live:douyin_a": {"ts": 1000.0}}  # 远端更旧
+
+    import base64
+    import json
+
+    class _FakeResp:
+        def __init__(self, payload):
+            self._payload = payload
+
+        def read(self):
+            return json.dumps(self._payload).encode()
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            pass
+
+    def _fake_urlopen(req, timeout=None):
+        return _FakeResp(
+            {"content": base64.b64encode(json.dumps(remote).encode()).decode()}
+        )
+
+    monkeypatch.setattr("urllib.request.urlopen", _fake_urlopen)
+    assert nd.sync_from_remote() == 0
+    assert nd._load()["live:douyin_a"]["ts"] == 9000.0

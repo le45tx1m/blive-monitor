@@ -119,6 +119,73 @@ def record(key: str, now: Optional[float] = None) -> None:
     _save(ledger)
 
 
+def sync_from_remote() -> int:
+    """推送前从远端拉取最新 notify_dedup.json 并合并到本地账本。
+
+    解决并发 run 导致的去重失效（根因见模块 docstring 脆弱点 1）：
+    GitHub Actions 的 concurrency 偶发不排队（如某 run 卡住 10+ 分钟），
+    两个 run 几乎同时 checkout 旧账本。先启动的 run 推送后 record 并
+    push 回仓库；后启动的 run 若仅凭 checkout 时的旧账本判断，会重复
+    推送。本函数在推送前调用，拉取远端最新账本合并，使后启动的 run
+    能看到先完成 run 已 record 的去重条目。
+
+    合并策略：对每个 key 取 max(本地 ts, 远端 ts)（远端条目较新则覆盖）。
+    无 token / 网络失败 / 远端无文件时静默降级为仅用本地账本，不阻断流程。
+
+    依赖 CI 自动注入的 GITHUB_TOKEN（权限 contents: read 即可）。
+    Returns: 合并后新增/更新的远端条目数（测试用）。
+    """
+    import base64
+    import json as _json
+    import urllib.request
+
+    token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
+    if not token:
+        return 0
+
+    repo = os.environ.get("GITHUB_REPOSITORY") or "racheko-lab/blive-monitor"
+    branch = os.environ.get("GH_BRANCH") or "master"
+    url = (
+        f"https://api.github.com/repos/{repo}/contents/notify_dedup.json"
+        f"?ref={branch}"
+    )
+
+    try:
+        req = urllib.request.Request(
+            url,
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Accept": "application/vnd.github+json",
+                "User-Agent": "blive-monitor",
+            },
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = _json.loads(resp.read())
+        remote = _json.loads(base64.b64decode(data["content"]))
+    except Exception:
+        return 0
+
+    if not isinstance(remote, dict):
+        return 0
+
+    local = _load()
+    merged = 0
+    for k, v in remote.items():
+        try:
+            r_ts = float(v.get("ts", 0))
+        except (ValueError, TypeError, AttributeError):
+            continue
+        local_entry = local.get(k)
+        l_ts = float(local_entry.get("ts", 0)) if local_entry else 0.0
+        if r_ts > l_ts:
+            local[k] = v
+            merged += 1
+
+    if merged:
+        _save(local)
+    return merged
+
+
 def prune(now: Optional[float] = None) -> None:
     """裁剪账本：
 

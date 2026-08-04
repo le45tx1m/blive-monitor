@@ -53,7 +53,7 @@ import common  # A2/A4 统一路由：common.resolve_channel（dispatch_event �
 # 统一路由入口直接复用 push_utils.dispatch_event（与 check_status/auto_summary 同范式，不再本地薄封装）
 from push_utils import SendResult, load_push_cfg, channel_to_push_cfg, dispatch_event
 # 通知去重账本：与 post_tracking.json 持久化解耦，同一作品永久不重复推送
-from notify_dedup import should_notify as dedup_should_notify, record as dedup_record, prune as dedup_prune
+from notify_dedup import should_notify as dedup_should_notify, record as dedup_record, prune as dedup_prune, sync_from_remote as dedup_sync_from_remote
 # 横切模块：运行时日志（init_runtime_logging）+ 统一 history 读写/上限/节流
 from log_utils import (
     init_runtime_logging, append_history, dedupe_by_throttle,
@@ -722,6 +722,11 @@ def main() -> None:
     # 健康检查：tracking 有基线但 dedup 账本为空/缺失 → 可能状态丢失，
     # 提示运维检查 CI 持久化（merge_state.py 是否正常工作）
     _dedup_health_check(tracking)
+
+    # 推送前从远端同步去重账本：并发 run 时避免重复推送同一作品（与 check_status.py 同源修复）
+    synced = dedup_sync_from_remote()
+    if synced:
+        logger.info("去重账本已从远端同步 %d 条较新记录", synced)
 
     logger.info("开始检测 %d 个抖音用户的新作品...", len(post_rooms))
 

@@ -80,9 +80,12 @@ jobs:
           playwright install --with-deps chromium
 
       # 运行直播检测
+      # GITHUB_TOKEN 供 notify_dedup.sync_from_remote 在推送前拉取远端最新去重账本
+      # （并发 run 兜底，防重复推送）
       - name: Run check
         env:
           BLIVE_CONFIG: ${{ secrets.BLIVE_CONFIG }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python3 check_status.py
 
       # 新作品监控（无头浏览器抓取用户主页，绕过抖音反爬；列表来自独立的 post_rooms.json）
@@ -95,6 +98,7 @@ jobs:
           BLIVE_CONFIG: ${{ secrets.BLIVE_CONFIG }}
           DOUYIN_COOKIE: ${{ secrets.DOUYIN_COOKIE }}
           ENABLE_POST_CHECK: "true"
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # 新作品检测降频：仅当 UTC 分钟为 15 的倍数时运行（即每 15 分钟一次）；
           # 但若本次由 post_rooms.json 的 push 触发（用户增删账号），则立即抓取不受限。

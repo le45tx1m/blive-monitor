@@ -36,7 +36,7 @@ import common  # A2/A4 统一路由：common.resolve_channel / common.render_tem
 # 多通道推送（与 check_new_posts.py 共用 push_utils.py）
 from push_utils import load_push_cfg, dispatch_event, channel_to_push_cfg
 # 通知去重账本：与状态持久化解耦的独立防线，杜绝重复推送
-from notify_dedup import should_notify as dedup_should_notify, record as dedup_record, prune as dedup_prune
+from notify_dedup import should_notify as dedup_should_notify, record as dedup_record, prune as dedup_prune, sync_from_remote as dedup_sync_from_remote
 # 横切模块：运行时日志 + history 读写/上限（HISTORY_MAX 唯一来源）
 from log_utils import (
     HISTORY_MAX, init_runtime_logging, load_history, append_history,
@@ -810,6 +810,12 @@ def main() -> None:
             bili_batch_failed = True
 
     # Step 2: 逐个检测所有房间
+    # 推送前先从远端同步去重账本：并发 run 时（concurrency 偶发不排队），
+    # 后启动的 run 能看到先完成 run 已 record 的去重条目，避免重复推送。
+    synced = dedup_sync_from_remote()
+    if synced:
+        logger.info("去重账本已从远端同步 %d 条较新记录", synced)
+
     for room in rooms:
         platform = room.get("platform", "bilibili")
         rid = room.get("id", "")
