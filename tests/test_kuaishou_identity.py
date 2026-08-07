@@ -477,3 +477,45 @@ def test_profile空壳页_不会FAIL掉已配置的正确身份():
     # 记为未校验 + 短 TTL：下一轮自动重验，不会把没验过的身份永久固化
     assert res.identity.extra.get("verified") is False
     assert 0 < res.identity.ttl <= 600
+
+
+# ------------------------------------------------- errorType 取值空间（白名单）
+#: 2026-08 线上实测：对编造的用户名 zzzz9999notexist8888 请求 /u/ 得到
+#: {"type":22,"title":"错误代码22"}（cooldown.log t=0，限流生效前唯一干净观测）。
+_NOT_FOUND_ERR_22 = '{"type":22,"title":"错误代码22","content":"","url":"\\u002F"}'
+_UNKNOWN_ERR = '{"type":99,"title":"服务开小差了","content":"","url":"\\u002F"}'
+
+
+def test_风控_实测的errorType22判为查无此人():
+    """锁死线上真实取值，别让重构把它漏了。"""
+    from backend.adapters.kuaishou_identity import LiveProbeStatus, _probe_from_response
+
+    probe = _probe_from_response(
+        HttpResponse(url="x", status=200, text=_live_html_err(_NOT_FOUND_ERR_22)))
+    assert probe.status == LiveProbeStatus.NOT_FOUND
+    assert probe.error_type == 22
+
+
+def test_风控_未登记的errorType按说不清处理而不是查无此人():
+    """白名单的意义：判 NOT_FOUND 会 FAIL 掉身份，未知取值不配做这个决定。
+
+    两类误判代价不对称 —— 真不存在被判说不清只是多试几轮；未知错误被判不存在
+    会错杀正确身份让监控静默失效。所以未知一律降级。
+    """
+    from backend.adapters.kuaishou_identity import LiveProbeStatus, _probe_from_response
+
+    probe = _probe_from_response(
+        HttpResponse(url="x", status=200, text=_live_html_err(_UNKNOWN_ERR)))
+    assert probe.status == LiveProbeStatus.UNAVAILABLE
+    assert probe.status != LiveProbeStatus.NOT_FOUND
+    assert probe.error_type == 99, "取值要留在结果里，方便日后按证据登记"
+
+
+def test_风控_未登记errorType不会FAIL掉正确身份():
+    """端到端兜底：服务端偶发错误不能演变成「把账号判死」。"""
+    r = KuaishouIdentityResolver(cache=IdentityCache())
+    r.fetch = _Fetcher({"live.kuaishou.com": HttpResponse(
+        url="x", status=200, text=_live_html_err(_UNKNOWN_ERR))})
+    res = r.resolve_detailed(FEIAFEI, hints={"principal_id": FEIAFEI})
+    assert res.identity is not None
+    assert res.identity.extra.get("verified") is False

@@ -433,6 +433,20 @@ class LiveProbeStatus:
 _ET_RATE_LIMITED = (2,)
 _RATE_LIMIT_HINTS = ("请求过快", "稍后重试", "频繁")
 
+#: 「确实没这个账号」的已知取值 —— **白名单，不是黑名单**。
+#:
+#: type=22（title「错误代码22」）由 2026-08 实测捕获：对编造的用户名
+#: ``zzzz9999notexist8888`` 请求 ``/u/`` 返回该值（``/tmp/cooldown.log`` t=0，
+#: 是限流生效前唯一一次干净观测）。type=1（「主播不存在」）为早期样本沿用。
+#:
+#: 为什么必须用白名单：判定 NOT_FOUND 会让 verify 返回 FAIL 从而**丢弃身份**，
+#: 这是破坏性决策。两类误判的代价完全不对称 ——
+#:   * 把「真的不存在」判成说不清 → 多重试几轮，浪费少量请求；
+#:   * 把「未知错误」判成不存在   → 错杀正确身份，监控静默失效。
+#: 所以未登记的 errorType 一律降级为 UNAVAILABLE（说不清），宁可多试不可错杀。
+_ET_NOT_FOUND = (1, 22)
+_NOT_FOUND_HINTS = ("不存在", "已注销", "已封禁")
+
 
 @dataclass
 class LiveProbe:
@@ -501,11 +515,18 @@ def _probe_from_response(resp: Any) -> LiveProbe:
     etype = et.get("type")
     title = str(et.get("title") or "")
     etype_i = etype if isinstance(etype, int) else None
-    is_limited = (etype_i in _ET_RATE_LIMITED) or any(h in title for h in _RATE_LIMIT_HINTS)
-    return LiveProbe(
-        status=LiveProbeStatus.RATE_LIMITED if is_limited else LiveProbeStatus.NOT_FOUND,
-        error_type=etype_i, error_title=title, http_status=http_status,
-    )
+    if (etype_i in _ET_RATE_LIMITED) or any(h in title for h in _RATE_LIMIT_HINTS):
+        status = LiveProbeStatus.RATE_LIMITED
+    elif (etype_i in _ET_NOT_FOUND) or any(h in title for h in _NOT_FOUND_HINTS):
+        status = LiveProbeStatus.NOT_FOUND
+    else:
+        # 见 _ET_NOT_FOUND 注释：未登记的 errorType 不足以支撑「丢弃身份」这种
+        # 破坏性决策，降级为说不清。新取值会被下面的日志记下来，再按证据登记。
+        status = LiveProbeStatus.UNAVAILABLE
+        logger.warning("[kuaishou] 未登记的 errorType（按「说不清」处理）: "
+                       "type=%r title=%r", etype, title)
+    return LiveProbe(status=status, error_type=etype_i, error_title=title,
+                     http_status=http_status)
 
 
 def fetch_live_author(ident: str, ctx: ResolveContext,
