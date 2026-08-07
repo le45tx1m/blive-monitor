@@ -79,39 +79,79 @@ def build_identity_hints(entry: Any, tracking: Any = None) -> Dict[str, Any]:
 #: 请求量却降到 1/288。这不是放宽标准，是把校验预算花在刀刃上。
 IDENTITY_TRUST_SEC = 24 * 3600
 
+#: 校验**没做成**（VerifyOutcome.UNKNOWN，典型是被限流）之后的重验冷却期（秒）。
+#:
+#: 为什么必须有它 —— 这是实测出来的死锁，光看代码想不到：
+#:
+#: 1. 被限流时 ``verify()`` 只能返回 UNKNOWN，写下 ``identity_verified=False``；
+#: 2. 信任期只认 ``identity_verified=True``，于是下一轮不享受信任期；
+#: 3. 下一轮走完整解析，又打 live 请求（限流下还会退避重试，**实测每轮 6 次**）；
+#: 4. 而惩罚期内的请求会给惩罚**续期** → 永远出不来。
+#:
+#: 实测：限流环境下连打 5 轮，每轮 6 次，换算 **1728 次/账号/天**。
+#: 信任期本是为了省请求，却恰恰在最需要它的时候完全失效。
+#:
+#: 解法不是「把没验过的当成验过」（那是降低标准），而是**降低重试频率**：
+#: principal_id 照常复用并**如实标记为未校验**，只是不再以 5 分钟一次的
+#: 频率去撞一堵已知的墙。取值必须大于实测惩罚期（>50min），故设 2 小时。
+IDENTITY_REVERIFY_COOLDOWN_SEC = 2 * 3600
+
 
 def identity_from_tracking(tracking: Any, rid: str = "") -> Optional[PrincipalIdentity]:
-    """从 tracking 恢复上一轮**已校验且仍在信任期内**的身份。
+    """从 tracking 恢复上一轮的身份（跨进程缓存）。
 
-    这是跨进程的身份缓存：CI 每轮都是全新进程，内存缓存必然落空，
-    但 tracking 会随仓库提交回来，天然就是持久层。
+    CI 每轮都是全新进程，内存缓存必然落空，但 tracking 会随仓库提交回来，
+    天然就是持久层。
 
-    只有「验过的」才享受信任期；没验过的（identity_verified=False）
-    必须走完整解析流程，否则等于把未经证实的猜测长期固化。
+    「未校验」有两种成因，必须区别对待，混为一谈就会踩死锁
+    （见 :data:`IDENTITY_REVERIFY_COOLDOWN_SEC`）：
+
+    * ``identity_verified=True`` —— 验过了，享受 24h **信任期**，返回已校验身份；
+    * ``identity_verified=False`` —— 校验没做成（多半是被限流）。principal_id
+      本身可能完全正确，只是没机会证实。此时在 **重验冷却期**内照常复用它，
+      但 ``extra["verified"]`` **如实为 False**，冷却期一过立刻重新严格校验。
+
+    第二种情况绝不是「把猜测当结论」：身份状态在 tracking 和日志里始终显示为
+    未校验，只是不再每 5 分钟重试一次注定失败的校验。
     """
     if not isinstance(tracking, dict):
         return None
     pid = str(tracking.get("principal_id") or "")
-    if not pid or not tracking.get("identity_verified"):
+    if not pid:
         return None
-    refreshed = _parse_bj(tracking.get("last_identity_refresh"))
+
+    verified = bool(tracking.get("identity_verified"))
+    if verified:
+        window = IDENTITY_TRUST_SEC
+        stamp = tracking.get("last_identity_refresh")
+    else:
+        # 未校验：按「上次尝试时间」算冷却，避免限流期间每轮重撞
+        window = IDENTITY_REVERIFY_COOLDOWN_SEC
+        stamp = tracking.get("last_identity_attempt") or \
+            tracking.get("last_identity_refresh")
+
+    refreshed = _parse_bj(stamp)
     if refreshed is None:
         return None
     age = (bjnow() - refreshed).total_seconds()
-    if age < 0 or age > IDENTITY_TRUST_SEC:
+    if age < 0 or age > window:
         return None
+
     ident = PrincipalIdentity(
         platform="kuaishou",
         principal_id=pid,
         nickname=str(tracking.get("nickname") or ""),
         unique_name=str(tracking.get("unique_name") or ""),
         identity_source=str(tracking.get("identity_source") or "tracking"),
-        confidence=1.0,
+        confidence=1.0 if verified else 0.5,
         last_updated=str(tracking.get("last_identity_refresh") or ""),
     )
-    ident.trace = ["tracking_trusted"]
-    ident.extra["verified"] = True
+    ident.trace = ["tracking_trusted" if verified else "tracking_reverify_cooldown"]
+    # 如实标记：没验过就是没验过，绝不因为复用而伪装成已校验
+    ident.extra["verified"] = verified
     ident.extra["trusted_from_tracking"] = True
+    if not verified:
+        ident.extra["reverify_deferred"] = True
     origin = tracking.get("origin_user_id")
     if origin:
         ident.extra["origin_user_id"] = str(origin)
@@ -154,10 +194,15 @@ def apply_identity_to_tracking(ident: Optional[PrincipalIdentity],
     """把解析到的身份写回 tracking，供下一轮零成本复用。"""
     if ident is None or not isinstance(tracking, dict):
         return
+    extra = ident.extra or {}
     tracking["principal_id"] = ident.principal_id
     tracking["identity_source"] = ident.identity_source
     tracking["last_identity_refresh"] = ident.last_updated
-    tracking["identity_verified"] = bool((ident.extra or {}).get("verified"))
+    tracking["identity_verified"] = bool(extra.get("verified"))
+    if not extra.get("trusted_from_tracking"):
+        # 只有真正打了请求去解析/校验才算一次「尝试」。复用 tracking 时若也刷新，
+        # 冷却期会被无限推后，等于永远不再重验 —— 和「不刷新信任期起点」同一个坑。
+        tracking["last_identity_attempt"] = _now_bj()
     if ident.nickname and not tracking.get("nickname"):
         tracking["nickname"] = ident.nickname
     if ident.unique_name:
