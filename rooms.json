@@ -68,5 +68,10 @@
     "platform": "bilibili",
     "id": "22230707",
     "name": "22230707"
+  },
+  {
+    "platform": "kuaishou",
+    "id": "KS_SAMPLE_LIVE_ID",
+    "name": "快手示例·直播(请替换为真实ID)"
   }
 ]

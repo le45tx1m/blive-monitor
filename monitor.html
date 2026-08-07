@@ -1112,6 +1112,7 @@ body.batch-mode .blm-work-select-wrap {
 }
 .blm-room-avatar.ava-bili { background: linear-gradient(135deg, #00C3F0, #0088C9); }
 .blm-room-avatar.ava-douyin { background: linear-gradient(135deg, #FF2D55, #25F4EE); }
+.blm-room-avatar.ava-kuaishou { background: linear-gradient(135deg, #FF6600, #FF9500); }
 .blm-room-avatar.ava-def { background: linear-gradient(135deg, #7B6FE8, #5B4FC9); color: #fff; }
 
 .blm-room-avatar-link {
@@ -1435,6 +1436,7 @@ body.batch-mode .blm-room-actions { opacity: 1; }
   z-index: 2;
 }
 .blm-work-platform-tag.douyin { color: #ff8a70; }
+.blm-work-platform-tag.kuaishou { color: #FF6600; }
 
 .blm-work-info {
   padding: var(--space-2) var(--space-3) var(--space-3);
@@ -2449,6 +2451,7 @@ body.batch-mode .blm-work-card {
             <select id="addPlatform" class="blm-input" onchange="onAddPlatformChange()">
               <option value="douyin">抖音</option>
               <option value="bilibili">B站</option>
+              <option value="kuaishou">快手</option>
             </select>
             <input id="addId" class="blm-input" placeholder="抖音号 / 直播间号（必填）" inputmode="text" autocomplete="off">
             <input id="addName" class="blm-input" placeholder="名称（可选）" autocomplete="off">
@@ -2563,6 +2566,7 @@ body.batch-mode .blm-work-card {
             <button class="blm-filter-chip lchip active" data-pf="all" onclick="onLogPlatform('all')">全部</button>
             <button class="blm-filter-chip lchip" data-pf="bilibili" onclick="onLogPlatform('bilibili')">哔哩哔哩</button>
             <button class="blm-filter-chip lchip" data-pf="douyin" onclick="onLogPlatform('douyin')">抖音</button>
+            <button class="blm-filter-chip lchip" data-pf="kuaishou" onclick="onLogPlatform('kuaishou')">快手</button>
             <span class="blm-count-text" id="logCount" style="margin-left:auto"></span>
           </div>
           <div class="blm-log-row">
@@ -3008,7 +3012,7 @@ function matchQ(r, q){
 }
 function matchPostQ(r, q){
   var s = (q || '').toLowerCase();
-  var tt = postTrack['douyin_' + r.id] || {};
+  var tt = postTrack[(r.platform || 'douyin') + '_' + r.id] || {};
   return (r.name || '').toLowerCase().indexOf(s) >= 0
       || String(r.id || '').toLowerCase().indexOf(s) >= 0
       || (tt.nickname || '').toLowerCase().indexOf(s) >= 0;
@@ -3021,10 +3025,11 @@ function roomAvatar(r, s){
   var name = (r && r.name) ? r.name : ((r && r.platform === 'bilibili') ? 'B' : ((r && r.platform === 'douyin') ? '抖' : '?'));
   var ch = (name || '?').replace(/\s+/g, '').charAt(0) || '?';
   var url = ((s && s.avatar) ? s.avatar : ((r && r.avatar) ? r.avatar : ''));
-  var cls = (r && r.platform === 'bilibili') ? 'ava-bili' : ((r && r.platform === 'douyin') ? 'ava-douyin' : 'ava-def');
+  var cls = (r && r.platform === 'bilibili') ? 'ava-bili' : ((r && r.platform === 'douyin') ? 'ava-douyin' : ((r && r.platform === 'kuaishou') ? 'ava-kuaishou' : 'ava-def'));
   var img = url ? '<img src="' + e(url) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display=\'none\'">' : '';
   var u = (r && r.platform === 'bilibili') ? 'https://live.bilibili.com/'+r.id
-        : (r && r.platform === 'douyin') ? 'https://live.douyin.com/'+r.id : '#';
+        : (r && r.platform === 'douyin') ? 'https://live.douyin.com/'+r.id
+        : (r && r.platform === 'kuaishou') ? 'https://live.kuaishou.com/u/'+r.id : '#';
   var inner = '<span class="blm-room-avatar ' + cls + '" aria-hidden="true">' + img + e(ch) + '</span>';
   return (u !== '#')
     ? '<a class="blm-room-avatar-link" href="'+u+'" target="_blank" title="进入直播间">'+inner+'</a>'
@@ -3075,9 +3080,9 @@ function renderLive(){
       stxt={live:'直播中',replay:'回放中',offline:'未开播',error:'检测失败'}[st]||'未开播';
       sp={live:'<span class="pulse"></span>',replay:'',offline:'',error:''}[st]||'';
     }
-    var pl=r.platform==='bilibili'?'bilibili':(r.platform==='douyin'?'douyin':'');
-    var pln=r.platform==='bilibili'?'B站':(r.platform==='douyin'?'抖音':'');
-    var u=r.platform==='bilibili'?'https://live.bilibili.com/'+r.id:r.platform==='douyin'?'https://live.douyin.com/'+r.id:'#';
+    var pl=r.platform==='bilibili'?'bilibili':(r.platform==='douyin'?'douyin':(r.platform==='kuaishou'?'kuaishou':''));
+    var pln=r.platform==='bilibili'?'B站':(r.platform==='douyin'?'抖音':(r.platform==='kuaishou'?'快手':''));
+    var u=r.platform==='bilibili'?'https://live.bilibili.com/'+r.id:r.platform==='douyin'?'https://live.douyin.com/'+r.id:r.platform==='kuaishou'?'https://live.kuaishou.com/u/'+r.id:'#';
     var isLive = st==='live';
     var meta=[];
     if(s&&s.online)meta.push('人气 '+e(s.online));
@@ -3128,20 +3133,21 @@ function renderLive(){
 function renderPosts(){
   var body=document.getElementById('postsBody');
   var cnt=document.getElementById('postsCount');
-  if(!postRooms||!postRooms.length){body.innerHTML='<div class="empty">⌛ 暂无监控的抖音号</div>';if(cnt)cnt.textContent='';return;}
+  if(!postRooms||!postRooms.length){body.innerHTML='<div class="empty">⌛ 暂无监控的账号</div>';if(cnt)cnt.textContent='';return;}
   var list=postRooms.slice();
   /* ★ P0-4 文本搜索：name/id/nickname 任一命中（仅过滤已加载数据，绝不调用 ld） */
   if(q) list=list.filter(function(r){return matchPostQ(r,q);});
   /* ★ 阶段二 2b B4：按最近活跃（postTrack.latest_ct）排序（recent 生效） */
   var _postLast={};
   for(var pi=0;pi<list.length;pi++){
-    var _tt=postTrack['douyin_'+list[pi].id]||{};
+    var _plat=(list[pi].platform||'douyin');
+    var _tt=postTrack[_plat+'_'+list[pi].id]||{};
     var _ct=parseInt(_tt.latest_ct||'0',10)||0;
-    _postLast['douyin|'+String(list[pi].id)] = _ct;
+    _postLast[_plat+'|'+String(list[pi].id)] = _ct;
   }
 
   if(!list.length){
-    body.innerHTML='<div class="empty">'+(q?'未找到匹配「'+e(q)+'」':'⌛ 暂无监控的抖音号')+'</div>';
+    body.innerHTML='<div class="empty">'+(q?'未找到匹配「'+e(q)+'」':'⌛ 暂无监控的账号')+'</div>';
     if(cnt)cnt.textContent='';   // 搜索态空：清空计数，避免与「未找到匹配」矛盾
     return;
   }
@@ -3149,44 +3155,48 @@ function renderPosts(){
   var h='';
   for(var i=0;i<list.length;i++){
     var r=list[i],id=r.id;
-    var tt=postTrack['douyin_'+id]||{};
+    var plat=r.platform||'douyin';
+    var tt=postTrack[plat+'_'+id]||{};
     // 显示名优先级：用户自定义名（且不同于裸 id）> 主页真实昵称 > 兜底 id
     var name=(r.name && r.name!==id) ? r.name : (tt.nickname || r.name || id);
     var sec_id=tt.sec_uid||'';
-    var aid=tt.latest_aweme_id||'';
-    var link=tt.latest_url||(sec_id?'https://www.douyin.com/user/'+sec_id:'https://www.douyin.com/');
+    var aid=tt.latest_aweme_id||tt.latest_post_id||'';
+    var link=tt.latest_url
+        || (sec_id?'https://www.douyin.com/user/'+sec_id:'')
+        || (plat==='kuaishou'?'https://www.kuaishou.com/short-video/'+id:'')
+        || (plat==='douyin'?'https://www.douyin.com/':'https://www.kuaishou.com/');
     var isNote=tt.latest_type==='图文';
     var type=tt.latest_type||'';
     var desc=tt.latest_desc||'';
-    var time=ago(tt.latest_ct);
+    var time=tt.latest_ct?ago(tt.latest_ct):(tt.latest_published_at?ago(Math.floor((parseBeijing(tt.latest_published_at)||0)/1000)):'—');
     var needCookie=tt.need_cookie; // 稳定走 count 退化（风控/未登录）时由 CI 标记
-    var rmArg=JSON.stringify({id:r.id});
-    var platformTag='<span class="blm-work-platform-tag douyin">抖音</span>';
+    var rmArg=JSON.stringify({id:r.id,platform:plat});
+    var platformTag='<span class="blm-work-platform-tag '+plat+'">'+(plat==='kuaishou'?'快手':(plat==='bilibili'?'B站':'抖音'))+'</span>';
     var placeholder='<svg class="blm-work-thumb-placeholder" width="40" height="40" viewBox="0 0 24 24" fill="none"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>';
     var coverImg=tt.latest_cover?'<img class="blm-work-cover" src="'+e(tt.latest_cover)+'" alt="" onerror="this.remove()">':'';
     /* 横条视图用头像（真实头像优先，缺省回退首字母彩色圆），与卡片视图的视频封面区分 */
     var _ach=(name||'?').replace(/\s+/g,'').charAt(0)||'?';
     var _avaUrl = tt.avatar || '';
     var _avaImg = _avaUrl ? '<img src="'+e(_avaUrl)+'" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display=\'none\'">' : '';
-    var avatarHtml='<span class="blm-work-avatar ava-douyin" aria-hidden="true">'+_avaImg+e(_ach)+'</span>';
+    var avatarHtml='<span class="blm-work-avatar '+(plat==='kuaishou'?'ava-kuaishou':(plat==='bilibili'?'ava-bili':'ava-douyin'))+'" aria-hidden="true">'+_avaImg+e(_ach)+'</span>';
     var titleLine=name, descLine='', linkLine=link;
     if(aid && !String(aid).startsWith('count:')){
       descLine=desc||'(无描述)';
     }else if(aid && String(aid).startsWith('count:')){
       var c=String(aid).replace('count:','');
-      descLine=needCookie?'⚠️ 仅检测到 '+c+' 个作品（抖音接口风控）':'已检测 '+c+' 个作品';
+      descLine=needCookie?'⚠️ 仅检测到 '+c+' 个作品（接口风控）':'已检测 '+c+' 个作品';
     }else{
       descLine='⌛ 等待首次抓取…';
     }
     var _pausePost=(r.enabled===false);
     var _pauseBadgePost=_pausePost?'<span class="blm-status-badge muted">已暂停</span>':'';
-    var _postKey='douyin|'+String(r.id);
+    var _postKey=plat+'|'+String(r.id);
     var _selP=(typeof selected!=='undefined' && selected.hasOwnProperty(_postKey))?' checked':'';
     var selHtmlP='<label class="blm-work-select-wrap"><input type="checkbox" class="blm-work-select" data-key="'+e(_postKey)+'"'+(_pausePost?' disabled':'')+_selP+' onchange="toggleRoomSelect(\''+e(_postKey)+'\',this)"></label>';
-    var editArg=JSON.stringify({id:r.id,platform:'douyin'});
+    var editArg=JSON.stringify({id:r.id,platform:plat});
     var actionsP=
       '<div class="blm-work-actions">'+
-        '<button class="blm-icon-btn-sm blm-room-detail" title="详情" onclick="openRoomDetail(\'douyin|'+e(id)+'\')"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></button>'+
+        '<button class="blm-icon-btn-sm blm-room-detail" title="详情" onclick="openRoomDetail(\''+plat+'|'+e(id)+'\')"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></button>'+
         '<button class="blm-icon-btn-sm" title="编辑" onclick=\'editRoom('+editArg+')\'><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>'+
         (hasApi?'<button class="blm-icon-btn-sm danger" title="移除监控" onclick=\'removePostRoom('+rmArg+')\'><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>':'')+
       '</div>';
@@ -3935,7 +3945,7 @@ function openRoomDetail(key){
   var platform = parts[0] || '';
   var id = parts[1] || '';
   var room = null;
-  if(platform === 'douyin' && postRooms){
+  if((platform === 'douyin' || platform === 'kuaishou') && postRooms){
     room = (postRooms.filter(function(r){ return String(r.id) === String(id); }))[0] || null;
   } else if(rooms){
     room = (rooms.filter(function(r){ return r.platform === platform && String(r.id) === String(id); }))[0] || null;
@@ -3962,7 +3972,7 @@ function renderRoomDetail(key){
   var id = parts[1] || '';
   var room = window.__roomDetailRoom;
   var name = room ? (room.name || id) : id;
-  var platName = platform === 'bilibili' ? 'B站' : (platform === 'douyin' ? '抖音' : '其他');
+  var platName = platform === 'bilibili' ? 'B站' : (platform === 'douyin' ? '抖音' : (platform === 'kuaishou' ? '快手' : '其他'));
 
   var titleEl = document.getElementById('roomDetailTitle');
   if(titleEl) titleEl.textContent = name + ' · ' + platName;
@@ -4078,7 +4088,7 @@ function exportReport(format){
     ].join(','));
   }
   (rooms || []).forEach(function(r){ addRoomRow(r.platform, String(r.id), r.name || String(r.id), r.tags, r.enabled); });
-  (postRooms || []).forEach(function(r){ addRoomRow('douyin', String(r.id), r.name || String(r.id), r.tags, r.enabled); });
+  (postRooms || []).forEach(function(r){ addRoomRow(r.platform || 'douyin', String(r.id), r.name || String(r.id), r.tags, r.enabled); });
 
   var csv = '﻿' + rows.join('\r\n'); // BOM 便于 Excel 中文
   try{
@@ -4444,6 +4454,9 @@ function onAddPlatformChange(){
   if(p==='douyin'){
     inp.placeholder='抖音号 / 直播间号（必填）';
     inp.inputMode='text'; inp.setAttribute('inputmode','text');
+  }else if(p==='kuaishou'){
+    inp.placeholder='快手号 / 用户 ID（必填）';
+    inp.inputMode='text'; inp.setAttribute('inputmode','text');
   }else{
     inp.placeholder='直播间 ID（必填）';
     inp.inputMode='numeric'; inp.setAttribute('inputmode','numeric');
@@ -4455,7 +4468,7 @@ function submitAdd(){
   var platform=document.getElementById('addPlatform').value;
   var id=document.getElementById('addId').value.trim();
   var name=document.getElementById('addName').value.trim();
-  if(platform!=='bilibili' && platform!=='douyin'){ toast('平台不合法', false); return; }
+  if(platform!=='bilibili' && platform!=='douyin' && platform!=='kuaishou'){ toast('平台不合法', false); return; }
   if(!id){ toast('房间 ID 必填', false); return; }
   // B2 分组标签（逗号分隔 → tags[]）
   var tagsRaw=document.getElementById('roomTags').value.trim();
@@ -5272,12 +5285,12 @@ function setRoomEnabled(platform, id, enabled, isPost){
 function editRoom(arg){
   var id = arg.id;
   var platform = arg.platform || 'douyin';
-  var isPost = !arg.platform;
+  var isPost = (postRooms||[]).some(function(x){return String(x.id)===String(id) && (x.platform||'douyin')===platform;});
   var r=null;
-  if(isPost) r = (postRooms.filter(function(x){return String(x.id)===String(id);}))[0] || null;
+  if(isPost) r = (postRooms.filter(function(x){return String(x.id)===String(id) && (x.platform||'douyin')===platform;}))[0] || null;
   else r = (rooms.filter(function(x){return x.platform===platform && String(x.id)===String(id);}))[0] || null;
   if(!r) return;
-  document.getElementById('editKey').value = (isPost?'douyin|':'') + platform + '|' + id;
+  document.getElementById('editKey').value = (isPost?platform+'|':'') + platform + '|' + id;
   document.getElementById('editName').value = r.name || '';
   document.getElementById('editTags').value = (r.tags&&r.tags.length)? r.tags.join(',') : '';
   document.getElementById('editEnabled').checked = (r.enabled!==false);
@@ -5288,8 +5301,8 @@ function closeRoomEdit(){ var m=document.getElementById('roomEdit'); if(m) m.sty
 function saveRoomEdit(){
   if(!getGhToken()){ toast('请先到「配置」页设置 Token', false); show('config'); return; }
   var key=document.getElementById('editKey').value;
-  var parts=key.split('|'); var isPost=(parts.length===3 && parts[0]==='douyin');
-  var platform=isPost?'douyin':parts[0]; var id=isPost?parts[2]:parts[1];
+  var parts=key.split('|'); var isPost=(parts.length===3 && parts[0]===parts[1]);
+  var platform=parts[0]; var id=isPost?parts[2]:parts[1];
   var name=document.getElementById('editName').value.trim();
   var tagsRaw=document.getElementById('editTags').value.trim();
   var tags=tagsRaw? tagsRaw.split(',').map(function(s){return s.trim();}).filter(function(s){return s;}) : [];
@@ -5560,8 +5573,8 @@ function renderFeedPostsPreview() {
             recent.forEach(function(p) {
                 if (!p) return;
                 allPosts.push({
-                    platform: 'douyin',
-                    accountId: key.replace('douyin_', ''),
+                    platform: key.indexOf('kuaishou_') === 0 ? 'kuaishou' : (key.indexOf('bilibili_') === 0 ? 'bilibili' : 'douyin'),
+                    accountId: key.substring(key.indexOf('_') + 1),
                     title: p.title || p.desc || '(无标题)',
                     cover: p.cover || p.cover_url || '',
                     time: p.time || p.create_time || '',

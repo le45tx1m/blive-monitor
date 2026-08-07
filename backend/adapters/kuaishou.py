@@ -1,12 +1,19 @@
 """KuaishouAdapter：快手直播 + 新作（阶段三 T02）。
 
-直播：主路径 live_api（带 did）+ 降级 SSR（window.__INITIAL_STATE__）。
-新作：visionProfilePhotoList graphql（带 did/client_key/cookie）+ 基线比较。
+直播：主路径 **SSR 解析** ``live.kuaishou.com/u/<id>`` 的 ``window.__INITIAL_STATE__``。
+      真实结构（已实测）：直播态在 ``liveroom.playList[0].isLiving``，详情在
+      ``liveroom.playList[0].liveStream.{caption,coverUrl,watcherCount}``；
+      旧结构（``liveroom.living/caption``）作为兼容回退保留。
+      不再调用已废弃的 ``liveroomDetail`` 接口（实测 HTTP 404）。
 
-所有网络抓取经异常兜底，失败优雅降级为 offline / 无新作（绝不抛未捕获异常中断整轮）。
+新作：``visionProfilePhotoList`` graphql（带 did/client_key/cookie）。
+      识别 ``result:2``（风控/未登录）并 **raise AdapterGated**，记为 gated 而非「无新作」。
 
-⚠️ 此处需真实凭证/API 接入：live_api / graphql 需有效 did（匿名可生成）或登录 Cookie；
-数据中心 IP / 缺 Cookie 易触发风控，生产环境请按 docs/phase3_design.md §4.1 配置 credentials。
+匿名 scraping 尽力而为：数据中心 IP / 缺 Cookie 易触发风控（返回空/离线），
+失败一律优雅降级为 offline / 无新作（绝不抛未捕获异常中断整轮）。
+
+⚠️ 提升命中率：在 BLIVE_CONFIG.platforms.kuaishou.credentials 配置
+``did``（匿名可随机生成）/``cookie``（登录态）可突破部分风控。
 """
 
 import json
@@ -16,11 +23,14 @@ import urllib.request
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from common import DEFAULT_USER_AGENT, epoch_to_beijing
 from backend.adapters.base import AdapterGated, PlatformAdapter, PostModel, RoomModel
 
 logger = logging.getLogger(__name__)
 
+_KUAISHOU_UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
+)
 _DEFAULT_CLIENT_KEY = "3c7cd4d734b53483"
 
 
@@ -30,6 +40,14 @@ def _to_ts(v: Any) -> Optional[int]:
         return int(v)
     except (TypeError, ValueError):
         return None
+
+
+def _ts_to_bj(ts: Optional[int]) -> str:
+    """epoch 秒 -> 北京时间字符串；失败返回空串。"""
+    try:
+        return datetime.fromtimestamp(int(ts)).strftime("%Y-%m-%d %H:%M:%S")
+    except (TypeError, ValueError, OverflowError, OSError):
+        return ""
 
 
 class KuaishouAdapter(PlatformAdapter):
@@ -51,9 +69,11 @@ class KuaishouAdapter(PlatformAdapter):
     # ---- 网络（可被测试 monkeypatch）----
     def _http_get(self, url: str, headers: Optional[Dict[str, str]] = None,
                   timeout: int = 10) -> bytes:
-        hdr = {"User-Agent": DEFAULT_USER_AGENT, "Referer": "https://live.kuaishou.com/"}
+        hdr = {"User-Agent": _KUAISHOU_UA, "Referer": "https://live.kuaishou.com/"}
         if self.cookie:
             hdr["Cookie"] = self.cookie
+        elif self.did:
+            hdr["Cookie"] = f"did={self.did}"
         if headers:
             hdr.update(headers)
         req = urllib.request.Request(url, headers=hdr)
@@ -62,66 +82,71 @@ class KuaishouAdapter(PlatformAdapter):
 
     # ---------- 直播 ----------
     def fetch_room_status(self, room_id: str) -> RoomModel:
+        """取快手直播间状态（SSR 解析为主，失败优雅降级 offline）。"""
         room_id = str(room_id)
         try:
-            # 主：直播 API（需 did；无登录可匿名，但风控下返回空）
-            # ⚠️ 此处需真实凭证/API 接入：principalId + did
-            api = (
-                "https://live.kuaishou.com/live_api/liveroom/liveroomDetail"
-                f"?principalId={room_id}"
-            )
-            hdr = {"Cookie": f"did={self.did}"} if self.did else {}
-            raw = self._http_get(api, hdr)
-            d = json.loads(raw)
-            data = d.get("data") or {}
-            info = data.get("liveStreamInfo") or {}
-            living = bool(data.get("living") or info.get("living", False))
-            return RoomModel(
-                platform="kuaishou",
-                room_id=room_id,
-                title=data.get("caption") or "",
-                live_status=living,
-                online=int(info.get("watcherCount", 0) or 0),
-                cover=info.get("coverUrl") or "",
-                extra={"living": living, "source": "live_api"},
-            )
+            html = self._http_get(
+                f"https://live.kuaishou.com/u/{room_id}", timeout=10
+            ).decode("utf-8", "replace")
+            return self._room_from_html(room_id, html)
         except Exception as e:  # noqa: BLE001
-            # 降级：SSR 解析主页 __INITIAL_STATE__
-            try:
-                html = self._http_get(
-                    f"https://live.kuaishou.com/u/{room_id}", timeout=10
-                ).decode("utf-8", "replace")
-                return self._room_from_html(room_id, html)
-            except Exception as e2:  # noqa: BLE001
-                logger.warning(
-                    "[kuaishou] live fetch failed (degrade to offline): %s | %s", e, e2
-                )
-                return RoomModel(
-                    platform="kuaishou", room_id=room_id, live_status=False,
-                    extra={"degraded": True},
-                )
+            logger.warning(
+                "[kuaishou] 直播 SSR 解析失败（降级 offline）: %s", e
+            )
+            return RoomModel(
+                platform="kuaishou", room_id=room_id, live_status=False,
+                extra={"degraded": True},
+            )
 
     @staticmethod
     def _room_from_html(room_id: str, html: str) -> RoomModel:
-        """SSR 解析 window.__INITIAL_STATE__（纯函数，便于单测）。"""
-        m = re.search(
-            r"window\.__INITIAL_STATE__\s*=\s*({.*?});?\s*(?:</script>|$)", html, re.S
-        )
-        if not m:
+        """SSR 解析 window.__INITIAL_STATE__（纯函数，便于单测）。
+
+        兼容两种结构：
+          - 真实结构：``liveroom.playList[0].isLiving`` + ``.liveStream.*``
+          - 旧/兼容结构：``liveroom.living/caption/watcherCount/coverUrl``
+        """
+        state = _extract_initial_state(html)
+        if not state:
             return RoomModel(platform="kuaishou", room_id=room_id, live_status=False)
-        try:
-            state = json.loads(m.group(1))
-        except Exception:  # noqa: BLE001
-            return RoomModel(platform="kuaishou", room_id=room_id, live_status=False)
-        live = state.get("liveroom") or {}
-        living = bool(live.get("living", False))
+
+        liveroom = state.get("liveroom") or {}
+        play_list = liveroom.get("playList") or []
+
+        living = False
+        title = ""
+        online = 0
+        cover = ""
+
+        if play_list:
+            # 真实快手 SSR 结构（实测确认）
+            pl0 = play_list[0] or {}
+            living = bool(pl0.get("isLiving"))
+            ls = pl0.get("liveStream") or {}
+            title = ls.get("caption") or pl0.get("caption") or ""
+            online = _as_int(
+                ls.get("watcherCount") or ls.get("viewerCount")
+                or pl0.get("watcherCount") or liveroom.get("watcherCount")
+            )
+            cover = (
+                ls.get("coverUrl") or ls.get("poster")
+                or pl0.get("coverUrl") or liveroom.get("coverUrl") or ""
+            )
+        else:
+            # 兼容旧结构
+            living = bool(liveroom.get("living"))
+            if living:
+                title = liveroom.get("caption") or ""
+                online = _as_int(liveroom.get("watcherCount"))
+                cover = liveroom.get("coverUrl") or ""
+
         return RoomModel(
             platform="kuaishou",
             room_id=room_id,
-            title=live.get("caption") or "",
+            title=title,
             live_status=living,
-            online=int(live.get("watcherCount", 0) or 0),
-            cover=live.get("coverUrl") or "",
+            online=online,
+            cover=cover,
             extra={"living": living, "source": "ssr"},
         )
 
@@ -133,7 +158,7 @@ class KuaishouAdapter(PlatformAdapter):
         t = baseline if isinstance(baseline, dict) else {}
         try:
             # 主：visionProfilePhotoList graphql（需 did/client_key/cookie）
-            # ⚠️ 此处需真实凭证/API 接入：graphql 签名 + 登录态；风控下返回空
+            # 风控/未登录返回 {"result":2} → _fetch_graphql_photos 会 raise AdapterGated
             posts = self._fetch_graphql_photos(rid)
         except AdapterGated:
             raise
@@ -149,14 +174,14 @@ class KuaishouAdapter(PlatformAdapter):
             ts = _to_ts(p.get("timestamp"))
             # 仅返回「比基线新」的作品（id 不同且时间更新；无时间则仅按 id 去重）
             if pid and pid != prev_id and (prev_ts is None or ts is None or ts > prev_ts):
-                is_image = bool(p.get("is_image", False))
+                is_image = bool(p.get("is_image", False)) or not bool(p.get("isVideo", True))
                 out.append(PostModel(
                     platform="kuaishou",
                     post_id=pid,
-                    author=t.get("nickname", "") or p.get("author", ""),
-                    url=p.get("url", ""),
-                    cover=p.get("coverUrl", ""),
-                    published_at=epoch_to_beijing(ts),
+                    author=t.get("nickname", "") or p.get("author", "") or p.get("userName", ""),
+                    url=p.get("url") or p.get("webUrl") or p.get("photoUrl") or "",
+                    cover=p.get("coverUrl") or p.get("cover") or "",
+                    published_at=_ts_to_bj(ts),
                     title=p.get("caption", ""),
                     extra={
                         "conf": "api",
@@ -168,14 +193,13 @@ class KuaishouAdapter(PlatformAdapter):
         if posts:
             last = max(posts, key=lambda x: _to_ts(x.get("timestamp")) or 0)
             t["latest_post_id"] = last.get("photoId", "")
-            t["latest_published_at"] = epoch_to_beijing(_to_ts(last.get("timestamp")))
+            t["latest_published_at"] = _ts_to_bj(_to_ts(last.get("timestamp")))
         return out
 
     def _fetch_graphql_photos(self, rid: str) -> List[Dict[str, Any]]:
         """调用 visionProfilePhotoList（需 did/client_key/cookie）。
 
-        ⚠️ 此处需真实凭证/API 接入：graphql 端点 + 签名/登录态。
-        当前为请求骨架，真实实现需构造 graphql body 并带 client_key/did。
+        风控/未登录：响应 ``{"result":2}`` → raise AdapterGated（记为 gated，而非「无新作」）。
         """
         url = "https://www.kuaishou.com/graphql"
         body = json.dumps({
@@ -184,15 +208,65 @@ class KuaishouAdapter(PlatformAdapter):
             "query": (
                 "query visionProfilePhotoList($userId:String,$page:Int){"
                 "visionProfilePhotoList(userId:$userId,page:$page){photoId caption "
-                "coverUrl url timestamp is_image}}"
+                "coverUrl url timestamp is_image isVideo}}"
             ),
         }).encode("utf-8")
         hdr = {"Content-Type": "application/json",
                "Referer": "https://www.kuaishou.com/"}
         if self.did:
             hdr["Cookie"] = f"did={self.did}; client_key={self.client_key}"
+        elif self.cookie:
+            hdr["Cookie"] = self.cookie
         req = urllib.request.Request(url, data=body, headers=hdr, method="POST")
         with urllib.request.urlopen(req, timeout=10) as r:
             d = json.loads(r.read())
+        # 风控/未登录：result 为非 0 / 非 None（实测 {"result":2,"error_msg":null}）
+        if isinstance(d, dict) and d.get("result") not in (None, 0, "0"):
+            raise AdapterGated(detail=f"快手作品接口被风控(result={d.get('result')})，需 did/登录 Cookie")
         feeds = ((d.get("data") or {}).get("visionProfilePhotoList") or {}).get("feeds") or []
         return feeds
+
+
+def _as_int(v: Any) -> int:
+    """把可能是字符串/数字的值安全转 int。"""
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _extract_initial_state(html: Any) -> Optional[Dict[str, Any]]:
+    """从 HTML 稳健提取 window.__INITIAL_STATE__ 的对象（括号配平，兼容嵌套）。
+
+    SSR 页中该对象体积大、含嵌套结构，正则非贪婪易截断，故用栈配平大括号提取。
+    失败返回 None（调用方降级为 offline）。
+    """
+    if isinstance(html, (bytes, bytearray)):
+        html = html.decode("utf-8", "replace")
+    marker = "window.__INITIAL_STATE__"
+    idx = html.find(marker)
+    if idx < 0:
+        return None
+    start = html.find("{", idx)
+    if start < 0:
+        return None
+    depth = 0
+    i = start
+    n = len(html)
+    end = -1
+    while i < n:
+        c = html[i]
+        if c == "{":
+            depth += 1
+        elif c == "}":
+            depth -= 1
+            if depth == 0:
+                end = i
+                break
+        i += 1
+    if end < 0:
+        return None
+    try:
+        return json.loads(html[start:end + 1])
+    except Exception:  # noqa: BLE001
+        return None

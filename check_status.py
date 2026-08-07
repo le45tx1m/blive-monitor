@@ -595,6 +595,48 @@ def fetch_douyin(web_rid: str) -> Dict[str, Any]:
     }
 
 
+def fetch_kuaishou(web_rid: str, cfg_all: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """快手直播间检测（SSR 解析，匿名 scraping 尽力而为）。
+
+    从 ``cfg_all.platforms.kuaishou.credentials`` 构建 KuaishouAdapter（无凭证则匿名）。
+    映射 RoomModel → 统一 result dict；异常兜底为 error（与 bili/douyin 一致，不中断整轮）。
+
+    Args:
+        web_rid: 快手用户 ID（live.kuaishou.com/u/<id> 的 <id>）。
+        cfg_all: 完整 BLIVE_CONFIG dict（用于读取 kuaishou 凭证；可空）。
+
+    Returns:
+        直播间状态字典 {status, title, online, area, avatar, time}。
+    """
+    now_str = bjnow().strftime("%Y-%m-%d %H:%M:%S")
+    try:
+        creds: Dict[str, Any] = {}
+        if cfg_all:
+            creds = (cfg_all.get("platforms") or {}).get("kuaishou") or {}
+            creds = creds.get("credentials") or {}
+        from backend.adapters.kuaishou import KuaishouAdapter
+        adapter = KuaishouAdapter(credentials=creds or None)
+        m = adapter.fetch_room_status(web_rid)
+        return {
+            "status": "live" if m.live_status else "offline",
+            "title": m.title or "",
+            "online": int(m.online or 0),
+            "area": "",
+            "avatar": "",  # 直播不取头像，前端回退首字母
+            "time": now_str,
+        }
+    except Exception as e:
+        logger.warning("快手直播检测失败 (%s): %s", web_rid, e)
+        return {
+            "status": "error",
+            "title": f"获取失败: {str(e)}",
+            "online": 0,
+            "area": "",
+            "avatar": "",
+            "time": now_str,
+        }
+
+
 # ==================== 工具函数 ====================
 
 def _as_int(v: Any) -> int:
@@ -650,11 +692,13 @@ def format_push_desp(
     name: str, platform: str, rid: str, result: Dict[str, Any]
 ) -> str:
     """格式化推送内容"""
-    platform_label = {"bilibili": "B站", "douyin": "抖音"}.get(platform, platform)
+    platform_label = {"bilibili": "B站", "douyin": "抖音", "kuaishou": "快手"}.get(platform, platform)
     if platform == "bilibili":
         live_url = f"https://live.bilibili.com/{rid}"
-    else:  # douyin
+    elif platform == "douyin":
         live_url = f"https://live.douyin.com/{rid}"
+    else:  # kuaishou 等
+        live_url = f"https://live.kuaishou.com/u/{rid}"
     now = bjnow().strftime("%Y-%m-%d %H:%M:%S")
 
     lines = [
@@ -705,8 +749,10 @@ def render_body(s: Dict[str, Any], event: str, cfg_all: Dict[str, Any]) -> str:
         rid = s.get("rid", "")
         if platform == "bilibili":
             url = f"https://live.bilibili.com/{rid}"
-        else:
+        elif platform == "douyin":
             url = f"https://live.douyin.com/{rid}"
+        else:  # kuaishou 等
+            url = f"https://live.kuaishou.com/u/{rid}"
         tpl_ctx = {
             "name": s["name"],
             "title": s["result"].get("title", ""),
@@ -860,6 +906,8 @@ def main() -> None:
                     }
             elif platform == "douyin":
                 result = fetch_douyin(rid)
+            elif platform == "kuaishou":
+                result = fetch_kuaishou(rid, cfg_all)
             else:
                 logger.warning("[%s] 未知平台，跳过检测: %s", name, platform)
                 result = {"status": "offline", "title": "", "online": 0, "time": now_str}

@@ -77,6 +77,7 @@ def test_live_offline_unknown_rooms_link_behavior():
     rooms = [
         {"platform": "bilibili", "id": "123", "name": "Room A"},
         {"platform": "douyin", "id": "456", "name": "Room B"},
+        {"platform": "kuaishou", "id": "1011", "name": "Room D"},
         {"platform": "unknown", "id": "789", "name": "Room C"},
     ]
     stat = {
@@ -85,6 +86,8 @@ def test_live_offline_unknown_rooms_link_behavior():
             {"platform": "bilibili", "id": "123", "name": "Room A",
              "status": "live", "title": "直播标题", "online": 100},
             {"platform": "douyin", "id": "456", "name": "Room B",
+             "status": "offline", "title": "未开播标题"},
+            {"platform": "kuaishou", "id": "1011", "name": "Room D",
              "status": "offline", "title": "未开播标题"},
             {"platform": "unknown", "id": "789", "name": "Room C",
              "status": "offline"},
@@ -138,9 +141,15 @@ def test_live_offline_unknown_rooms_link_behavior():
         "offline 房间进入直播间入口 class 应为 blm-room-avatar-link"
     )
     assert "blm-offline-badge" in out, "offline 房间应通过 blm-offline-badge 呈现未开播状态"
-    # 未知平台房间（u==='#'）：不应生成任何链接（live/offline 各 1 个 blm-room-link）
-    assert out.count('class="blm-room-avatar-link"') == 2, (
-        "live 与 offline 各应渲染 1 个 blm-room-link，未知平台不渲染，实际：%s" % out
+    # 快手房间：头像可点击进入直播间，href 为 live.kuaishou.com/u/<id>；class 含 ava-kuaishou
+    assert "https://live.kuaishou.com/u/1011" in out
+    assert '<a class="blm-room-avatar-link" href="https://live.kuaishou.com/u/1011"' in out, (
+        "快手房间进入直播间入口 href 应为 live.kuaishou.com/u/1011"
+    )
+    assert "ava-kuaishou" in out, "快手房间头像 class 应为 ava-kuaishou"
+    # 未知平台房间（u==='#'）：不应生成任何链接（bili/douyin/kuaishou 各 1 个，未知不渲染）
+    assert out.count('class="blm-room-avatar-link"') == 3, (
+        "bilibili/douyin/kuaishou 各应渲染 1 个 blm-room-link，未知平台不渲染，实际：%s" % out
     )
     assert 'href="#"' not in out, "未知平台不应渲染直播间链接"
 
@@ -160,6 +169,10 @@ def test_room_link_css_rule_exists():
     # live 房间头像外环高亮复用状态变量（--state-live / --shadow-glow-live），不引入新变量
     assert "var(--state-live)" in style_text, (
         ".blm-room-card.live .blm-room-avatar-link 应使用 --state-live 状态变量高亮"
+    )
+    # 快手头像配色规则（.ava-kuaishou）必须存在
+    assert re.search(r"\.blm-room-avatar\.ava-kuaishou\s*\{", style_text), (
+        "应在 <style> 内定义 .blm-room-avatar.ava-kuaishou 快手头像配色规则"
     )
 
 

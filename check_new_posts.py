@@ -61,6 +61,8 @@ from log_utils import (
 )
 # 级联清理（post_tracking 孤儿 / post_rooms 字段合并，替代原内联应急补丁）
 import state_prune
+# 适配器异常（快手新作被风控 → AdapterGated，等价原 cookie_warn）
+from backend.adapters.base import AdapterGated
 
 # ==================== 常量配置 ====================
 
@@ -694,6 +696,143 @@ def _dedup_health_check(tracking: Dict[str, Dict[str, Any]]) -> None:
         )
 
 
+def handle_kuaishou_posts(entry: Dict[str, Any], tracking: Dict[str, Dict[str, Any]],
+                          cfg_all: Dict[str, Any], silence_cfg: Dict[str, Any],
+                          now_str: str):
+    """快手新作检测（匿名 scraping，无需 Playwright）。
+
+    复用 KuaishouAdapter.fetch_new_posts（SSR/graphql 尽力而为）：
+      - 首次抓取（tracking 无基线）→ 仅建基线、不推送，避免历史作品刷屏；
+      - 基线之后 → 每个比基线新的作品写 new_post 事件 + 去重推送；
+      - 接口被风控（AdapterGated）→ 写 cookie_warn 事件（与抖音风控一致），不刷屏；
+      - 抓取异常 → 写 error 事件。
+
+    封面/链接/描述/类型/昵称写回 tracking[key]，供前端作品卡与推送使用。
+
+    Returns:
+        (changed, gated): changed=是否更新了 tracking（需落盘）；gated=是否命中风控。
+    """
+    from backend.adapters.kuaishou import KuaishouAdapter
+
+    rid = entry.get("id", "")
+    name = entry.get("name", rid) or rid
+    if not rid:
+        return False, False
+
+    key = f"kuaishou_{rid}"
+    t = dict(tracking.get(key, {}))          # 拷贝，避免未提交前污染共享引用
+    had_baseline = bool(t.get("latest_post_id"))
+
+    creds = (cfg_all.get("platforms") or {}).get("kuaishou") or {}
+    creds = creds.get("credentials") or {}
+    adapter = KuaishouAdapter(credentials=creds or None)
+
+    try:
+        posts = adapter.fetch_new_posts(rid, baseline=t)
+    except AdapterGated as g:
+        append_event(rid, name, "kuaishou", "cookie_warn",
+                     detail=f"快手接口被风控（{g.detail}），可在 BLIVE_CONFIG.platforms.kuaishou.credentials 配置 cookie 突破",
+                     now=bjnow())
+        tracking[key] = t
+        return True, True
+    except Exception as e:
+        logger.error("  [%s] 快手新作获取异常: %s", name, e)
+        append_event(rid, name, "kuaishou", "error", detail=f"获取作品异常: {e}", now=bjnow())
+        tracking[key] = t
+        return True, False
+
+    if not posts:
+        # 无新作（或风控返回空），基线已在 adapter 内更新（若有变化），落盘即可
+        tracking[key] = t
+        return True, False
+
+    # 用最新一条作品回填封面/链接/描述/类型/昵称（供前端作品卡 + 推送占位）
+    latest = max(posts, key=lambda p: _ks_ts(p.published_at) or 0)
+    t["latest_post_id"] = latest.post_id
+    t["latest_published_at"] = latest.published_at
+    t["latest_ct"] = _ks_ts(latest.published_at) or 0
+    t["latest_cover"] = latest.cover or ""
+    t["latest_cover_cdn"] = latest.cover or ""
+    t["latest_url"] = latest.url or f"https://www.kuaishou.com/short-video/{latest.post_id}"
+    t["latest_desc"] = latest.title or ""
+    t["latest_type"] = latest.extra.get("type") or "视频"
+    if not t.get("nickname"):
+        t["nickname"] = latest.author or ""
+    # 展示/推送用名：若条目仅填了 id（无真实昵称），用作品作者回填
+    if latest.author and (name == rid or not entry.get("name") or entry.get("name") == rid):
+        name = latest.author
+        entry["name"] = name
+
+    # 首次抓取：仅建基线不推送，避免历史作品刷屏
+    if not had_baseline:
+        logger.info("  [%s] 快手首次抓取，建立基线（%d 个历史作品，不推送）", name, len(posts))
+        tracking[key] = t
+        return True, False
+
+    # 基线之后：逐个新作写日志 + 去重推送
+    for p in posts:
+        detail = f"{(p.title or '[无描述]')}  {(p.url or f'https://www.kuaishou.com/short-video/{p.post_id}')}".strip()
+        append_event(rid, name, "kuaishou", "new_post", detail=detail, now=bjnow())
+        dkey = p.extra.get("dedup_key") or f"post:kuaishou:{p.post_id}"
+        if not dedup_should_notify(dkey, cooldown=float("inf")):
+            logger.info("  [%s] 去重跳过：作品 %s 已推送过，不重复", name, p.post_id)
+            continue
+        # 推送
+        kind = p.extra.get("type") or "视频"
+        link = p.url or f"https://www.kuaishou.com/short-video/{p.post_id}"
+        title = f"🆕 {name} 发布了新作品"
+        desp = (
+            f"## 🆕 {name} 发布了新作品\n\n"
+            f"**类型**: {kind}\n\n"
+            f"**描述**: {p.title or '[无描述]'}\n\n"
+            f"👉 [查看作品]({link})\n\n"
+            f"---\n检测时间: {now_str}"
+        )
+        if should_skip_by_silence(bjnow(), silence_cfg):
+            logger.info("  [%s] 当前处于静默时段，暂缓新作品推送", name)
+            continue
+        try:
+            ctx = {
+                "platform": "kuaishou",
+                "tag": (entry.get("tags") or [None])[0] if entry.get("tags") else None,
+                "event": "new_post",
+            }
+            pcfg = channel_to_push_cfg(common.resolve_channel(cfg_all, ctx))
+            channel = (pcfg.get("type") or "unknown").lower()
+            res = dispatch_event(cfg_all, ctx, title, desp)
+            logger.info("    → 推送%s", "成功" if res.ok else "失败")
+            if res.ok:
+                dedup_record(dkey)
+            elif res.last_error == "config: empty push_cfg":
+                pass
+            else:
+                last_err = (res.last_error or "未知错误")[:200]
+                logger.error(
+                    "通知推送失败 channel=%s attempts=%d last_error=%s: %s",
+                    channel, res.attempts, res.last_error, title,
+                )
+                append_event(rid, name, "kuaishou", "error",
+                             detail=f"通知发送失败（{channel}）：{last_err}",
+                             now=bjnow(), push="pushed_fail")
+        except Exception as e:
+            logger.error("    → 推送异常: %s", e)
+
+    tracking[key] = t
+    return True, False
+
+
+def _ks_ts(s: Any) -> Optional[int]:
+    """把北京时间字符串转 epoch 秒（快手 PostModel.published_at 格式）。"""
+    try:
+        from datetime import datetime as _dt
+        return int(_dt.strptime(str(s), "%Y-%m-%d %H:%M:%S").timestamp())
+    except Exception:
+        try:
+            return int(s)
+        except (TypeError, ValueError):
+            return 0
+
+
 def main() -> None:
     """主函数"""
     if os.environ.get("ENABLE_POST_CHECK", "").lower() != "true":
@@ -718,6 +857,7 @@ def main() -> None:
     tracking: Dict[str, Dict[str, Any]] = load_json_file(TRACKING_FILE, {})
     now_str = bjnow().strftime("%Y-%m-%d %H:%M:%S")
     changed = False
+    gated_hint = False  # 跨平台汇总：抖音/快手任一被风控则末尾提示
 
     # 健康检查：tracking 有基线但 dedup 账本为空/缺失 → 可能状态丢失，
     # 提示运维检查 CI 持久化（merge_state.py 是否正常工作）
@@ -729,6 +869,29 @@ def main() -> None:
         logger.info("去重账本已从远端同步 %d 条较新记录", synced)
 
     logger.info("开始检测 %d 个抖音用户的新作品...", len(post_rooms))
+
+    # 快手：匿名 scraping，无需 Playwright，独立预扫描（在启动浏览器之前，
+    # 避免为快手账号强制拉起无头浏览器）。抖音仍走下方 with 块（需浏览器解析 sec_uid）。
+    for entry in post_rooms:
+        if entry.get("platform", "douyin") != "kuaishou":
+            continue
+        rid = entry.get("id", "")
+        name = entry.get("name", rid) or rid
+        if not room_enabled(entry):
+            logger.info("  [%s] 已暂停（enabled=false），跳过检测", name)
+            continue
+        if not rid:
+            logger.warning("  post_rooms.json 中存在缺 id 的快手条目，已跳过")
+            append_event("", "(缺id)", "kuaishou", "system",
+                         detail="账号配置不完整（缺 id），已跳过", now=bjnow())
+            continue
+        try:
+            _chg, _gated = handle_kuaishou_posts(entry, tracking, cfg_all, silence_cfg, now_str)
+        except Exception as exc:
+            logger.error("  [%s] 快手新作检测异常: %s", name, exc)
+            _chg, _gated = True, False
+        changed = changed or _chg
+        gated_hint = gated_hint or _gated
 
     from playwright.sync_api import sync_playwright
 
@@ -751,11 +914,14 @@ def main() -> None:
         # 关键：注入登录 Cookie 可突破作品接口风控（可选，未配置则优雅降级）
         apply_douyin_cookie(context, cookie)
 
-        gated_hint = False
         post_rooms_dirty = False
         for entry in post_rooms:
             rid = entry.get("id", "")
             name = entry.get("name", rid)
+            platform = entry.get("platform", "douyin")
+            # 快手已在预扫描（Playwright 块之前）独立处理，此处跳过浏览器路径
+            if platform == "kuaishou":
+                continue
             # B3 批量启停：enabled===false 的账号完全跳过检测（看板保留上次状态）
             if not room_enabled(entry):
                 logger.info("  [%s] 已暂停（enabled=false），跳过检测", name)
@@ -1015,15 +1181,23 @@ def main() -> None:
     # 若用启动时的内存副本整体覆盖写回，会把用户在「本轮期间」删除的账号又加回来、
     # 或丢失用户新增的账号；再经 merge_state.py 的并集合并后，被删账号会复活。
     current_rooms = load_json_file(CONFIG_FILE, []) or []
-    cur_by_id = {str(e.get("id", "")): e for e in current_rooms if e.get("id")}
     # 本轮解析/写回过的账号（仅取确有 sec_uid 的）
-    resolved = {str(e.get("id", "")): e for e in post_rooms if e.get("id") and e.get("sec_uid")}
+    # 本轮解析/写回过的账号：有 sec_uid 的（抖音）或平台为 kuaishou 的（无 sec_uid，靠 name 写回）
+    resolved = {
+        str(e.get("id", "")): e
+        for e in post_rooms
+        if e.get("id") and (e.get("sec_uid") or e.get("platform") == "kuaishou")
+    }
 
     # 字段合并：仅对仍存在的账号原地更新 sec_uid/name（不复活已删账号）
     rooms_changed = state_prune.merge_post_rooms_fields(CONFIG_FILE, resolved)
 
-    # 孤儿清理：基于「当前磁盘」账号集合，删除 post_tracking 中已移除账号的状态
-    cur_keys = {f"douyin_{rid}" for rid in cur_by_id}
+    # 孤儿清理：基于「当前磁盘」账号集合（含平台前缀），删除 post_tracking 中已移除账号的状态
+    cur_keys = {
+        f"{(e.get('platform') or 'douyin')}_{e.get('id')}"
+        for e in current_rooms
+        if e.get("id")
+    }
     tracking_before = len(tracking)
     tracking = state_prune.prune_tracking_orphans(tracking, cur_keys)
 
