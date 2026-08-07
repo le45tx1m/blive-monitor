@@ -73,5 +73,10 @@
     "platform": "kuaishou",
     "id": "KS_SAMPLE_LIVE_ID",
     "name": "快手示例·直播(请替换为真实ID)"
+  },
+  {
+    "platform": "douyin",
+    "id": "50472653153",
+    "name": "50472653153"
   }
 ]
