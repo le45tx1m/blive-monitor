@@ -179,7 +179,10 @@ class KuaishouAdapter(PlatformAdapter):
                     platform="kuaishou",
                     post_id=pid,
                     author=t.get("nickname", "") or p.get("author", "") or p.get("userName", ""),
-                    url=p.get("url") or p.get("webUrl") or p.get("photoUrl") or "",
+                    # 直接用可靠提取到的 photoId 构造规范视频页链接（fw/photo/{photoId}），
+                    # 不再盲信 API 可能返回的「fw/photo/{用户名}」错误 url（会报「参数格式错误」）。
+                    url=(f"https://v.m.chenzhongtech.com/fw/photo/{pid}" if pid
+                         else (p.get("url") or p.get("webUrl") or p.get("photoUrl") or "")),
                     cover=p.get("coverUrl") or p.get("cover") or "",
                     published_at=_ts_to_bj(ts),
                     title=p.get("caption", ""),

@@ -753,7 +753,7 @@ def handle_kuaishou_posts(entry: Dict[str, Any], tracking: Dict[str, Dict[str, A
     t["latest_ct"] = _ks_ts(latest.published_at) or 0
     t["latest_cover"] = latest.cover or ""
     t["latest_cover_cdn"] = latest.cover or ""
-    t["latest_url"] = latest.url or f"https://www.kuaishou.com/short-video/{latest.post_id}"
+    t["latest_url"] = latest.url or f"https://v.m.chenzhongtech.com/fw/photo/{latest.post_id}"
     t["latest_desc"] = latest.title or ""
     t["latest_type"] = latest.extra.get("type") or "视频"
     if not t.get("nickname"):
@@ -771,7 +771,7 @@ def handle_kuaishou_posts(entry: Dict[str, Any], tracking: Dict[str, Dict[str, A
 
     # 基线之后：逐个新作写日志 + 去重推送
     for p in posts:
-        detail = f"{(p.title or '[无描述]')}  {(p.url or f'https://www.kuaishou.com/short-video/{p.post_id}')}".strip()
+        detail = f"{(p.title or '[无描述]')}  {(p.url or f'https://v.m.chenzhongtech.com/fw/photo/{p.post_id}')}".strip()
         append_event(rid, name, "kuaishou", "new_post", detail=detail, now=bjnow())
         dkey = p.extra.get("dedup_key") or f"post:kuaishou:{p.post_id}"
         if not dedup_should_notify(dkey, cooldown=float("inf")):
@@ -779,7 +779,7 @@ def handle_kuaishou_posts(entry: Dict[str, Any], tracking: Dict[str, Dict[str, A
             continue
         # 推送
         kind = p.extra.get("type") or "视频"
-        link = p.url or f"https://www.kuaishou.com/short-video/{p.post_id}"
+        link = p.url or f"https://v.m.chenzhongtech.com/fw/photo/{p.post_id}"
         title = f"🆕 {name} 发布了新作品"
         desp = (
             f"## 🆕 {name} 发布了新作品\n\n"
