@@ -21,9 +21,59 @@ import logging
 import re
 import urllib.request
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from backend.adapters.base import AdapterGated, PlatformAdapter, PostModel, RoomModel
+
+# 快手 graphql 真正需要的 userId 是 principalId（字母数字串，形如 3x...），
+# 而非 kuaishou.com 用户名。视频/作品页 SSR 里作者主页链接暴露它：
+#   <a href="https://www.kuaishou.com/profile/3xrgxqkqp829xz6" ...>
+_KS_PROFILE_RE = re.compile(r"kuaishou\.com/profile/(3x[a-zA-Z0-9]+)")
+# 兜底：作者对象 "id":"3x...","name":"..."（SSR 内联 JSON）
+_KS_PRINCIPAL_ID_RE = re.compile(r'"(?:id|userId)"\s*:\s*"(3x[a-zA-Z0-9]{6,})')
+
+
+def _looks_like_principal_id(s: str) -> bool:
+    return bool(re.fullmatch(r"3x[a-zA-Z0-9]{6,}", s or ""))
+
+
+def _ks_seed_http_get(url: str, timeout: int = 10) -> bytes:
+    req = urllib.request.Request(
+        url,
+        headers={"User-Agent": _KUAISHOU_UA, "Referer": "https://www.kuaishou.com/"},
+    )
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return r.read()
+
+
+def resolve_kuaishou_principal_id(entry: Any, rid: str,
+                                  http_get: Optional[Callable[[str], bytes]] = None) -> Optional[str]:
+    """解析快手 principalId（graphql 真正需要的 userId）。
+
+    优先级：
+      1. ``entry.principal_id``（显式配置，最稳）
+      2. ``rid`` 本身就是 principalId（形如 3x...）
+      3. 从 ``entry.seed_url``（目标任意视频/作品页）SSR 提取 profile 链接
+
+    解析不到返回 None —— 调用方回退到 rid，由风控/空结果优雅降级（绝不抛异常）。
+    """
+    if isinstance(entry, dict) and entry.get("principal_id"):
+        return str(entry["principal_id"])
+    if _looks_like_principal_id(rid):
+        return rid
+    seed = (entry or {}).get("seed_url") if isinstance(entry, dict) else None
+    if not seed:
+        return None
+    try:
+        html = (http_get or _ks_seed_http_get)(seed)
+        if isinstance(html, (bytes, bytearray)):
+            html = html.decode("utf-8", "replace")
+        m = _KS_PROFILE_RE.search(html) or _KS_PRINCIPAL_ID_RE.search(html)
+        if m:
+            return m.group(1)
+    except Exception as e:  # noqa: BLE001
+        logger.warning("[kuaishou] 解析 principalId 失败（回退 rid）: %s", e)
+    return None
 
 logger = logging.getLogger(__name__)
 
@@ -197,6 +247,9 @@ class KuaishouAdapter(PlatformAdapter):
             last = max(posts, key=lambda x: _to_ts(x.get("timestamp")) or 0)
             t["latest_post_id"] = last.get("photoId", "")
             t["latest_published_at"] = _ts_to_bj(_to_ts(last.get("timestamp")))
+        # 固化 principalId（若入参即 principalId），避免每轮重复解析
+        if _looks_like_principal_id(rid):
+            t["principal_id"] = rid
         return out
 
     def _fetch_graphql_photos(self, rid: str) -> List[Dict[str, Any]]:
@@ -230,6 +283,13 @@ class KuaishouAdapter(PlatformAdapter):
         return feeds
 
 
+#: 快手 SSR 里会出现的 JS 专有字面量（非合法 JSON），解析失败时替换为 null 重试。
+#: 前后用 (?<!["\w]) / (?!["\w]) 守卫，避免误伤字符串内容里的同名单词。
+_JS_LITERAL_RE = re.compile(
+    r'(?<![\w"])(?:undefined|NaN|-?Infinity|void 0)(?![\w"])'
+)
+
+
 def _as_int(v: Any) -> int:
     """把可能是字符串/数字的值安全转 int。"""
     try:
@@ -241,11 +301,22 @@ def _as_int(v: Any) -> int:
 def _extract_initial_state(html: Any) -> Optional[Dict[str, Any]]:
     """从 HTML 稳健提取 window.__INITIAL_STATE__ 的对象（括号配平，兼容嵌套）。
 
-    SSR 页中该对象体积大、含嵌套结构，正则非贪婪易截断，故用栈配平大括号提取。
+    两个必须处理的坑（2026-08 实测踩到）：
+
+    1. **括号可能出现在字符串字面量里**（标题/描述常含 ``{``），朴素配平会提前收尾，
+       所以扫描时要跳过引号内内容并正确处理反斜杠转义。
+    2. **快手 SSR 是 JS 对象字面量，不是严格 JSON**：实测页面里有
+       ``"authToken":undefined``，``json.loads`` 直接抛 JSONDecodeError。
+       此前该异常被吞掉返回 None，导致 ``fetch_room_status`` 把**正在直播的房间
+       静默判成 offline**（开播提醒漏报的真凶）。这里对 ``undefined`` / ``NaN`` /
+       ``Infinity`` / ``void 0`` 做一次保守替换后重试。
+
     失败返回 None（调用方降级为 offline）。
     """
     if isinstance(html, (bytes, bytearray)):
         html = html.decode("utf-8", "replace")
+    if not isinstance(html, str):
+        return None
     marker = "window.__INITIAL_STATE__"
     idx = html.find(marker)
     if idx < 0:
@@ -254,22 +325,37 @@ def _extract_initial_state(html: Any) -> Optional[Dict[str, Any]]:
     if start < 0:
         return None
     depth = 0
-    i = start
-    n = len(html)
+    in_str = False
+    escaped = False
     end = -1
-    while i < n:
+    for i in range(start, len(html)):
         c = html[i]
-        if c == "{":
+        if in_str:
+            if escaped:
+                escaped = False
+            elif c == "\\":
+                escaped = True
+            elif c == '"':
+                in_str = False
+            continue
+        if c == '"':
+            in_str = True
+        elif c == "{":
             depth += 1
         elif c == "}":
             depth -= 1
             if depth == 0:
                 end = i
                 break
-        i += 1
     if end < 0:
         return None
+    raw = html[start:end + 1]
     try:
-        return json.loads(html[start:end + 1])
-    except Exception:  # noqa: BLE001
+        return json.loads(raw)
+    except Exception:  # noqa: BLE001 —— 大概率是 JS 字面量，降级重试
+        pass
+    try:
+        return json.loads(_JS_LITERAL_RE.sub("null", raw))
+    except Exception as e:  # noqa: BLE001
+        logger.debug("[kuaishou] SSR 状态解析失败: %s", e)
         return None
