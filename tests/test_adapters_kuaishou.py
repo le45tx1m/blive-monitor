@@ -192,3 +192,65 @@ def test_kuaishou_graphql_ok_returns_feeds(monkeypatch):
     feeds = KuaishouAdapter()._fetch_graphql_photos("rid")
     assert isinstance(feeds, list) and len(feeds) == 1
     assert feeds[0]["photoId"] == "p9"
+
+
+# ---------------------------------------------------------------------------
+# 时区回归：tracking 里的「北京时间」不得随运行机器时区漂移
+# ---------------------------------------------------------------------------
+# 背景（真实生产 Bug）：kuaishou.py 曾自带 _ts_to_bj，内部用裸
+# datetime.fromtimestamp(ts) —— 跟随系统时区。GitHub Actions runner 默认 UTC
+# 且 workflow 未设 TZ，导致线上写入 latest_published_at 的「北京时间」实际是
+# UTC，整体偏早 8 小时。common.epoch_to_beijing 的 docstring 写着它已「合并自
+# kuaishou 的 _ts_to_bj」，但适配器当时并未真正切过去，属重构遗留。
+
+
+@pytest.mark.parametrize("tz", ["UTC", "America/New_York", "Asia/Shanghai"])
+def test_kuaishou_时间戳转换不随系统时区漂移(tz, monkeypatch):
+    """无论 runner 在哪个时区，epoch 都必须换算成 +8 的北京时间。"""
+    import time
+
+    from backend.adapters.kuaishou import _ts_to_bj
+
+    monkeypatch.setenv("TZ", tz)
+    time.tzset()
+    try:
+        # 1700000000 = 2023-11-14 22:13:20 UTC = 2023-11-15 06:13:20 北京
+        assert _ts_to_bj(1700000000) == "2023-11-15 06:13:20"
+    finally:
+        monkeypatch.undo()
+        time.tzset()
+
+
+def test_kuaishou_当前时间使用北京时区():
+    """_now_bj 必须与 common.bjnow 同源，不能是裸 datetime.now()。"""
+    from datetime import datetime
+
+    from backend.adapters.kuaishou import _now_bj
+    from common import bjnow
+
+    got = datetime.strptime(_now_bj(), "%Y-%m-%d %H:%M:%S")
+    assert abs((got - bjnow()).total_seconds()) < 5
+
+
+def test_kuaishou_运行观测字段可JSON序列化():
+    """任务七字段最终要落进 post_tracking.json，不能混入枚举等非 JSON 类型。"""
+    import json
+
+    from backend.adapters.kuaishou import KuaishouAdapter
+
+    a = KuaishouAdapter()
+    t: dict = {}
+    a._write_run_tracking(t, "3xrgxqkqp829xz6", success=True)
+    json.dumps(t)  # 不抛即通过
+    assert t["principal_id"] == "3xrgxqkqp829xz6"
+    assert t["last_success"]
+
+
+def test_kuaishou_运行观测不覆盖已有principal_id():
+    """tracking 里已校验过的 principal_id 优先，避免被入参 rid 冲掉。"""
+    from backend.adapters.kuaishou import KuaishouAdapter
+
+    t = {"principal_id": "3xoldoldoldold1"}
+    KuaishouAdapter()._write_run_tracking(t, "3xrgxqkqp829xz6", success=False)
+    assert t["principal_id"] == "3xoldoldoldold1"
+    assert "last_success" not in t  # 失败轮次不得刷新成功时间

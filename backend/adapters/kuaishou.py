@@ -24,58 +24,202 @@ from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional
 
 from backend.adapters.base import AdapterGated, PlatformAdapter, PostModel, RoomModel
+from common import bjnow, epoch_to_beijing
+from backend.adapters.identity import (
+    CredentialLadder,
+    CredentialLevel,
+    IdentityCache,
+    PrincipalIdentity,
+)
+from backend.adapters.kuaishou_identity import (
+    KuaishouIdentityResolver,
+    looks_like_principal_id as _looks_like_principal_id,
+)
 
-# 快手 graphql 真正需要的 userId 是 principalId（字母数字串，形如 3x...），
-# 而非 kuaishou.com 用户名。视频/作品页 SSR 里作者主页链接暴露它：
-#   <a href="https://www.kuaishou.com/profile/3xrgxqkqp829xz6" ...>
-_KS_PROFILE_RE = re.compile(r"kuaishou\.com/profile/(3x[a-zA-Z0-9]+)")
-# 兜底：作者对象 "id":"3x...","name":"..."（SSR 内联 JSON）
-_KS_PRINCIPAL_ID_RE = re.compile(r'"(?:id|userId)"\s*:\s*"(3x[a-zA-Z0-9]{6,})')
+logger = logging.getLogger(__name__)
+
+#: 进程内共享的身份缓存 —— 同一轮监控里多个账号/多次调用不重复解析。
+#: 跨轮持久化交给 tracking 的 ``principal_id`` 字段（见 apply_identity_to_tracking）。
+_identity_cache = IdentityCache()
+
+#: 从 config 条目里认得的身份提示字段（用户填了就用，没填 resolver 自己找）
+_HINT_KEYS = ("principal_id", "nickname", "unique_name", "share_user_id",
+              "room_id", "live_id", "home_url", "share_url", "seed_url", "photo_id")
 
 
-def _looks_like_principal_id(s: str) -> bool:
-    return bool(re.fullmatch(r"3x[a-zA-Z0-9]{6,}", s or ""))
+def build_identity_hints(entry: Any, tracking: Any = None) -> Dict[str, Any]:
+    """把 config 条目 + 已有 tracking 合成 resolver 的 hints。
+
+    tracking 里的 ``principal_id`` 是上一轮解析并校验过的结果，直接复用可以让稳态
+    运行时的身份解析降到零次网络请求 —— 这也是跨轮次的持久化缓存。
+    config 优先级高于 tracking（用户改配置能立刻生效）。
+    """
+    hints: Dict[str, Any] = {}
+    if isinstance(tracking, dict):
+        for key in ("principal_id", "nickname", "unique_name"):
+            if tracking.get(key):
+                hints[key] = str(tracking[key])
+    if isinstance(entry, dict):
+        for key in _HINT_KEYS:
+            if entry.get(key):
+                hints[key] = str(entry[key])
+        # config 里的 name 当昵称用（不覆盖更明确的 nickname 字段）
+        if entry.get("name") and not hints.get("nickname"):
+            hints["nickname"] = str(entry["name"])
+    return hints
 
 
-def _ks_seed_http_get(url: str, timeout: int = 10) -> bytes:
-    req = urllib.request.Request(
-        url,
-        headers={"User-Agent": _KUAISHOU_UA, "Referer": "https://www.kuaishou.com/"},
+#: 已校验身份的信任期：这段时间内不再重复交叉校验（秒）。
+#:
+#: 为什么需要它：CI 每 5 分钟一轮，而一次完整校验要打 2 次 live.kuaishou.com
+#: （输入侧 + principalId 侧）。每轮都验 = 每账号每天约 864 次请求，
+#: 实测十几次连打就会进入 **11 分钟以上** 的 IP 级限流惩罚期 —— 那样反而
+#: 什么都监控不到。principalId 是账号级稳定标识（originUserId 更是终生不变），
+#: 「首次严格校验 + 24 小时内信任 + 到期重验」在准确性上的损失可以忽略，
+#: 请求量却降到 1/288。这不是放宽标准，是把校验预算花在刀刃上。
+IDENTITY_TRUST_SEC = 24 * 3600
+
+
+def identity_from_tracking(tracking: Any, rid: str = "") -> Optional[PrincipalIdentity]:
+    """从 tracking 恢复上一轮**已校验且仍在信任期内**的身份。
+
+    这是跨进程的身份缓存：CI 每轮都是全新进程，内存缓存必然落空，
+    但 tracking 会随仓库提交回来，天然就是持久层。
+
+    只有「验过的」才享受信任期；没验过的（identity_verified=False）
+    必须走完整解析流程，否则等于把未经证实的猜测长期固化。
+    """
+    if not isinstance(tracking, dict):
+        return None
+    pid = str(tracking.get("principal_id") or "")
+    if not pid or not tracking.get("identity_verified"):
+        return None
+    refreshed = _parse_bj(tracking.get("last_identity_refresh"))
+    if refreshed is None:
+        return None
+    age = (bjnow() - refreshed).total_seconds()
+    if age < 0 or age > IDENTITY_TRUST_SEC:
+        return None
+    ident = PrincipalIdentity(
+        platform="kuaishou",
+        principal_id=pid,
+        nickname=str(tracking.get("nickname") or ""),
+        unique_name=str(tracking.get("unique_name") or ""),
+        identity_source=str(tracking.get("identity_source") or "tracking"),
+        confidence=1.0,
+        last_updated=str(tracking.get("last_identity_refresh") or ""),
     )
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        return r.read()
+    ident.trace = ["tracking_trusted"]
+    ident.extra["verified"] = True
+    ident.extra["trusted_from_tracking"] = True
+    origin = tracking.get("origin_user_id")
+    if origin:
+        ident.extra["origin_user_id"] = str(origin)
+    return ident
+
+
+def _parse_bj(s: Any) -> Optional[datetime]:
+    """解析 ``YYYY-MM-DD HH:MM:SS`` 北京时间；失败返回 None。"""
+    try:
+        return datetime.strptime(str(s), "%Y-%m-%d %H:%M:%S")
+    except (TypeError, ValueError):
+        return None
+
+
+def resolve_kuaishou_identity(entry: Any, rid: str, tracking: Any = None,
+                              resolver: Optional[KuaishouIdentityResolver] = None,
+                              ) -> Optional[PrincipalIdentity]:
+    """解析快手账号身份（Fail Soft，解不出返回 None）。
+
+    Identity Framework 的统一入口：不再手写「有 principal_id 就用、否则扒 seed_url」
+    那套散装逻辑，交给 resolver 的策略流水线 + originUserId 交叉校验。
+
+    稳态快路径：上一轮已校验且在信任期内 → 直接复用，零请求（见
+    :data:`IDENTITY_TRUST_SEC`）。但用户在 config 里改了 principal_id 时立即失效，
+    否则「改了配置不生效」会让人抓狂。
+    """
+    trusted = identity_from_tracking(tracking, rid)
+    if trusted is not None:
+        cfg_pid = str((entry or {}).get("principal_id") or "") if isinstance(entry, dict) else ""
+        if not cfg_pid or cfg_pid == trusted.principal_id:
+            return trusted
+        logger.info("[kuaishou] config 的 principal_id 已变更（%s → %s），放弃信任期重新解析",
+                    trusted.principal_id, cfg_pid)
+    r = resolver or KuaishouIdentityResolver(cache=_identity_cache)
+    return r.resolve(rid, hints=build_identity_hints(entry, tracking))
+
+
+def apply_identity_to_tracking(ident: Optional[PrincipalIdentity],
+                               tracking: Dict[str, Any]) -> None:
+    """把解析到的身份写回 tracking，供下一轮零成本复用。"""
+    if ident is None or not isinstance(tracking, dict):
+        return
+    tracking["principal_id"] = ident.principal_id
+    tracking["identity_source"] = ident.identity_source
+    tracking["last_identity_refresh"] = ident.last_updated
+    tracking["identity_verified"] = bool((ident.extra or {}).get("verified"))
+    if ident.nickname and not tracking.get("nickname"):
+        tracking["nickname"] = ident.nickname
+    if ident.unique_name:
+        tracking["unique_name"] = ident.unique_name
+    origin = (ident.extra or {}).get("origin_user_id")
+    if origin:
+        tracking["origin_user_id"] = str(origin)
+
+
+def apply_identity_to_config(ident: Optional[PrincipalIdentity],
+                             entry: Dict[str, Any]) -> bool:
+    """把解析到的身份补进 config 条目（任务八：用户不填则自动补齐）。
+
+    **只填空位**：用户手填的值永远优先，解析结果只补用户没说的部分。
+    发现两者冲突时不静默覆盖，而是明确告警 —— 冲突要么是用户配错了人，
+    要么是我们解错了人，两种都必须被看见，绝不能悄悄和稀泥。
+
+    Returns:
+        是否写入了新字段（供调用方决定要不要落盘）。
+    """
+    if ident is None or not isinstance(entry, dict):
+        return False
+    extra = ident.extra or {}
+    candidates = {
+        "principal_id": ident.principal_id,
+        "origin_user_id": str(extra.get("origin_user_id") or ""),
+        "nickname": ident.nickname,
+        "unique_name": ident.unique_name,
+        "home_url": ident.home_url,
+        "share_url": ident.share_url,
+        "room_id": ident.room_id,
+        "identity_source": ident.identity_source,
+    }
+    verified = bool(extra.get("verified"))
+    changed = False
+    for field, val in candidates.items():
+        if not val:
+            continue
+        cur = entry.get(field)
+        if not cur:
+            entry[field] = val
+            changed = True
+        elif str(cur) != str(val) and field in ("principal_id", "origin_user_id"):
+            # 主键级冲突：以用户配置为准，但必须留下痕迹
+            logger.warning(
+                "[kuaishou] config 里的 %s=%s 与解析结果 %s 不一致（校验=%s）—— "
+                "以 config 为准；若通知里的人不对，请核对该字段",
+                field, cur, val, "已通过" if verified else "未做",
+            )
+    return changed
 
 
 def resolve_kuaishou_principal_id(entry: Any, rid: str,
-                                  http_get: Optional[Callable[[str], bytes]] = None) -> Optional[str]:
-    """解析快手 principalId（graphql 真正需要的 userId）。
+                                  http_get: Optional[Callable[[str], bytes]] = None,
+                                  tracking: Any = None) -> Optional[str]:
+    """解析 principalId（兼容旧签名的薄封装，内部走 Identity Framework）。
 
-    优先级：
-      1. ``entry.principal_id``（显式配置，最稳）
-      2. ``rid`` 本身就是 principalId（形如 3x...）
-      3. 从 ``entry.seed_url``（目标任意视频/作品页）SSR 提取 profile 链接
-
-    解析不到返回 None —— 调用方回退到 rid，由风控/空结果优雅降级（绝不抛异常）。
+    ``http_get`` 仅为不破坏既有调用方而保留：resolver 需要拿到重定向**终链**
+    （分享链接的 userId 就藏在那），旧的 ``bytes`` 返回值表达不了这个信息。
     """
-    if isinstance(entry, dict) and entry.get("principal_id"):
-        return str(entry["principal_id"])
-    if _looks_like_principal_id(rid):
-        return rid
-    seed = (entry or {}).get("seed_url") if isinstance(entry, dict) else None
-    if not seed:
-        return None
-    try:
-        html = (http_get or _ks_seed_http_get)(seed)
-        if isinstance(html, (bytes, bytearray)):
-            html = html.decode("utf-8", "replace")
-        m = _KS_PROFILE_RE.search(html) or _KS_PRINCIPAL_ID_RE.search(html)
-        if m:
-            return m.group(1)
-    except Exception as e:  # noqa: BLE001
-        logger.warning("[kuaishou] 解析 principalId 失败（回退 rid）: %s", e)
-    return None
-
-logger = logging.getLogger(__name__)
+    ident = resolve_kuaishou_identity(entry, rid, tracking=tracking)
+    return ident.principal_id if ident else None
 
 _KUAISHOU_UA = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -93,11 +237,18 @@ def _to_ts(v: Any) -> Optional[int]:
 
 
 def _ts_to_bj(ts: Optional[int]) -> str:
-    """epoch 秒 -> 北京时间字符串；失败返回空串。"""
-    try:
-        return datetime.fromtimestamp(int(ts)).strftime("%Y-%m-%d %H:%M:%S")
-    except (TypeError, ValueError, OverflowError, OSError):
-        return ""
+    """epoch 秒 -> 北京时间字符串；失败返回空串。
+
+    必须显式指定 +8 时区，不能用裸 ``datetime.fromtimestamp()``：
+    GitHub Actions runner 默认 UTC 且 workflow 未设 ``TZ``，
+    裸调用会把 UTC 时间当成北京时间写进 tracking，整体偏早 8 小时。
+    """
+    return epoch_to_beijing(ts)
+
+
+def _now_bj() -> str:
+    """当前北京时间字符串（显式 +8，理由同 :func:`_ts_to_bj`）。"""
+    return bjnow().strftime("%Y-%m-%d %H:%M:%S")
 
 
 class KuaishouAdapter(PlatformAdapter):
@@ -115,6 +266,10 @@ class KuaishouAdapter(PlatformAdapter):
         self.did = str(self.credentials.get("did") or "")
         self.client_key = str(self.credentials.get("client_key") or _DEFAULT_CLIENT_KEY)
         self.cookie = str(self.credentials.get("cookie") or "")
+        #: 最近一次 graphql 的凭证阶梯结果（编排层据此写 tracking）
+        self.last_ladder = None
+        #: 本适配器实例累计命中风控的次数
+        self.gated_count = 0
 
     # ---- 网络（可被测试 monkeypatch）----
     def _http_get(self, url: str, headers: Optional[Dict[str, str]] = None,
@@ -206,15 +361,25 @@ class KuaishouAdapter(PlatformAdapter):
                         context: Any = None) -> List[PostModel]:
         rid = str(author_or_room)
         t = baseline if isinstance(baseline, dict) else {}
+        if not _looks_like_principal_id(rid):
+            # 传进来的不是 principalId（多半是用户名）——graphql 会安静地返回
+            # feeds=[]，看起来像「没有新作品」，实则是身份没解对。这里显式点破，
+            # 否则这类问题会一直伪装成「这个号最近没更新」。
+            logger.warning(
+                "[kuaishou] %s 不是 principalId 形态，graphql 大概率返回空。"
+                "请在 post_rooms.json 补 principal_id / share_url / seed_url", rid,
+            )
         try:
-            # 主：visionProfilePhotoList graphql（需 did/client_key/cookie）
-            # 风控/未登录返回 {"result":2} → _fetch_graphql_photos 会 raise AdapterGated
+            # 主：visionProfilePhotoList graphql，凭证三级降级（匿名→did→Cookie）
             posts = self._fetch_graphql_photos(rid)
         except AdapterGated:
+            self._write_run_tracking(t, rid, success=False)
             raise
         except Exception as e:  # noqa: BLE001
             logger.warning("[kuaishou] 新作接口失败（降级为空）: %s", e)
-            raise AdapterGated(detail="快手作品接口需 did/登录 Cookie，当前被风控")
+            self.gated_count += 1
+            self._write_run_tracking(t, rid, success=False)
+            raise AdapterGated(detail=f"快手作品接口请求失败：{e}")
 
         out: List[PostModel] = []
         prev_id = t.get("latest_post_id", "")
@@ -245,19 +410,47 @@ class KuaishouAdapter(PlatformAdapter):
         # 更新基线（取最新一条）
         if posts:
             last = max(posts, key=lambda x: _to_ts(x.get("timestamp")) or 0)
+            latest_ts = _to_ts(last.get("timestamp"))
             t["latest_post_id"] = last.get("photoId", "")
-            t["latest_published_at"] = _ts_to_bj(_to_ts(last.get("timestamp")))
-        # 固化 principalId（若入参即 principalId），避免每轮重复解析
-        if _looks_like_principal_id(rid):
-            t["principal_id"] = rid
+            t["latest_published_at"] = _ts_to_bj(latest_ts)
+            if latest_ts is not None:
+                t["latest_timestamp"] = latest_ts
+        self._write_run_tracking(t, rid, success=True)
         return out
 
-    def _fetch_graphql_photos(self, rid: str) -> List[Dict[str, Any]]:
-        """调用 visionProfilePhotoList（需 did/client_key/cookie）。
+    def _write_run_tracking(self, t: Dict[str, Any], rid: str, success: bool) -> None:
+        """写入本轮运行观测字段（任务七）。
 
-        风控/未登录：响应 ``{"result":2}`` → raise AdapterGated（记为 gated，而非「无新作」）。
+        这些字段不参与去重判断，纯粹是为了让「为什么没抓到」可回答：
+        是身份没解对、还是被风控、还是要更高等级的凭证。
         """
-        url = "https://www.kuaishou.com/graphql"
+        if not isinstance(t, dict):
+            return
+        # 入参即 principalId 时固化下来，避免下一轮重复解析
+        if _looks_like_principal_id(rid):
+            t.setdefault("principal_id", rid)
+        if success:
+            t["last_success"] = _now_bj()
+        ladder = self.last_ladder
+        if ladder is not None:
+            t["cookie_used"] = ladder.level_used == CredentialLevel.COOKIE
+            t["did_used"] = ladder.level_used == CredentialLevel.DEVICE
+            t["credential_level"] = ladder.level_used or ""
+        if self.gated_count:
+            t["gated_count"] = self.gated_count
+
+    # ---------- graphql（三级凭证降级）----------
+    @staticmethod
+    def _is_gated(payload: Any) -> bool:
+        """判定响应是否被风控。
+
+        快手不用 HTTP 状态码表达风控，而是 200 + ``result`` 非 0：
+        ``result=2`` 匿名被拦、``result=400002`` 验证码挑战。
+        """
+        return isinstance(payload, dict) and payload.get("result") not in (None, 0, "0")
+
+    def _graphql_once(self, rid: str, headers: Dict[str, str]) -> Dict[str, Any]:
+        """发一次 visionProfilePhotoList 请求（单级凭证，由阶梯调用）。"""
         body = json.dumps({
             "operationName": "visionProfilePhotoList",
             "variables": {"userId": rid, "page": 1},
@@ -267,20 +460,45 @@ class KuaishouAdapter(PlatformAdapter):
                 "coverUrl url timestamp is_image isVideo}}"
             ),
         }).encode("utf-8")
-        hdr = {"Content-Type": "application/json",
-               "Referer": "https://www.kuaishou.com/"}
-        if self.did:
-            hdr["Cookie"] = f"did={self.did}; client_key={self.client_key}"
-        elif self.cookie:
-            hdr["Cookie"] = self.cookie
-        req = urllib.request.Request(url, data=body, headers=hdr, method="POST")
+        req = urllib.request.Request(
+            "https://www.kuaishou.com/graphql", data=body,
+            headers=headers, method="POST",
+        )
         with urllib.request.urlopen(req, timeout=10) as r:
-            d = json.loads(r.read())
-        # 风控/未登录：result 为非 0 / 非 None（实测 {"result":2,"error_msg":null}）
-        if isinstance(d, dict) and d.get("result") not in (None, 0, "0"):
-            raise AdapterGated(detail=f"快手作品接口被风控(result={d.get('result')})，需 did/登录 Cookie")
-        feeds = ((d.get("data") or {}).get("visionProfilePhotoList") or {}).get("feeds") or []
-        return feeds
+            return json.loads(r.read())
+
+    def _fetch_graphql_photos(self, rid: str) -> List[Dict[str, Any]]:
+        """取作品列表，凭证按 L1 匿名 → L2 did → L3 Cookie 逐级升级。
+
+        原则是**能用弱凭证就别掏登录态**：匿名能过就不带 did，did 能过就不带 Cookie，
+        既降低账号暴露风险，也让「哪一级才够用」变成可观测数据（写入 tracking 的
+        ``cookie_used`` / ``did_used``）。全部等级都被风控才 raise AdapterGated —— 这
+        与「没有新作」是两回事，编排层据此记 cookie_warn 而不是静默。
+        """
+        ladder = CredentialLadder(
+            did=self.did, cookie=self.cookie, client_key=self.client_key,
+            extra_headers={
+                "Content-Type": "application/json",
+                "User-Agent": _KUAISHOU_UA,
+                "Referer": "https://www.kuaishou.com/",
+            },
+        )
+        result = ladder.run(
+            lambda headers, level: self._graphql_once(rid, headers),
+            should_retry=self._is_gated,
+        )
+        self.last_ladder = result  # 供编排层写 tracking（哪一级成功/试过几级）
+
+        if not result.ok:
+            tried = "/".join(result.levels_tried) or "无可用凭证"
+            self.gated_count += 1
+            raise AdapterGated(
+                detail=f"快手作品接口被风控（已试 {tried}），"
+                       f"可在 BLIVE_CONFIG.platforms.kuaishou.credentials 配置 cookie 突破"
+            )
+
+        data = result.value if isinstance(result.value, dict) else {}
+        return ((data.get("data") or {}).get("visionProfilePhotoList") or {}).get("feeds") or []
 
 
 #: 快手 SSR 里会出现的 JS 专有字面量（非合法 JSON），解析失败时替换为 null 重试。

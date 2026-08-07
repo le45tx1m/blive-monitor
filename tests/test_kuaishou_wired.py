@@ -136,3 +136,132 @@ def test_new_posts_routes_kuaishou(tmp_path, monkeypatch, fake_playwright):
     assert len(calls) == 1, "main() 应将快手条目分发到 handle_kuaishou_posts 恰好一次"
     assert calls[0].get("id") == "KS1"
     assert calls[0].get("platform") == "kuaishou"
+
+
+# ===========================================================================
+# 身份信任期：把校验预算花在刀刃上（而不是每轮重验把 IP 打进惩罚期）
+# ===========================================================================
+# 实测数据：一次完整交叉校验要打 2 次 live.kuaishou.com（输入侧 + principalId 侧）。
+# CI 每 5 分钟一轮 → 每账号每天 576 次；而实测十几次连打就会进入 11 分钟以上的
+# IP 级限流惩罚期，届时连开播状态都读不到。principalId 是账号级稳定标识，
+# 「首次严格校验 + 24h 信任 + 到期重验」把请求降到 1/288，准确性损失可忽略。
+
+import pytest
+
+from backend.adapters.identity import HttpResponse, IdentityCache
+from backend.adapters.kuaishou import (
+    IDENTITY_TRUST_SEC,
+    apply_identity_to_tracking,
+    identity_from_tracking,
+    resolve_kuaishou_identity,
+)
+from backend.adapters.kuaishou_identity import (
+    KuaishouIdentityResolver, author_from_live_html,
+)
+
+_PID = "3xrgxqkqp829xz6"
+_AUTHOR = '{"id":"Sandy88888","name":"肥阿肥","originUserId":2117550,"living":false}'
+_HTML = ('<script>window.__INITIAL_STATE__={"user":{"name":""},"liveroom":{"playList":'
+         '[{"liveStream":{},"author":' + _AUTHOR + ',"isLiving":false}],'
+         '"authToken":undefined}};</script>')
+
+
+def test_样本自检_信任期用例的HTML确实可解析():
+    """样本坏掉的话，下面所有「零请求」断言都会变成假阳性。"""
+    assert author_from_live_html(_HTML)
+
+
+class _Counter:
+    def __init__(self):
+        self.calls = []
+
+    def __call__(self, url, headers=None, timeout=10):
+        self.calls.append(url)
+        return HttpResponse(url=url, status=200, text=_HTML)
+
+
+def _round(entry, tracking):
+    """跑一轮身份解析，每次都用空缓存模拟 CI 的全新进程。"""
+    f = _Counter()
+    r = KuaishouIdentityResolver(cache=IdentityCache(), fetch=f)
+    ident = resolve_kuaishou_identity(entry, entry["id"], tracking=tracking, resolver=r)
+    apply_identity_to_tracking(ident, tracking)
+    return ident, f.calls
+
+
+def test_信任期_首轮严格校验后续轮零请求():
+    entry = {"id": "Sandy88888", "platform": "kuaishou", "principal_id": _PID}
+    t = {}
+    ident, calls = _round(entry, t)
+    assert ident.principal_id == _PID
+    assert t["identity_verified"] is True
+    assert len(calls) == 2                    # 输入侧 + principalId 侧，双向比对
+
+    for _ in range(4):
+        ident, calls = _round(entry, t)
+        assert ident.principal_id == _PID
+        assert calls == []                    # 跨进程零请求
+
+
+def test_信任期_不刷新起点否则永不重验():
+    """复用信任期时若顺手刷新时间戳，信任期就永远不会到期 —— 等于再也不校验。"""
+    entry = {"id": "Sandy88888", "platform": "kuaishou", "principal_id": _PID}
+    t = {}
+    _round(entry, t)
+    first = t["last_identity_refresh"]
+    for _ in range(3):
+        _round(entry, t)
+    assert t["last_identity_refresh"] == first
+
+
+def test_信任期_未校验的身份不享受信任期():
+    """没验过就长期固化，等于把未经证实的猜测当成事实 —— 必须每轮重试解析。"""
+    t = {"principal_id": _PID, "identity_verified": False,
+         "last_identity_refresh": "2026-08-08 03:00:00"}
+    assert identity_from_tracking(t) is None
+
+
+def test_信任期_过期后重新校验():
+    from common import bjnow
+    from datetime import timedelta
+
+    old = (bjnow() - timedelta(seconds=IDENTITY_TRUST_SEC + 60)
+           ).strftime("%Y-%m-%d %H:%M:%S")
+    t = {"principal_id": _PID, "identity_verified": True, "last_identity_refresh": old}
+    assert identity_from_tracking(t) is None          # 过期不再信任
+
+    fresh = bjnow().strftime("%Y-%m-%d %H:%M:%S")
+    t2 = dict(t, last_identity_refresh=fresh)
+    assert identity_from_tracking(t2) is not None     # 期内信任
+
+
+def test_信任期_config改了principal_id立即失效():
+    """用户改配置必须马上生效，否则「改了没反应」根本没法排查。"""
+    from common import bjnow
+
+    t = {"principal_id": _PID, "identity_verified": True,
+         "last_identity_refresh": bjnow().strftime("%Y-%m-%d %H:%M:%S")}
+    entry = {"id": "Sandy88888", "platform": "kuaishou",
+             "principal_id": "3xnewnewnewnew1"}      # 用户改成了别人
+    ident, calls = _round(entry, t)
+    assert calls, "config 变更后必须重新解析，不能继续吃信任期"
+    assert ident.principal_id == "3xnewnewnewnew1"
+
+
+def test_信任期_时间戳损坏时不误信():
+    """tracking 被手工改坏 / 格式变更时，宁可多花一次请求也不能瞎信。"""
+    for bad in (None, "", "not-a-time", "2026/08/08 03:00:00", 12345):
+        t = {"principal_id": _PID, "identity_verified": True,
+             "last_identity_refresh": bad}
+        assert identity_from_tracking(t) is None
+
+
+def test_信任期_未来时间戳不被信任():
+    """时钟回拨或数据被篡改导致的「未来时间」不能当成有效信任期。"""
+    from common import bjnow
+    from datetime import timedelta
+
+    future = (bjnow() + timedelta(hours=2)).strftime("%Y-%m-%d %H:%M:%S")
+    t = {"principal_id": _PID, "identity_verified": True,
+         "last_identity_refresh": future}
+    assert identity_from_tracking(t) is None
