@@ -39,6 +39,7 @@ import logging
 import re
 import threading
 import time
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 from urllib.parse import parse_qs, urlparse
 
@@ -100,14 +101,26 @@ class _Pacer:
     def __init__(self, min_interval: float) -> None:
         self.min_interval = float(min_interval)
         self._last = 0.0
+        self._blocked_until = 0.0
         self._lock = threading.Lock()
 
     def wait(self) -> None:
         with self._lock:
-            gap = time.time() - self._last
-            if 0 <= gap < self.min_interval:
-                time.sleep(self.min_interval - gap)
+            now = time.time()
+            target = max(self._last + self.min_interval, self._blocked_until)
+            if target > now:
+                time.sleep(target - now)
             self._last = time.time()
+
+    def penalize(self, seconds: float) -> None:
+        """撞到限流后主动拉长下一次请求的间隔（自适应退避）。
+
+        固定节奏撞限流是没有出路的：对方已经在惩罚期，继续按原速请求只会
+        延长惩罚。这里让**全进程**的后续请求都等一等，而不只是当前这次重试。
+        """
+        with self._lock:
+            self._blocked_until = max(self._blocked_until,
+                                      time.time() + max(0.0, float(seconds)))
 
 
 _pacer = _Pacer(_MIN_REQUEST_INTERVAL)
@@ -387,36 +400,107 @@ class NicknameSearchStrategy(ResolveStrategy):
 # ==========================================================================
 # 直播页 author 提取（身份 oracle + 开播状态，两处共用）
 # ==========================================================================
-def fetch_live_author(ident: str, ctx: ResolveContext,
-                      retries: int = 1, backoff: float = 1.5) -> Optional[Dict[str, Any]]:
-    """取 ``live.kuaishou.com/u/<ident>`` 的 author 对象（Fail Soft + 瞬时重试）。
+class LiveProbeStatus:
+    """直播页探测结果的判定，用于区分「拿不到」的几种原因。
 
-    突发请求会被回 501，退避重试一次即可恢复；这一步很关键 —— 校验请求失败会让
-    身份被标成「未校验」，白白多跑一轮。
+    把这三者混为一谈会直接导致误判：限流当成查无此人 → 好账号被判死；
+    查无此人当成限流 → 明知错的配置被无限重试还不报警。
+    """
+
+    OK = "ok"                    # 拿到 author
+    RATE_LIMITED = "rate_limited"  # 被风控限流，值得退避重试
+    NOT_FOUND = "not_found"      # 页面明说没这个人/这个直播间
+    UNAVAILABLE = "unavailable"  # 网络失败、解析失败等说不清的情况
+
+
+#: 快手 SSR ``playList[0].errorType.type`` 的已知取值（2026-08 实测）。
+#: type=2 伴随 title「请求过快，请稍后重试」，是 IP 级限流。
+_ET_RATE_LIMITED = (2,)
+_RATE_LIMIT_HINTS = ("请求过快", "稍后重试", "频繁")
+
+
+@dataclass
+class LiveProbe:
+    """一次直播页探测的结构化结果。"""
+
+    status: str = LiveProbeStatus.UNAVAILABLE
+    author: Optional[Dict[str, Any]] = None
+    error_type: Optional[int] = None
+    error_title: str = ""
+    http_status: int = 0
+
+    @property
+    def ok(self) -> bool:
+        return self.status == LiveProbeStatus.OK and bool(self.author)
+
+    @property
+    def gated(self) -> bool:
+        return self.status == LiveProbeStatus.RATE_LIMITED
+
+
+def probe_live_author(ident: str, ctx: ResolveContext,
+                      retries: int = 2, backoff: float = 2.0) -> LiveProbe:
+    """探测 ``live.kuaishou.com/u/<ident>``，返回结构化结果（Fail Soft，不抛）。
+
+    快手限流不走 HTTP 状态码：它回 200 + 一个完整的壳页面，把真相写在
+    ``playList[0].errorType``（``{"type":2,"title":"请求过快，请稍后重试"}``）。
+    只看 HTTP 状态或只判 author 是否为空，都会把限流误读成「查无此人」。
     """
     if not ident:
-        return None
+        return LiveProbe(status=LiveProbeStatus.UNAVAILABLE)
     url = _live_url(ident)
     # 节流只针对真实网络；注入 fetcher（测试/其它数据源）不需要，也不该被拖慢
     paced = ctx.fetch is http_fetch
+    last = LiveProbe(status=LiveProbeStatus.UNAVAILABLE)
     for attempt in range(max(1, retries + 1)):
         if paced:
             _pacer.wait()
         resp = ctx.get(url, headers=_KS_HEADERS)
-        if resp.ok:
-            author = author_from_live_html(resp.text)
-            if author:
-                return author
-            # 200 但没有 author：多半是被投喂了通用页，重试一次也无妨
-        if resp.status not in _RETRYABLE_STATUS:
+        last = _probe_from_response(resp)
+        if last.ok:
+            return last
+        # 只有「限流」和「说不清」值得再试；明确查无此人就别浪费请求了
+        retryable = last.gated or (
+            last.status == LiveProbeStatus.UNAVAILABLE
+            and resp.status in _RETRYABLE_STATUS
+        )
+        if not retryable:
             break
         if attempt < retries and paced:
+            _pacer.penalize(backoff * (attempt + 1))
             time.sleep(backoff * (attempt + 1))
-    return None
+    return last
 
 
-def author_from_live_html(html: str) -> Optional[Dict[str, Any]]:
-    """从直播页 HTML 抽 ``playList[0].author``（纯函数，便于单测）。"""
+def _probe_from_response(resp: Any) -> LiveProbe:
+    """把 HTTP 响应解读成 LiveProbe（纯函数，便于单测）。"""
+    http_status = int(getattr(resp, "status", 0) or 0)
+    if not getattr(resp, "ok", False):
+        return LiveProbe(status=LiveProbeStatus.UNAVAILABLE, http_status=http_status)
+    author = author_from_live_html(getattr(resp, "text", "") or "")
+    if author:
+        return LiveProbe(status=LiveProbeStatus.OK, author=author, http_status=http_status)
+    et = error_type_from_live_html(getattr(resp, "text", "") or "")
+    if not et:
+        return LiveProbe(status=LiveProbeStatus.UNAVAILABLE, http_status=http_status)
+    etype = et.get("type")
+    title = str(et.get("title") or "")
+    etype_i = etype if isinstance(etype, int) else None
+    is_limited = (etype_i in _ET_RATE_LIMITED) or any(h in title for h in _RATE_LIMIT_HINTS)
+    return LiveProbe(
+        status=LiveProbeStatus.RATE_LIMITED if is_limited else LiveProbeStatus.NOT_FOUND,
+        error_type=etype_i, error_title=title, http_status=http_status,
+    )
+
+
+def fetch_live_author(ident: str, ctx: ResolveContext,
+                      retries: int = 2, backoff: float = 2.0) -> Optional[Dict[str, Any]]:
+    """取直播页 author 对象；拿不到返回 None（:func:`probe_live_author` 的薄封装）。"""
+    return probe_live_author(ident, ctx, retries=retries, backoff=backoff).author
+
+
+def _live_play_entry(html: str) -> Optional[Dict[str, Any]]:
+    """取 SSR 里的 ``liveroom.playList[0]``（author 与 errorType 都在这）。"""
     from backend.adapters.kuaishou import _extract_initial_state  # 避免循环导入
 
     state = _extract_initial_state(html)
@@ -425,8 +509,20 @@ def author_from_live_html(html: str) -> Optional[Dict[str, Any]]:
     play_list = ((state.get("liveroom") or {}).get("playList")) or []
     if not play_list:
         return None
-    author = (play_list[0] or {}).get("author")
-    return author if isinstance(author, dict) else None
+    first = play_list[0]
+    return first if isinstance(first, dict) else None
+
+
+def author_from_live_html(html: str) -> Optional[Dict[str, Any]]:
+    """从直播页 HTML 抽 ``playList[0].author``（纯函数，便于单测）。"""
+    author = (_live_play_entry(html) or {}).get("author")
+    return author if isinstance(author, dict) and author else None
+
+
+def error_type_from_live_html(html: str) -> Optional[Dict[str, Any]]:
+    """从直播页 HTML 抽 ``playList[0].errorType`` —— 快手把风控原因写在这。"""
+    et = (_live_play_entry(html) or {}).get("errorType")
+    return et if isinstance(et, dict) and et else None
 
 
 # ==========================================================================
@@ -504,7 +600,18 @@ class KuaishouIdentityResolver(IdentityResolver):
         if self.verify_identity and not expect:
             expect = self._origin_from_input(ident, ctx)
 
-        author = fetch_live_author(ident.principal_id, ctx)
+        probe = probe_live_author(ident.principal_id, ctx)
+        if probe.gated:
+            # 被限流：这次校验根本没做成，和「身份错」是两回事。记 UNKNOWN 让它下轮重验，
+            # 顺便把风控现场留在 extra 里，方便回答「为什么一直是未校验」。
+            ident.extra["verify_blocked_by"] = probe.error_title or "rate_limited"
+            return VerifyOutcome.UNKNOWN
+        if probe.status == LiveProbeStatus.NOT_FOUND and self.verify_identity:
+            # 页面明确说没这个人 —— 不是网络问题，是身份真的不对
+            logger.warning("[kuaishou-identity] principal_id=%s 在直播页查无此人（%s），丢弃",
+                           ident.principal_id, probe.error_title or probe.error_type)
+            return VerifyOutcome.FAIL
+        author = probe.author
         if not author:
             # 校验请求没做成 ≠ 身份错误，但也绝不能当成验过（否则「配错人」会蒙混过关）
             return VerifyOutcome.UNKNOWN

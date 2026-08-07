@@ -316,3 +316,113 @@ def test_端到端_缓存命中不重复请求():
     n = len(f.calls)
     r.resolve("Sandy88888", hints={"principal_id": FEIAFEI})
     assert len(f.calls) == n  # 第二次零请求
+
+
+# ===========================================================================
+# 风控判定：区分「被限流」与「查无此人」
+# ===========================================================================
+# 线上实测（2026-08）：快手限流不改 HTTP 状态码，而是回 200 + 一个 57KB 的完整
+# 壳页面，author 为空 {}，真相写在 playList[0].errorType：
+#   {"type":2,"title":"请求过快，请稍后重试","content":"浏览其他内容","url":"/"}
+# 只判 author 是否为空的话，「被限流」和「这人不存在」长得一模一样 —— 前者该退避
+# 重试，后者该判身份错误。混为一谈就等于悄悄放宽了判断标准。
+
+_RATE_LIMITED_ERR = (
+    '{"type":2,"title":"请求过快，请稍后重试","content":"浏览其他内容","url":"\\u002F"}'
+)
+_NOT_FOUND_ERR = '{"type":1,"title":"主播不存在","content":"看看其他主播","url":"\\u002F"}'
+
+
+def _live_html_err(error_json: str) -> str:
+    """构造「author 为空 + 带 errorType」的降级页（线上真实形态）。"""
+    return (
+        '<html><body><script>window.__INITIAL_STATE__={"user":{"name":""},'
+        '"liveroom":{"noticeList":[],"playList":[{"liveStream":{},"author":{},'
+        f'"gameInfo":{{}},"isLiving":false,"errorType":{error_json}}}],'
+        '"authToken":undefined}};</script></body></html>'
+    )
+
+
+def test_风控_限流降级页被识别为限流而非查无此人():
+    from backend.adapters.kuaishou_identity import (
+        LiveProbeStatus, _probe_from_response,
+    )
+
+    resp = HttpResponse(url="x", status=200, text=_live_html_err(_RATE_LIMITED_ERR))
+    p = _probe_from_response(resp)
+    assert p.status == LiveProbeStatus.RATE_LIMITED
+    assert p.gated is True
+    assert p.error_type == 2
+    assert "请求过快" in p.error_title
+
+
+def test_风控_主播不存在被识别为查无此人():
+    from backend.adapters.kuaishou_identity import (
+        LiveProbeStatus, _probe_from_response,
+    )
+
+    p = _probe_from_response(HttpResponse(url="x", status=200,
+                                          text=_live_html_err(_NOT_FOUND_ERR)))
+    assert p.status == LiveProbeStatus.NOT_FOUND
+    assert p.gated is False
+
+
+def test_风控_限流时校验记UNKNOWN不判身份错误():
+    """限流 → 这次校验没做成，绝不能因此把好账号判死。"""
+    from backend.adapters.identity import VerifyOutcome
+
+    r = KuaishouIdentityResolver(cache=IdentityCache())
+    r.fetch = _Fetcher({"live.kuaishou.com": HttpResponse(
+        url="x", status=200, text=_live_html_err(_RATE_LIMITED_ERR))})
+    res = r.resolve_detailed("Sandy88888", hints={"principal_id": FEIAFEI})
+    assert res.identity is not None                       # 身份保留
+    assert res.identity.extra.get("verified") is False    # 但标记为未校验
+    assert "请求过快" in res.identity.extra.get("verify_blocked_by", "")
+    assert res.identity.ttl == r.unverified_ttl           # 短 TTL，下轮重验
+
+
+def test_风控_查无此人时校验判FAIL丢弃身份():
+    """页面明说没这个人 → 不是网络问题，是身份真错了，必须丢弃。"""
+    r = KuaishouIdentityResolver(cache=IdentityCache())
+    r.fetch = _Fetcher({"live.kuaishou.com": HttpResponse(
+        url="x", status=200, text=_live_html_err(_NOT_FOUND_ERR))})
+    res = r.resolve_detailed("Sandy88888", hints={"principal_id": FEIAFEI})
+    assert res.identity is None
+
+
+def test_风控_限流会退避重试而查无此人不浪费请求():
+    """限流值得再试（对方可能刚好放行），查无此人再试一百次也还是没有。"""
+    from backend.adapters.kuaishou_identity import probe_live_author
+    from backend.adapters.identity import PrincipalIdentity, ResolveContext, IdentityQuery
+
+    def _ctx(f):
+        return ResolveContext(fetch=f, partial=PrincipalIdentity(platform="kuaishou"),
+                              query=IdentityQuery(raw="x", platform="kuaishou"))
+
+    f1 = _Fetcher({"live.kuaishou.com": HttpResponse(
+        url="x", status=200, text=_live_html_err(_RATE_LIMITED_ERR))})
+    probe_live_author("Sandy88888", _ctx(f1), retries=2, backoff=0)
+    assert len(f1.calls) == 3          # 1 次 + 2 次重试
+
+    f2 = _Fetcher({"live.kuaishou.com": HttpResponse(
+        url="x", status=200, text=_live_html_err(_NOT_FOUND_ERR))})
+    probe_live_author("Sandy88888", _ctx(f2), retries=2, backoff=0)
+    assert len(f2.calls) == 1          # 不重试
+
+
+def test_风控_节流器惩罚期会推迟后续请求():
+    """撞限流后必须全进程退避 —— 惩罚期内继续请求会让惩罚续期（线上实测）。"""
+    import time as _t
+
+    from backend.adapters.kuaishou_identity import _Pacer
+
+    p = _Pacer(0.0)
+    p.penalize(0.25)
+    t0 = _t.time()
+    p.wait()
+    assert _t.time() - t0 >= 0.2
+
+
+def test_风控_空author不再被误当成有效结果():
+    """author:{} 是降级页的标志，不能当成「拿到了一个没有字段的人」。"""
+    assert author_from_live_html(_live_html_err(_RATE_LIMITED_ERR)) is None

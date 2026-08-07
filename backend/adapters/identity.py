@@ -667,7 +667,12 @@ class IdentityResolver(ABC):
         try:
             outcome = self.verify(ident, ctx)
         except Exception as e:  # noqa: BLE001
-            logger.debug("[identity][%s] 校验异常（记为未校验）: %s", self.platform, e)
+            # 用 warning 而非 debug：预期内的校验失败（限流/404）应该由 verify 自己
+            # 返回 UNKNOWN，走到这里说明校验器**抛异常**了 —— 那是代码 bug。
+            # 记 debug 的话，一个参数写错会伪装成「一直未校验」永远没人发现。
+            logger.warning("[identity][%s] 校验器异常（记为未校验，请检查实现）: %s: %s",
+                           self.platform, type(e).__name__, e)
+            ident.extra["verify_error"] = f"{type(e).__name__}: {e}"
             return VerifyOutcome.UNKNOWN
         if outcome is True:
             return VerifyOutcome.PASS
