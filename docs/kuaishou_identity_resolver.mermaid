@@ -1,0 +1,16 @@
+flowchart TD
+    A[raw 输入] --> B[classify 判定 IdentityKind]
+    B --> C{缓存命中且未过期?}
+    C -- 是 --> D[返回缓存身份]
+    C -- 否 --> E[按 cost 升序遍历策略]
+    E --> F{strategy.applies?}
+    F -- 否 --> E
+    F -- 是 --> G[strategy.run]
+    G --> H[结果合并进 partial<br/>只填空位，高 confidence 优先]
+    H --> I{主键 principal_id 已解出?}
+    I -- 否 --> E
+    I -- 是 --> J[verify 校验]
+    J --> K{VerifyOutcome}
+    K -- PASS --> L[落缓存 正常 TTL]
+    K -- UNKNOWN --> M[落缓存 短 TTL 600s<br/>extra.verified=False]
+    K -- FAIL --> N[丢弃 返回 None]

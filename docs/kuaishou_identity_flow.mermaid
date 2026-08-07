@@ -1,0 +1,20 @@
+flowchart TD
+    A[post_rooms.json 条目] --> B{tracking 有 verified 身份<br/>且在 24h 信任期内?}
+    B -- 是 --> C[直接复用 principal_id<br/>本轮 0 次身份请求]
+    B -- 否 --> D[build_identity_hints<br/>tracking 优先于 config]
+    D --> E[IdentityResolver.resolve_detailed]
+    E --> F{解析成功?}
+    F -- 否 --> G[记 UNKNOWN，短 TTL<br/>下轮重试，不丢弃已有配置]
+    F -- 是 --> H[verify: originUserId 交叉校验]
+    H --> I{三态}
+    I -- PASS --> J[confidence=1.0<br/>正常 TTL 缓存]
+    I -- UNKNOWN --> K[放行但标记未校验<br/>TTL 600s 下轮重验]
+    I -- FAIL --> L[丢弃身份<br/>warning 告警]
+    C --> M[principal_id]
+    J --> M
+    K --> M
+    M --> N[visionProfilePhotoList graphql]
+    N --> O[按 photo_id 去重]
+    O --> P[更新 tracking]
+    P --> Q[apply_identity_to_config<br/>回填 post_rooms 空位]
+    P --> R[通知新作品]
