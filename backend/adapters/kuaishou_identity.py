@@ -29,6 +29,21 @@
 - 直播首页 ``liveCardList`` 客户端加载，SSR 为空；仅 ``limitToPlay`` 有零星在播 principalId。
 - 云 IP 下所有 graphql（含搜索）大概率返 ``result=400002`` 验证码挑战 —— 因此**搜索策略只能
   当作锦上添花**，主链路必须靠上面 4 条 SSR/跳转证据走通。
+- ``live.kuaishou.com/profile/<pid>`` **不能**当作 ``/u/`` 被限流时的备用 oracle。
+  它是纯客户端渲染的空壳：对任意 pid（包括伪造的 ``3xqqqqqqqqqqqqq``）都回
+  200 + 54091 字节，``authorInfoById.userInfo.originUserId`` 恒为空串，页面里
+  **没有**昵称/快手号/originUserId 的任何真值，三份响应的差异仅是字体资源名的
+  随机 hash。曾因 grep 到 HTML 含 ``"originUserId"`` 就误判它可用 —— 那是**假阳性，
+  命中的是模板字段名而非值**。负例样本见 ``tests/test_kuaishou_identity.py``
+  的 ``_PROFILE_SHELL``。
+
+## 风控行为（2026-08 实测）
+
+限流**不改 HTTP 状态码**：回 200 + 完整壳页面、``author`` 为空 ``{}``，真相写在
+``playList[0].errorType`` = ``{"type":2,"title":"请求过快，请稍后重试"}``。因此
+「被限流」和「查无此人」长得一模一样，只判 author 是否为空必然混淆二者（见
+:class:`LiveProbeStatus` 四态）。IP 级惩罚实测**持续 >50 分钟**，且惩罚期内继续
+请求会**续期** —— 所以 :class:`_Pacer` 撞限流后必须全进程退避，探测本身也要克制。
 
 所有策略均 Fail Soft：挖不到返回 ``None``，绝不抛异常影响整轮监控。
 """

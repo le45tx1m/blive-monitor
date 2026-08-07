@@ -426,3 +426,54 @@ def test_风控_节流器惩罚期会推迟后续请求():
 def test_风控_空author不再被误当成有效结果():
     """author:{} 是降级页的标志，不能当成「拿到了一个没有字段的人」。"""
     assert author_from_live_html(_live_html_err(_RATE_LIMITED_ERR)) is None
+
+
+# ------------------------------------------------- /profile/ 空壳页（负面结论）
+#: 2026-08 实测：``live.kuaishou.com/profile/<pid>`` 是**纯客户端渲染的空壳**。
+#: 它对任意 pid（含伪造的 ``3xqqqqqqqqqqqqq``）都回 200 + 54091 字节，SSR 里
+#: ``authorInfoById.userInfo.originUserId`` 恒为空串，页面不含 nickname/快手号/
+#: originUserId 任何真值；三份响应的差异只是字体资源名的随机 hash。
+#:
+#: 当初是 grep 到 HTML 里有 "originUserId" 就以为它能当限流时的备用 oracle ——
+#: 那是**假阳性，命中的是模板字段名而不是值**。这里把样本固化成负例，避免以后
+#: 有人重复这条弯路，也顺带焊死「解析不出 playList ≠ 查无此人」这个分支。
+_PROFILE_SHELL = (
+    '<html><body><script>window.__INITIAL_STATE__={'
+    '"authorInfoById":{"userInfo":{"originUserId":"","name":"","headUrl":""},'
+    '"sensitiveInfo":{"originUserId":""}},"liveroom":{}};</script></body></html>'
+)
+
+
+def test_profile空壳页_不含任何账号真值():
+    """守住实证结论：这个页面拿不到 author，别再指望它当 oracle。"""
+    assert author_from_live_html(_PROFILE_SHELL) is None
+    state = _extract_initial_state(_PROFILE_SHELL)
+    assert state is not None, "样本自检：空壳页本身是可解析的，失败说明样本写坏了"
+    assert state["authorInfoById"]["userInfo"]["originUserId"] == ""
+
+
+def test_profile空壳页_判为说不清而非查无此人():
+    """关键分支：没有 errorType 就**不能**下「查无此人」的结论。
+
+    若把「author 为空」一律判 NOT_FOUND，verify 会返回 FAIL 把**正确的身份丢弃**，
+    日志上还显示成「账号不存在」，极难排查。只有页面明说 errorType 才算数。
+    """
+    from backend.adapters.kuaishou_identity import LiveProbeStatus, _probe_from_response
+
+    probe = _probe_from_response(HttpResponse(url="x", status=200, text=_PROFILE_SHELL))
+    assert probe.status == LiveProbeStatus.UNAVAILABLE
+    assert probe.status != LiveProbeStatus.NOT_FOUND
+    assert not probe.ok and not probe.gated
+
+
+def test_profile空壳页_不会FAIL掉已配置的正确身份():
+    """端到端：拿不到证据时只能记「未校验」，不能反过来否定用户配对的身份。"""
+    r = KuaishouIdentityResolver(cache=IdentityCache())
+    r.fetch = _Fetcher({"live.kuaishou.com": HttpResponse(
+        url="x", status=200, text=_PROFILE_SHELL)})
+    res = r.resolve_detailed(FEIAFEI, hints={"principal_id": FEIAFEI})
+    assert res.identity is not None, "空壳页只是没证据，不构成否定身份的理由"
+    assert res.identity.principal_id == FEIAFEI
+    # 记为未校验 + 短 TTL：下一轮自动重验，不会把没验过的身份永久固化
+    assert res.identity.extra.get("verified") is False
+    assert 0 < res.identity.ttl <= 600
