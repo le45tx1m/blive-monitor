@@ -642,6 +642,7 @@ def fetch_kuaishou(web_rid: str, cfg_all: Optional[Dict[str, Any]] = None) -> Di
             "online": int(m.online or 0),
             "area": "",
             "avatar": "",  # 直播不取头像，前端回退首字母
+            "nickname": m.name or "",  # 主播真实昵称（SSR author.name 解析）
             "time": now_str,
         }
     except Exception as e:
@@ -949,6 +950,8 @@ def main() -> None:
             display_name = result["nickname"]
         elif platform == "bilibili" and result.get("uname") and result["uname"] != name:
             display_name = result["uname"]
+        elif platform == "kuaishou" and result.get("nickname") and result["nickname"] != name:
+            display_name = result["nickname"]
 
         logger.info(
             "  [%s] %s - %s",

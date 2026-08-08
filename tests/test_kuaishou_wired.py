@@ -53,6 +53,22 @@ def test_fetch_kuaishou_offline_and_error(monkeypatch):
     assert "网络挂了" in err["title"]
 
 
+# ---------------- check_status：昵称回填 ----------------
+
+def test_fetch_kuaishou_maps_nickname(monkeypatch):
+    def fake_status(self, room_id):
+        return RoomModel(
+            platform="kuaishou", room_id=room_id, name="肥阿肥",
+            title="标题X", live_status=True, online=55, cover="http://c.jpg",
+        )
+    monkeypatch.setattr(
+        __import__("backend.adapters.kuaishou", fromlist=["KuaishouAdapter"]).KuaishouAdapter,
+        "fetch_room_status", fake_status,
+    )
+    r = cs.fetch_kuaishou("KS1", {})
+    assert r["nickname"] == "肥阿肥"
+
+
 # ---------------- check_status.main() 分发 ----------------
 
 def test_main_routes_kuaishou(tmp_path, monkeypatch):
@@ -79,6 +95,34 @@ def test_main_routes_kuaishou(tmp_path, monkeypatch):
     status = json.loads((tmp_path / "status.json").read_text(encoding="utf-8"))
     ks = [r for r in status["rooms"] if r["platform"] == "kuaishou"]
     assert ks and ks[0]["id"] == "KS1"
+
+
+def test_main_routes_kuaishou_resolves_nickname(tmp_path, monkeypatch):
+    """前端验收：rooms.json 存的是账号 ID，status.json 应回填真实昵称。"""
+    rooms = [{"platform": "kuaishou", "id": "Sandy88888", "name": "Sandy88888"}]
+    (tmp_path / "rooms.json").write_text(json.dumps(rooms), encoding="utf-8")
+    (tmp_path / "state.json").write_text("{}", encoding="utf-8")
+
+    monkeypatch.setattr(cs, "ROOMS_FILE", str(tmp_path / "rooms.json"))
+    monkeypatch.setattr(cs, "STATE_FILE", str(tmp_path / "state.json"))
+    monkeypatch.setattr(cs, "TRACKING_FILE", str(tmp_path / "tracking.json"))
+    monkeypatch.setattr(cs, "HISTORY_FILE", str(tmp_path / "history.json"))
+    monkeypatch.setattr(cs, "STATUS_FILE", str(tmp_path / "status.json"))
+    monkeypatch.setenv("BLIVE_CONFIG", "{}")
+    monkeypatch.setattr(
+        cs, "fetch_kuaishou",
+        lambda rid, cfg_all=None: {
+            "status": "offline", "title": "", "online": 0, "area": "",
+            "avatar": "", "nickname": "肥阿肥", "time": "2026-08-09 03:00:00",
+        },
+    )
+
+    cs.main()
+
+    status = json.loads((tmp_path / "status.json").read_text(encoding="utf-8"))
+    ks = [r for r in status["rooms"] if r["platform"] == "kuaishou"]
+    assert ks and ks[0]["id"] == "Sandy88888"
+    assert ks[0]["name"] == "肥阿肥", "前端应显示真实昵称而非账号 ID"
 
 
 # ---------------- check_new_posts.main() 分发（无需浏览器） ----------------

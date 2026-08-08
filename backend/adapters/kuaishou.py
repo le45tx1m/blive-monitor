@@ -375,6 +375,7 @@ class KuaishouAdapter(PlatformAdapter):
                                 room_id)
                 return RoomModel(
                     platform="kuaishou", room_id=room_id,
+                    name=room.name if room else "",
                     title=room.title if room else "",
                     live_status=icon["living"],
                     online=room.online if room else 0,
@@ -433,15 +434,45 @@ class KuaishouAdapter(PlatformAdapter):
                 online = _as_int(liveroom.get("watcherCount"))
                 cover = liveroom.get("coverUrl") or ""
 
+        user_name = KuaishouAdapter._extract_kuaishou_nickname(html, room_id)
+
         return RoomModel(
             platform="kuaishou",
             room_id=room_id,
+            name=user_name,
             title=title,
             live_status=living,
             online=online,
             cover=cover,
             extra={"living": living, "source": "ssr"},
         )
+
+    @staticmethod
+    def _extract_kuaishou_nickname(html: Any, room_id: str) -> str:
+        """从直播页 SSR/HTML 提取主播昵称（优先匹配 room_id 对应的 author）。
+
+        实测结构：``liveroom.playList[0].author`` 含 ``{"id": <room_id>, "name": <昵称>}``
+        （如 Sandy88888 → {"id":"Sandy88888","name":"肥阿肥"}）。
+        直接吃原始 HTML 做正则，规避 ``__INITIAL_STATE__`` 大对象解析不稳定与字段顺序差异。
+        """
+        if isinstance(html, (bytes, bytearray)):
+            html = html.decode("utf-8", "replace")
+        if not html:
+            return ""
+        # 主：author.id == room_id 的 name（精准命中本主播，避开推荐流其它 author）
+        m = re.search(
+            r'"author"\s*:\s*\{\s*"id"\s*:\s*"'
+            + re.escape(room_id)
+            + r'"\s*,\s*"name"\s*:\s*"([^"]*)"',
+            html,
+        )
+        if m:
+            return m.group(1)
+        # 兜底：任一 author.name（无 id 匹配时的宽松回退）
+        m = re.search(r'"author"\s*:\s*\{[^}]*"name"\s*:\s*"([^"]*)"', html)
+        if m:
+            return m.group(1)
+        return ""
 
     # ---------- 新作 ----------
     def _session(self, context: Any) -> ks_feed.KuaishouFeedSession:

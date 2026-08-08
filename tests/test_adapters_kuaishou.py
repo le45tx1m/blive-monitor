@@ -90,6 +90,28 @@ def test_kuaishou_live_ssr_offline(monkeypatch):
     assert m.extra.get("source") == "ssr"
 
 
+def test_kuaishou_live_ssr_extracts_nickname(monkeypatch):
+    """SSR 解析应提取主播昵称（author.name），用于前端显示用户名；
+    即使 SSR 判 offline 触发 dynamicIcon 兜底，昵称也应从 SSR 透传、不被丢弃。"""
+    html = _ssr_html(
+        '{"liveroom":{"playList":[{"isLiving":false,"liveStream":{},'
+        '"author":{"id":"Sandy88888","name":"肥阿肥"}}]}}'
+    )
+
+    def fake_get(self, url, headers=None, timeout=10):
+        return html
+
+    monkeypatch.setattr(KuaishouAdapter, "_http_get", fake_get)
+    # 控制 dynamicIcon 兜底返回，确保命中兜底分支且昵称被透传
+    monkeypatch.setattr(
+        KuaishouAdapter, "_live_via_dynamic_icon",
+        lambda self, rid: {"living": False, "live_stream_id": "test_stream"},
+    )
+    m = KuaishouAdapter().fetch_room_status("Sandy88888")
+    assert m.name == "肥阿肥"
+    assert m.extra.get("source") == "dynamic_icon"
+
+
 def test_kuaishou_live_degrade_on_failure(monkeypatch):
     """SSR 与 dynamicIcon 双双失败 → 优雅降级 offline，不抛异常。"""
     def fake_raise(self, *args, **kwargs):
