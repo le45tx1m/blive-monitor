@@ -2515,6 +2515,10 @@ body.batch-mode .blm-work-card {
 
         <div id="postAddWrap">
           <div class="blm-add-form" id="postAddForm" style="display:none">
+            <select id="postAddPlatform" class="blm-input" onchange="onPostAddPlatformChange()">
+              <option value="douyin">抖音</option>
+              <option value="kuaishou">快手</option>
+            </select>
             <input id="postAddId" class="blm-input" placeholder="抖音号 / sec_uid（粘贴 sec_uid 可立即生效）" autocomplete="off">
             <input id="postAddName" class="blm-input" placeholder="备注名（可选）" autocomplete="off">
             <input id="postRoomTags" class="blm-input" placeholder="标签（可选，逗号分隔，如 游戏,学习）" autocomplete="off">
@@ -2525,11 +2529,11 @@ body.batch-mode .blm-work-card {
           </div>
         </div>
 
-        <!-- 批量添加抖音号（默认折叠） -->
+        <!-- 批量添加账号（默认折叠） -->
         <div class="blm-batch-add" id="postBatchWrap" style="display:none;margin-top:var(--spacing-sm);margin-bottom:var(--spacing-md);">
-          <div class="blm-config-item-title">批量添加抖音号</div>
-          <div class="blm-config-item-desc">每行一个：douyin|ID|名称，或整段 JSON（新作监控仅抖音）。</div>
-          <textarea id="postBatchBox" class="blm-input" placeholder="每行一个：douyin|ID|名称（如 douyin|123|张三）"></textarea>
+          <div class="blm-config-item-title">批量添加账号</div>
+          <div class="blm-config-item-desc">每行一个：平台|ID|名称（如 douyin|123|张三、kuaishou|3x7ju263tgi5dn9|整天白日梦），或整段 JSON。</div>
+          <textarea id="postBatchBox" class="blm-input" placeholder="每行一个：平台|ID|名称（如 douyin|123|张三）"></textarea>
           <div id="postBatchPreview" class="blm-batch-preview"></div>
           <div style="display:flex;gap:var(--spacing-sm);margin-top:var(--spacing-sm)">
             <button class="blm-btn" onclick="previewBatchBox('postBatchBox','postBatchPreview')">解析预览</button>
@@ -4291,22 +4295,23 @@ function apiGetPostRooms(){
  *  o.sec_uid 为可选——若调用方已解析出 sec_uid（例如用户直接粘贴了 sec_uid），一并存入，
  *  使该账号等价于「预存 sec_uid」的账号，立即生效、不再依赖后端实时解析。 */
 function apiAddPostRoom(o){
-  var key=String(o.id);
+  // 平台感知：按 platform|id 去重（默认 douyin，兼容历史无 platform 字段的旧条目）。
+  var key=(o.platform||'douyin')+'|'+String(o.id);
   return ghWriteWithRetry('post_rooms.json', function(rs){
-    if(rs.some(function(r){return String(r.id)===key;})) throw new Error('该抖音号已在监控列表');
-    var rec={id:String(o.id), name:o.name||String(o.id)};
+    if(rs.some(function(r){return (r.platform||'douyin')+'|'+String(r.id)===key;})) throw new Error('该账号已在监控列表');
+    var rec={platform:o.platform||'douyin', id:String(o.id), name:o.name||String(o.id)};
     if(o.sec_uid) rec.sec_uid=String(o.sec_uid);
     if(o.tags&&o.tags.length) rec.tags=o.tags;          // B2 分组标签
     if(o.enabled===false) rec.enabled=false;                // B3 批量启停（默认 true）
     return {rooms:rs.concat([rec]), changed:true};
   });
 }
-/** 移除监控抖音号（不在列表时抛错）。 */
+/** 移除监控账号（不在列表时抛错；按 platform|id 匹配，默认 douyin）。 */
 function apiRemovePostRoom(o){
-  var key=String(o.id);
+  var key=(o.platform||'douyin')+'|'+String(o.id);
   return ghWriteWithRetry('post_rooms.json', function(rs){
-    var next=rs.filter(function(r){return String(r.id)!==key;});
-    if(next.length===rs.length) throw new Error('该抖音号不在监控列表');
+    var next=rs.filter(function(r){return (r.platform||'douyin')+'|'+String(r.id)!==key;});
+    if(next.length===rs.length) throw new Error('该账号不在监控列表');
     return {rooms:next, changed:true};
   });
 }
@@ -4333,28 +4338,55 @@ function normalizeDouyinInput(raw){
   return {id:s, sec_uid:'', name:''};
 }
 
-/** 提交添加抖音号表单（乐观更新：直接用写回结果刷新，无需刷新页面）。 */
+/**
+ * 规范化快手号输入：识别主页/作品链接或裸 principalId，返回 {id, name}。
+ *  - 含 live.kuaishou.com/profile/<pid> / kuaishou.com/u/<pid> / kuaishou.com/short-video/<pid> → 提取 pid；
+ *  - 其它（裸短号，形如 3x7ju263tgi5dn9，或纯数字号）→ 原样作为 id，交给后端在下次检测时解析身份。
+ * 后端 resolve_kuaishou_identity 支持分享链接/主页链接，这里只做轻量提取，真正的身份解析交给 CI。
+ */
+function normalizeKuaishouInput(raw){
+  var s=(raw||'').trim();
+  if(!s) return {id:'', name:''};
+  var m;
+  if((m=s.match(/live\.kuaishou\.com\/profile\/([^\/?#\s]+)/))) return {id:m[1], name:''};
+  if((m=s.match(/kuaishou\.com\/u\/([^\/?#\s]+)/))) return {id:m[1], name:''};
+  if((m=s.match(/kuaishou\.com\/short-video\/([^\/?#\s]+)/))) return {id:m[1], name:''};
+  return {id:s, name:''};
+}
+
+/** 提交添加监控账号表单（乐观更新：直接用写回结果刷新，无需刷新页面）。平台感知：抖音走 sec_uid 解析，快手走 principalId。 */
 function submitPostAdd(){
   if(!getGhToken()){ toast('请先到「配置」页设置 Token', false); show('config'); return; }
+  var platform=document.getElementById('postAddPlatform').value;
   var raw=document.getElementById('postAddId').value.trim();
   var name=document.getElementById('postAddName').value.trim();
-  if(!raw){ toast('抖音号 ID / sec_uid 必填', false); return; }
-  var norm=normalizeDouyinInput(raw);
-  if(!norm.id){ toast('无法识别该抖音号', false); return; }
+  if(platform!=='douyin' && platform!=='kuaishou'){ toast('平台不合法', false); return; }
+  var pfName=(platform==='kuaishou'?'快手':'抖音');
+  if(!raw){ toast(pfName+'号 ID'+(platform==='douyin'?' / sec_uid':'')+' 必填', false); return; }
+  var norm;
+  if(platform==='douyin'){
+    norm=normalizeDouyinInput(raw);
+    if(!norm.id){ toast('无法识别该抖音号', false); return; }
+  }else{
+    norm=normalizeKuaishouInput(raw);
+    if(!norm.id){ toast('无法识别该快手号', false); return; }
+  }
   // B2 分组标签（逗号分隔 → tags[]）
   var pTagsRaw=document.getElementById('postRoomTags');
   var pTags=pTagsRaw&&pTagsRaw.value.trim()? pTagsRaw.value.trim().split(',').map(function(s){return s.trim();}).filter(function(s){return s;}) : [];
-  apiAddPostRoom({id:norm.id, name:name||norm.name||norm.id, sec_uid:norm.sec_uid, tags:pTags})
+  var rec={platform:platform, id:norm.id, name:name||norm.id, tags:pTags};
+  if(platform==='douyin' && norm.sec_uid) rec.sec_uid=norm.sec_uid;  // 快手无需 sec_uid，后端按 principalId 解析
+  apiAddPostRoom(rec)
     .then(function(res){
       postRooms=res.rooms||[]; renderPosts(); updateStatPosts();
       togglePostAddForm(false);
-      if(norm.sec_uid){
-        toast('已添加抖音号（已带 sec_uid，立即生效）', true);
+      if(platform==='douyin' && norm.sec_uid){
+        toast('已添加'+pfName+'（已带 sec_uid，立即生效）', true);
         // 带 sec_uid 的账号无需等 CI 解析，但触发一次检测以尽快回填昵称/作品
         triggerMonitor().catch(function(err){ toast('CI 触发失败：'+(err&&err.message?err.message:'未知错误'), false); });
       }else{
-        toast('已添加抖音号，正在获取昵称与作品…', true);
-        // 主动触发一次 CI：让它在几秒内解析 sec_uid + 昵称并写回 post_rooms.json，
+        toast('已添加'+pfName+'，正在获取昵称与作品…', true);
+        // 主动触发一次 CI：让它在几秒内解析身份 + 昵称并写回 post_rooms.json，
         // 前端最多刷新一次即可看到真实昵称（而非裸 id）。ghWriteWithRetry 已增强为
         // 基于最新 sha 重试 ≤5 次，CI 那次 post_rooms 写回也会先合并远端最新，不再 409。
         triggerMonitor().catch(function(){});
@@ -4362,23 +4394,23 @@ function submitPostAdd(){
     })
     .catch(function(err){
       // 最常见失败：409（base sha 过期）。原因几乎都是 CI 的 check.yml 刚 push 过
-      // post_rooms.json（它会在检测出 sec_uid 后写回该文件），与本次直写竞争同一文件的
+      // post_rooms.json（它会在检测出身份后写回该文件），与本次直写竞争同一文件的
       // blob sha。重试已基于最新 sha 自愈；若仍失败提示用户稍候再试（等 CI 那次 push 落地）。
       var msg=err && err.message ? err.message : '添加失败';
       if(/409|conflict|冲突/i.test(msg)) msg='并发写入冲突，请稍候几秒再点「添加」';
       toast(msg, false);
     });
 }
-/** 移除抖音号（带二次确认，乐观更新）。 */
+/** 移除监控账号（带二次确认，乐观更新；按 platform|id 定位）。 */
 function removePostRoom(arg){
   if(!getGhToken()){ toast('请先到「配置」页设置 Token', false); show('config'); return; }
-  var id=String(arg.id);
+  var platform=arg.platform, id=String(arg.id);
   var disp=id;
   for(var i=0;i<postRooms.length;i++){
-    if(String(postRooms[i].id)===id){ disp=postRooms[i].name||id; break; }
+    if(postRooms[i].platform===platform && String(postRooms[i].id)===id){ disp=postRooms[i].name||id; break; }
   }
   if(!window.confirm('确定移除监控「'+disp+'」？')) return;
-  apiRemovePostRoom({id:id})
+  apiRemovePostRoom({id:id, platform:platform})
     .then(function(res){ postRooms=res.rooms||[]; renderPosts(); updateStatPosts(); toast('已移除「'+disp+'」', true); })
     .catch(function(err){ toast(err && err.message ? err.message : '移除失败', false); });
 }
@@ -4460,6 +4492,19 @@ function onAddPlatformChange(){
   }else{
     inp.placeholder='直播间 ID（必填）';
     inp.inputMode='numeric'; inp.setAttribute('inputmode','numeric');
+  }
+}
+
+/** 新作品添加表单：平台切换时同步占位文案。 */
+function onPostAddPlatformChange(){
+  var p=document.getElementById('postAddPlatform').value;
+  var inp=document.getElementById('postAddId');
+  if(p==='kuaishou'){
+    inp.placeholder='快手号 / 主页链接（必填）';
+    inp.inputMode='text'; inp.setAttribute('inputmode','text');
+  }else{
+    inp.placeholder='抖音号 / sec_uid（粘贴 sec_uid 可立即生效）';
+    inp.inputMode='text'; inp.setAttribute('inputmode','text');
   }
 }
 
@@ -4940,7 +4985,7 @@ function normalizeBatchItem(it){
   var id = (it.id != null) ? String(it.id) : '';
   if(!id) return null;
   var platform = it.platform ? normPlatform(it.platform) : '';
-  if(!platform) platform = 'douyin';   // 新作监控仅抖音；缺省按 douyin
+  if(!platform) platform = 'douyin';   // 缺省按 douyin（兼容历史无 platform 字段的 JSON 条目）
   var name = (it.name != null && it.name !== '') ? String(it.name) : id;
   var tags = (it.tags instanceof Array) ? it.tags.map(String) : [];
   return { platform: platform, id: id, name: name, tags: tags };
@@ -5033,7 +5078,7 @@ function previewBatchBox(boxId, previewId){
   var res = parseBatchInput(box.value);
   var el = document.getElementById(previewId); if(!el) return;
   var html = '';
-  if(res.ok.length) html += '<div>✅ 待添加 ' + res.ok.length + ' 条：</div>' + res.ok.map(function(r){ return '<div class="blm-batch-item"><span class="blm-pf-tag">' + (r.platform==='bilibili'?'B站':'抖音') + '</span> ' + e(r.id) + ' · ' + e(r.name) + '</div>'; }).join('');
+  if(res.ok.length) html += '<div>✅ 待添加 ' + res.ok.length + ' 条：</div>' + res.ok.map(function(r){ return '<div class="blm-batch-item"><span class="blm-pf-tag">' + (r.platform==='bilibili'?'B站':(r.platform==='kuaishou'?'快手':'抖音')) + '</span> ' + e(r.id) + ' · ' + e(r.name) + '</div>'; }).join('');
   if(res.bad.length) html += '<div class="blm-batch-bad">⚠️ 跳过 ' + res.bad.length + ' 行</div>' + res.bad.map(function(b){ return '<div class="blm-batch-item blm-batch-bad">' + e((b.raw||'').slice(0,60)) + ' — ' + e(b.reason) + '</div>'; }).join('');
   if(!html) html = '<div class="blm-batch-item">（空）</div>';
   el.innerHTML = html;
@@ -5046,10 +5091,11 @@ function submitBatchBox(boxId, target){
   var res = parseBatchInput(box.value);
   if(!res.ok.length){ toast(res.bad.length ? ('无合法行，已跳过 ' + res.bad.length + ' 行') : '批量框为空', false); return; }
   if(target === 'posts'){
-    var ok = res.ok.map(function(r){ return { id: r.id, name: r.name, tags: r.tags||[] }; });
+    // 平台感知：把解析出的 platform 一并写入（默认 douyin），避免批量入口只产出抖音。
+    var ok = res.ok.map(function(r){ return { platform: r.platform||'douyin', id: r.id, name: r.name, tags: r.tags||[] }; });
     var merged = mergeRooms(postRooms, ok);
     ghWriteWithRetry('post_rooms.json', function(rs){ var m = mergeRooms(rs, ok); return { rooms: m.rooms, changed: m.added > 0 }; })
-      .then(function(out){ postRooms = out.rooms; renderPosts(); updateStatPosts(); toast('已批量添加 ' + merged.added + ' 个抖音号' + (merged.skipped ? ('，跳过 ' + merged.skipped + ' 个已存在') : ''), true); box.value=''; triggerMonitor().catch(function(err){ toast('CI 触发失败：'+(err&&err.message?err.message:'未知错误'), false); }); })
+      .then(function(out){ postRooms = out.rooms; renderPosts(); updateStatPosts(); toast('已批量添加 ' + merged.added + ' 个账号' + (merged.skipped ? ('，跳过 ' + merged.skipped + ' 个已存在') : ''), true); box.value=''; triggerMonitor().catch(function(err){ toast('CI 触发失败：'+(err&&err.message?err.message:'未知错误'), false); }); })
       .catch(function(err){ toast(err && err.message ? err.message : '批量添加失败', false); });
   } else {
     var merged2 = mergeRooms(rooms, res.ok);
