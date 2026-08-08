@@ -219,6 +219,25 @@ def _fetch_bilibili_face(uid: str) -> str:
         return ""
 
 
+# ==================== B站 主播名提取 ====================
+
+def _bili_uname(d: Dict[str, Any]) -> str:
+    """从 getRoomBaseInfo 的 by_room_ids[rid] 条目提取主播名。
+
+    真实接口在顶层 ``uname`` 与嵌套 ``uinfo.base.name`` 两处都可能出现，
+    兼容提取；都缺时返回空串（编排层回退到 rooms.json 的 name）。
+    """
+    if not isinstance(d, dict):
+        return ""
+    u = d.get("uname")
+    if u:
+        return str(u)
+    uinfo = d.get("uinfo") or {}
+    base = uinfo.get("base") or {}
+    n = base.get("name")
+    return str(n) if n else ""
+
+
 # ==================== 抖音数据提取（多种策略） ====================
 
 def _extract_douyin_from_render_data(html: str) -> Optional[Dict[str, Any]]:
@@ -903,6 +922,7 @@ def main() -> None:
                             or ""
                         ),
                         "avatar": d.get("avatar", ""),
+                        "uname": _bili_uname(d),
                     }
             elif platform == "douyin":
                 result = fetch_douyin(rid)
@@ -927,6 +947,8 @@ def main() -> None:
         display_name = name
         if platform == "douyin" and result.get("nickname") and result["nickname"] != name:
             display_name = result["nickname"]
+        elif platform == "bilibili" and result.get("uname") and result["uname"] != name:
+            display_name = result["uname"]
 
         logger.info(
             "  [%s] %s - %s",

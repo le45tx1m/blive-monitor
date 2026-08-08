@@ -298,6 +298,31 @@ def test_check_status_single_room_legacy_parity(tmp_path, monkeypatch):
     assert pcfg == {"type": "bark", "url": "https://api.day.app/K"}
 
 
+def test_check_status_bilibili_uname_resolved(tmp_path, monkeypatch):
+    """B站房间 name 兜底为 ID 时，检测结果应把真实 uname 写回 status.json。
+
+    复现用户反馈：rooms.json 中 B站条目 name 仅为房间号（如 22230707），
+    前端直播卡片名字应来自 status.json，故必须确保 uname 流入 status_item.name。
+    """
+    now = datetime(2026, 7, 11, 20, 0, 0)
+    rooms = [{"platform": "bilibili", "id": "22230707", "name": "22230707"}]
+    cfg = {"push": {"type": "bark", "url": "https://api.day.app/K"}}
+    batch = {
+        "22230707": {
+            "live_status": 1,
+            "title": "直播中",
+            "online": 100,
+            "parent_area_name": "网游",
+            "area_name": "英雄联盟",
+            "uname": "真实主播名",
+        }
+    }
+    _run_cs(tmp_path, monkeypatch, rooms, cfg, now, batch)
+    status = json.loads((tmp_path / "status.json").read_text(encoding="utf-8"))
+    item = next(r for r in status["rooms"] if r["id"] == "22230707")
+    assert item["name"] == "真实主播名"
+
+
 def test_check_status_multichannel(tmp_path, monkeypatch):
     """多通道：按 tag 路由（vip→bark / 默认→wecom），各自独立成组（2 次调用）。"""
     now = datetime(2026, 7, 11, 20, 0, 0)
