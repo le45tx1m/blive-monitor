@@ -32,9 +32,12 @@ class BilibiliAdapter(PlatformAdapter):
         raw = BILIBILI_STATUS_MAP.get(code, "unknown")
         # status_str 透传原始状态码（含 replay），供编排层映射 Room.live_status 字符串；
         # extra 其余平台专属基线一并并入 meta。
+        # 主播名：兼容顶层 uname 与嵌套 uinfo.base.name（与 check_status 主循环一致）。
+        _uname = d.get("uname") or ((d.get("uinfo") or {}).get("base") or {}).get("name") or ""
         return RoomModel(
             platform="bilibili",
             room_id=str(rid),
+            name=_uname,
             title=d.get("title", ""),
             live_status=(raw == "live"),
             online=int(d.get("online", 0) or 0),
