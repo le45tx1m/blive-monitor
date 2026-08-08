@@ -64,8 +64,28 @@ def prune_tracking_orphans(tracking, active_keys):
     return {k: v for k, v in tracking.items() if k in active_keys}
 
 
-def merge_post_rooms_fields(config_file, resolved):
-    """重读磁盘 post_rooms.json，仅对仍存在的账号「原地」更新 sec_uid/name。
+#: 身份解析可自动补齐的 config 字段（任务八）。
+#: 这些字段**只填空位**，绝不覆盖用户手填的值 —— config 表达的是用户意志，
+#: 解析结果只是「用户没说时的最佳猜测」。若两者冲突以用户为准，由 resolver 侧告警。
+IDENTITY_FILL_FIELDS = (
+    "principal_id",      # graphql 真正需要的 userId，解析成本最高、账号级稳定
+    "origin_user_id",    # 不可变真身，交叉校验用
+    "nickname",          # 通知里显示人话
+    "unique_name",       # 快手号
+    "home_url",
+    "share_url",
+    "room_id",
+    "identity_source",
+)
+
+
+def merge_post_rooms_fields(config_file, resolved, fill_fields=IDENTITY_FILL_FIELDS):
+    """重读磁盘 post_rooms.json，仅对仍存在的账号「原地」更新字段。
+
+    两类字段两种语义：
+      - ``sec_uid`` / ``name``：解析结果更权威，有变化就更新（沿用既有行为）；
+      - ``fill_fields``（身份字段）：**只填空位**。用户在 config 里写死的东西
+        不该被自动解析悄悄改掉，否则「改了配置不生效」会极难排查。
 
     用本轮解析到的值（resolved）回填磁盘文件中「仍存在的」账号字段：
       - 绝不把内存副本里多出来的账号写回（即不复活前端已删除的账号）；
@@ -73,7 +93,8 @@ def merge_post_rooms_fields(config_file, resolved):
 
     Args:
         config_file: post_rooms.json 路径。
-        resolved: ``{rid: entry}`` 本轮解析/写回过的账号（entry 含最新 sec_uid/name）。
+        resolved: ``{rid: entry}`` 本轮解析/写回过的账号（entry 含最新字段）。
+        fill_fields: 只填空位的字段名集合，默认 :data:`IDENTITY_FILL_FIELDS`。
 
     Returns:
         是否发生了字段变更（bool）。仅在变更时原子写回磁盘。
@@ -102,6 +123,11 @@ def merge_post_rooms_fields(config_file, resolved):
         if new_name and entry.get("name") != new_name:
             entry["name"] = new_name
             changed = True
+        for f in (fill_fields or ()):
+            val = r.get(f)
+            if val and not entry.get(f):
+                entry[f] = val
+                changed = True
 
     if changed:
         common.save_json_file(config_file, current_rooms)

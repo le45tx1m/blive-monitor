@@ -1,0 +1,29 @@
+sequenceDiagram
+    participant O as check_new_posts
+    participant R as resolve_kuaishou_identity
+    participant T as tracking
+    participant A as KuaishouAdapter
+    participant K as 快手服务端
+
+    O->>T: 读取 tracking
+    O->>R: resolve(entry, rid, tracking=t)
+    alt 信任期内
+        R-->>O: 复用 principal_id（0 请求）
+    else 需要解析
+        R->>K: 策略链探测（SSR / 302）
+        R->>K: verify 交叉校验 originUserId
+        R-->>O: PrincipalIdentity
+    end
+    O->>T: apply_identity_to_tracking
+    O->>O: apply_identity_to_config（回填空位）
+    O->>A: fetch_posts(principal_id)
+    A->>K: graphql L1 匿名
+    alt result≠0
+        A->>K: graphql L2 did
+        A->>K: graphql L3 Cookie
+    end
+    K-->>A: feeds[]
+    A->>T: _write_run_tracking（凭证等级/gated_count）
+    A-->>O: 作品列表
+    O->>O: 按 photo_id 去重
+    O->>O: 通知新作品

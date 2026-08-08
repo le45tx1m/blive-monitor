@@ -712,7 +712,12 @@ def handle_kuaishou_posts(entry: Dict[str, Any], tracking: Dict[str, Dict[str, A
     Returns:
         (changed, gated): changed=是否更新了 tracking（需落盘）；gated=是否命中风控。
     """
-    from backend.adapters.kuaishou import KuaishouAdapter
+    from backend.adapters.kuaishou import (
+        KuaishouAdapter,
+        apply_identity_to_config,
+        apply_identity_to_tracking,
+        resolve_kuaishou_identity,
+    )
 
     rid = entry.get("id", "")
     name = entry.get("name", rid) or rid
@@ -723,12 +728,29 @@ def handle_kuaishou_posts(entry: Dict[str, Any], tracking: Dict[str, Dict[str, A
     t = dict(tracking.get(key, {}))          # 拷贝，避免未提交前污染共享引用
     had_baseline = bool(t.get("latest_post_id"))
 
+    # 任务五/六：Resolve Identity → principalId。身份解析放在读取 tracking 之后，
+    # 好把上一轮已校验的 principal_id 当 hint 喂回去 —— 稳态运行时零次网络请求。
+    # Fail Soft：解不出就回退用户名（开播提醒仍可用，新作大概率抓不到但不中断整轮）。
+    ident = resolve_kuaishou_identity(entry, rid, tracking=t)
+    pid = ident.principal_id if ident else ""
+    if ident is not None:
+        apply_identity_to_tracking(ident, t)
+        apply_identity_to_config(ident, entry)   # 任务八：只填空位，回写 post_rooms.json
+        if pid and pid != rid:
+            logger.info("  [kuaishou] %s 身份解析 principalId=%s（来源=%s 校验=%s）",
+                        name, pid, ident.identity_source,
+                        "已交叉校验" if (ident.extra or {}).get("verified") else "未校验")
+    else:
+        logger.warning("  [kuaishou] %s 身份解析失败，回退用户名 %s（新作可能抓不到，"
+                       "建议在 post_rooms.json 补 share_url 或 principal_id）", name, rid)
+
     creds = (cfg_all.get("platforms") or {}).get("kuaishou") or {}
     creds = creds.get("credentials") or {}
     adapter = KuaishouAdapter(credentials=creds or None)
 
     try:
-        posts = adapter.fetch_new_posts(rid, baseline=t)
+        # 用 principalId（或回退用户名）作 graphql userId
+        posts = adapter.fetch_new_posts(pid or rid, baseline=t)
     except AdapterGated as g:
         append_event(rid, name, "kuaishou", "cookie_warn",
                      detail=f"快手接口被风控（{g.detail}），可在 BLIVE_CONFIG.platforms.kuaishou.credentials 配置 cookie 突破",
@@ -1376,6 +1398,23 @@ def run_post_check(*, cfg_all: Dict[str, Any], persist: Any, now: Optional[Any] 
                     continue
                 key = f"{platform}_{rid}"
                 meta = dict(persist.get_tracking(platform, rid) or {})
+                # 快手：先 Resolve Identity 拿 principalId（graphql 真正需要的 userId）再取新作。
+                # meta 里带着上一轮已校验的身份，喂回 resolver 可跳过全部网络请求。
+                posts_rid = rid
+                if platform == "kuaishou":
+                    from backend.adapters.kuaishou import (
+                        apply_identity_to_tracking,
+                        resolve_kuaishou_identity,
+                    )
+                    _ident = resolve_kuaishou_identity(entry, rid, tracking=meta)
+                    if _ident is not None:
+                        apply_identity_to_tracking(_ident, meta)
+                        if _ident.principal_id and _ident.principal_id != rid:
+                            logger.info("  [kuaishou] %s 身份解析 principalId=%s（来源=%s）",
+                                        name, _ident.principal_id, _ident.identity_source)
+                            posts_rid = _ident.principal_id
+                    else:
+                        logger.warning("  [kuaishou] %s 身份解析失败，回退用户名 %s", name, rid)
                 # 需要浏览器的平台：注入凭证（context 由 scheduler 或本函数创建）
                 ctx = context
                 if getattr(adapter, "needs_context", False) and ctx is not None:
@@ -1384,7 +1423,7 @@ def run_post_check(*, cfg_all: Dict[str, Any], persist: Any, now: Optional[Any] 
                     except Exception as e:  # noqa: BLE001
                         logger.warning("[%s] 注入凭证失败: %s", platform, e)
                 try:
-                    posts = adapter.fetch_new_posts(rid, since=None, baseline=meta, context=ctx)
+                    posts = adapter.fetch_new_posts(posts_rid, since=None, baseline=meta, context=ctx)
                 except AdapterSkip as e:
                     logger.info("  [%s] 跳过新作检测: %s", name, e.detail or e.reason)
                     _append(rid, name, platform, "system", detail=e.detail or f"跳过: {e.reason}")
@@ -1597,6 +1636,17 @@ def run_post_check(*, cfg_all: Dict[str, Any], persist: Any, now: Optional[Any] 
                            "增加 douyin_cookie 或设置环境变量 DOUYIN_COOKIE。")
         logger.info("[run_post_check] 新作品检测完成")
     finally:
+        # 适配器可能持有自建的浏览器上下文（如快手为跨账号复用风控预热而缓存的
+        # 那个）。统一回收：context 由 scheduler 传入时不会走下面的 browser.close()，
+        # 不显式释放就会随进程一直堆积。
+        if adapters is not None:
+            for _code in (adapters.list_platforms() or []):
+                _closer = getattr(adapters.get(_code), "close", None)
+                if callable(_closer):
+                    try:
+                        _closer()
+                    except Exception:  # noqa: BLE001
+                        pass
         if own_context:
             try:
                 context.close()

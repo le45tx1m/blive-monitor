@@ -1,0 +1,45 @@
+{
+  "generated_at": "2026-08-08T01:58:57.628754+00:00",
+  "runner": "github-actions",
+  "principal_id": "3xrgxqkqp829xz6",
+  "egress": {
+    "ip": {
+      "ip": "52.176.32.161"
+    },
+    "detail": {
+      "ip": "52.176.32.161",
+      "city": "Des Moines",
+      "region": "Iowa",
+      "country": "US",
+      "loc": "41.6005,-93.6091",
+      "org": "AS8075 Microsoft Corporation",
+      "postal": "50309",
+      "timezone": "America/Chicago",
+      "readme": "https://ipinfo.io/missingauth"
+    }
+  },
+  "channels": {
+    "raw_share_api": {
+      "status": 200,
+      "verdict": "BLOCKED_CAPTCHA",
+      "body": "{\"result\":2001,\"error_msg\":\"[2001] antispam need captcha\",\"request_id\":\"786154339095581014\",\"captchaConfig\":\"{\\\"type\\\":1,\\\"url\\\":\\\"https://captcha.zt.kuaishou.com/rest/zt/captcha/sliding/config\\\",\\\"captchaSession\\\":\\\"Cgp6dC5jYXB0Y2hhEswC1tWhFcePuM4vxGd7dkJPOr692gv0D62TxP5bWCPAHHk6g78aN9sdCr7ISi7Tr2mGnH4H9Z42tE2_kSxzrrvDCm0p60DFZEi_wMwUZuV_EhAefkpK0BL5Nx7hsXzEek7smFPdntK1qtG8YWGq94dKefAJ7iY6SfQjcXIUQJKbMpVgQH2B2shmJNe2xzfFBVACd7T1_ZH71rHu3a1Eeftdp4hXoNrrn_5wEmqmjys8GDmcMW2TRzvJMw_qwHHF_kCXSpK-r0_tpPxOqooLbeGRLn_IAWFWvzjxSSWP1-taMbvw4wQnYikWHpudWkYzOG1z-5SdFk6thvQscZJHHN5RqIfApkwNSDCuDcTfxodIkLN"
+    },
+    "browser_intercept": {
+      "intercepted": [
+        {
+          "status": 200,
+          "verdict": "BLOCKED_CAPTCHA",
+          "body": "{\"result\":2001,\"error_msg\":\"[2001] antispam need captcha\",\"request_id\":\"786154343419664431\",\"captchaConfig\":\"{\\\"type\\\":1,\\\"url\\\":\\\"https://captcha.zt.kuaishou.com/rest/zt/captcha/sliding/config\\\",\\\"captchaSession\\\":\\\"Cgp6dC5jYXB0Y2hhEscC1ItDH4X1PYMqt1BJmNNjcSHbgs8O8xBdjyKM5ad2Y614xky5viVATo_HLW_HM7Y6bDSs9f3dqWa3-7JJ9UcKOabIuG48mhFC6d2BgNKk0PO7etdvbEBVgIOZDWkVmWf7-4j4Cfzmq-czT4BXhX77V3S0mx3NZcDbWFD_nGWJ8e802bwEVLL3eylVBt6d6YsuDylZKCtu7Y81zMUT8e9xMYDC1dEzTGtgDivVSasY1vXyL7vJgZfFRELtpwc1csh15233W-Zf5awpX2IqKM9-lvUQwG-k4wJ7H92UmPzQTHgBQvvdxH3Oe-dQ4klVv_RXIGyKsnl_r_0VKVcyn-nXHgMsdlGkS2ZNwRo-JTcKuIy"
+        }
+      ],
+      "page_redirected_to_captcha": true,
+      "final_url": "https://captcha.zt.kuaishou.com/mobile/h5/redirect/index.html?type=1&url=https%3A%2F%2Fcaptcha.zt.kuaishou.com%2Frest%2Fzt%2Fcaptcha%2Fsliding%2Fconfig&captchaSession=Cgp6dC5jYXB0Y2hhEscC1ItDH4X1PYMqt",
+      "verdict": "BLOCKED_CAPTCHA"
+    }
+  },
+  "summary": {
+    "raw_share_api": "BLOCKED_CAPTCHA",
+    "browser_intercept": "BLOCKED_CAPTCHA"
+  },
+  "feasible_without_credentials": false
+}
