@@ -5,15 +5,19 @@
       ``liveroom.playList[0].liveStream.{caption,coverUrl,watcherCount}``；
       旧结构（``liveroom.living/caption``）作为兼容回退保留。
       不再调用已废弃的 ``liveroomDetail`` 接口（实测 HTTP 404）。
+      SSR 失败时用 ``dynamicIcon`` 兜底 —— 该接口**免 Cookie 免验证码**直出
+      ``isLiving``/``liveStreamId``（见 :meth:`KuaishouAdapter._live_via_dynamic_icon`）。
 
-新作：``visionProfilePhotoList`` graphql（带 did/client_key/cookie）。
-      识别 ``result:2``（风控/未登录）并 **raise AdapterGated**，记为 gated 而非「无新作」。
+新作：走 ``live_api/profile/public``（浏览器拦截，免登录 Cookie），
+      实现见 :mod:`backend.adapters.kuaishou_feed`。
 
-匿名 scraping 尽力而为：数据中心 IP / 缺 Cookie 易触发风控（返回空/离线），
-失败一律优雅降级为 offline / 无新作（绝不抛未捕获异常中断整轮）。
+      **此前的 ``visionProfilePhotoList`` graphql 实现已删除**：该端点被快手前端
+      弃用（打开 profile 页，页面自身发出的 graphql 请求数为 0），裸请求恒返回
+      ``result=2``。它「不报错、只返回空」的失败方式极具欺骗性 —— 监控看起来在跑，
+      实际上永远报「没有新作品」。同类被验证挡死的通道见 kuaishou_feed 模块文档。
 
-⚠️ 提升命中率：在 BLIVE_CONFIG.platforms.kuaishou.credentials 配置
-``did``（匿名可随机生成）/``cookie``（登录态）可突破部分风控。
+匿名 scraping 尽力而为：失败一律优雅降级为 offline / raise AdapterGated
+（绝不抛未捕获异常中断整轮，也绝不把「被挡」伪装成「没有新作」）。
 """
 
 import json
@@ -23,10 +27,16 @@ import urllib.request
 from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional
 
-from backend.adapters.base import AdapterGated, PlatformAdapter, PostModel, RoomModel
+from backend.adapters import kuaishou_feed as ks_feed
+from backend.adapters.base import (
+    AdapterGated,
+    AdapterSkip,
+    PlatformAdapter,
+    PostModel,
+    RoomModel,
+)
 from common import bjnow, epoch_to_beijing
 from backend.adapters.identity import (
-    CredentialLadder,
     CredentialLevel,
     IdentityCache,
     PrincipalIdentity,
@@ -266,9 +276,15 @@ def resolve_kuaishou_principal_id(entry: Any, rid: str,
     ident = resolve_kuaishou_identity(entry, rid, tracking=tracking)
     return ident.principal_id if ident else None
 
+
 _KUAISHOU_UA = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
+)
+#: dynamicIcon 是 H5 小程序接口，必须用移动端 UA
+_KUAISHOU_MOBILE_UA = (
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 "
+    "(KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1"
 )
 _DEFAULT_CLIENT_KEY = "3c7cd4d734b53483"
 
@@ -302,7 +318,11 @@ class KuaishouAdapter(PlatformAdapter):
     supports_posts = True
     poll_interval = 300
     rate_limit = {"max_requests": 20, "window_sec": 60, "backoff_sec": 30}
-    needs_context = False  # SSR 主路径无需浏览器；Playwright 降级留作 P2 增强
+    #: 新作必须走浏览器：``live_api/profile/public`` 只认**页面自身**发出的请求
+    #: （带 JS 现算的 __NS_hxfalcon 签名 + 新鲜风控 cookie）。实测在页面上下文里
+    #: 手动 fetch 同一 URL 连打 12 次全部 result=2，裸 HTTP 更是恒被挡。
+    #: 直播仍以 SSR / dynamicIcon 为主，不依赖浏览器。
+    needs_context = True
 
     def __init__(self, credentials: Optional[Dict[str, Any]] = None,
                  poll_interval: Optional[int] = None,
@@ -311,10 +331,12 @@ class KuaishouAdapter(PlatformAdapter):
         self.did = str(self.credentials.get("did") or "")
         self.client_key = str(self.credentials.get("client_key") or _DEFAULT_CLIENT_KEY)
         self.cookie = str(self.credentials.get("cookie") or "")
-        #: 最近一次 graphql 的凭证阶梯结果（编排层据此写 tracking）
+        #: 最近一次取新作使用的凭证等级（编排层据此写 tracking）
         self.last_ladder = None
         #: 本适配器实例累计命中风控的次数
         self.gated_count = 0
+        #: 跨账号复用的作品流会话（预热一次，全轮共享）
+        self._feed_session: Optional[ks_feed.KuaishouFeedSession] = None
 
     # ---- 网络（可被测试 monkeypatch）----
     def _http_get(self, url: str, headers: Optional[Dict[str, str]] = None,
@@ -334,19 +356,40 @@ class KuaishouAdapter(PlatformAdapter):
     def fetch_room_status(self, room_id: str) -> RoomModel:
         """取快手直播间状态（SSR 解析为主，失败优雅降级 offline）。"""
         room_id = str(room_id)
+        room: Optional[RoomModel] = None
         try:
             html = self._http_get(
                 f"https://live.kuaishou.com/u/{room_id}", timeout=10
             ).decode("utf-8", "replace")
-            return self._room_from_html(room_id, html)
+            room = self._room_from_html(room_id, html)
         except Exception as e:  # noqa: BLE001
-            logger.warning(
-                "[kuaishou] 直播 SSR 解析失败（降级 offline）: %s", e
-            )
-            return RoomModel(
-                platform="kuaishou", room_id=room_id, live_status=False,
-                extra={"degraded": True},
-            )
+            logger.warning("[kuaishou] 直播 SSR 解析失败，转 dynamicIcon 兜底: %s", e)
+
+        # SSR 说没在播时也兜一次底：SSR 会被风控喂空页面，那种「静默 offline」
+        # 与真的没开播长得一模一样，正是开播提醒漏报的典型成因。
+        if room is None or not room.live_status:
+            icon = self._live_via_dynamic_icon(room_id)
+            if icon is not None:
+                if icon["living"]:
+                    logger.info("[kuaishou] %s SSR 判 offline，dynamicIcon 判在播，以后者为准",
+                                room_id)
+                return RoomModel(
+                    platform="kuaishou", room_id=room_id,
+                    title=room.title if room else "",
+                    live_status=icon["living"],
+                    online=room.online if room else 0,
+                    cover=room.cover if room else "",
+                    extra={"living": icon["living"], "source": "dynamic_icon",
+                           "live_stream_id": icon["live_stream_id"],
+                           "ssr_living": bool(room.live_status) if room else None},
+                )
+
+        if room is not None:
+            return room
+        return RoomModel(
+            platform="kuaishou", room_id=room_id, live_status=False,
+            extra={"degraded": True},
+        )
 
     @staticmethod
     def _room_from_html(room_id: str, html: str) -> RoomModel:
@@ -401,65 +444,151 @@ class KuaishouAdapter(PlatformAdapter):
         )
 
     # ---------- 新作 ----------
-    def fetch_new_posts(self, author_or_room: str, since: Optional[datetime] = None,
+    def _session(self, context: Any) -> ks_feed.KuaishouFeedSession:
+        """取（或建）跨账号复用的作品流会话。
+
+        复用是刚需不是优化：冷启动首个账号要重新导航 4~5 次才等到 ``result=1``，
+        而同一 context 热起来后下一个账号第 1 次导航即命中。每账号各开一次
+        浏览器等于每个都付一遍冷启动代价，还更容易撞风控。
+        """
+        if self._feed_session is None:
+            self._feed_session = ks_feed.KuaishouFeedSession(
+                context, user_agent=_KUAISHOU_UA
+            )
+        return self._feed_session
+
+    def close(self) -> None:
+        """释放浏览器会话（编排层结束一轮后可调用；不调用也不会泄漏到下轮进程）。"""
+        if self._feed_session is not None:
+            self._feed_session.close()
+            self._feed_session = None
+
+    def fetch_new_posts(self, author_or_room: str, since: Optional[datetime] = None,  # noqa: C901
                         baseline: Optional[Dict[str, Any]] = None,
                         context: Any = None) -> List[PostModel]:
+        """取快手新作品（``live_api/profile/public`` 浏览器通道）。
+
+        与旧 graphql 实现的关键差异，每一条都是实测踩出来的：
+
+        1. **必须浏览器**：没有 context 直接 raise AdapterGated，而不是退回裸请求
+           假装尝试 —— 裸请求 100% 返回空，只会把「被挡」伪装成「没有新作」。
+        2. **必须按时间排序**：接口把置顶作品放在列表最前，取 ``list[0]`` 会让
+           「最新作品」永远卡在那条置顶上，新作永远发现不了。
+        3. **必须校验归属**：用作品 URL 里反解出的 userId 交叉校验，防止抓到
+           他人作品就直接推给用户（本项目在抖音上吃过这个亏）。
+        """
         rid = str(author_or_room)
         t = baseline if isinstance(baseline, dict) else {}
+
         if not _looks_like_principal_id(rid):
-            # 传进来的不是 principalId（多半是用户名）——graphql 会安静地返回
-            # feeds=[]，看起来像「没有新作品」，实则是身份没解对。这里显式点破，
-            # 否则这类问题会一直伪装成「这个号最近没更新」。
+            # 不是 principalId（多半是用户名）：接口会返回空列表，看着像「没更新」，
+            # 实则是身份没解对。显式点破，否则这类问题会一直伪装成正常。
             logger.warning(
-                "[kuaishou] %s 不是 principalId 形态，graphql 大概率返回空。"
+                "[kuaishou] %s 不是 principalId 形态，作品接口大概率返回空。"
                 "请在 post_rooms.json 补 principal_id / share_url / seed_url", rid,
             )
-        try:
-            # 主：visionProfilePhotoList graphql，凭证三级降级（匿名→did→Cookie）
-            posts = self._fetch_graphql_photos(rid)
-        except AdapterGated:
+
+        if context is None:
+            self.gated_count += 1
             self._write_run_tracking(t, rid, success=False)
-            raise
+            raise AdapterGated(
+                detail="快手作品检测需要浏览器上下文（接口只认页面自身发出的带签名请求）"
+            )
+
+        try:
+            parsed = self._session(context).fetch(rid)
         except Exception as e:  # noqa: BLE001
-            logger.warning("[kuaishou] 新作接口失败（降级为空）: %s", e)
+            logger.warning("[kuaishou] 作品抓取异常（记为 gated）: %s", e)
             self.gated_count += 1
             self._write_run_tracking(t, rid, success=False)
             raise AdapterGated(detail=f"快手作品接口请求失败：{e}")
 
+        self.last_ladder = None
+        # 该通道不使用登录态，如实记录为匿名等级
+        t["credential_level"] = CredentialLevel.ANONYMOUS
+        t["cookie_used"] = False
+        t["did_used"] = False
+
+        if not parsed.get("ok"):
+            self.gated_count += 1
+            self._write_run_tracking(t, rid, success=False)
+            code = parsed.get("result")
+            hint = "（result=2：风控预热未通过，通常重试下一轮即可）" if code == 2 else ""
+            raise AdapterGated(
+                detail=f"快手作品接口未返回列表{hint}：{parsed.get('detail') or f'result={code}'}"
+            )
+
+        items = parsed.get("items") or []
+
+        # ---- 归属校验：宁可这轮不报，也不能把别人的作品当成目标账号的新作 ----
+        expect_uid = str(t.get("origin_user_id") or "")
+        expect_aid = str(t.get("unique_name") or "")
+        trusted, why = ks_feed.verify_ownership(
+            items, expect_author_id=expect_aid, expect_user_id=expect_uid
+        )
+        if not trusted:
+            logger.warning("[kuaishou] %s 作品归属校验未通过：%s", rid, why)
+            self._write_run_tracking(t, rid, success=False)
+            raise AdapterSkip("poisoned", detail=f"作品归属校验未通过：{why}")
+
+        # 首轮把反解到的 userId / 用户名固化下来，之后即可用作强校验（自举）
+        for it in items:
+            if it.get("user_id") and not t.get("origin_user_id"):
+                t["origin_user_id"] = it["user_id"]
+            if it.get("author_id") and not t.get("unique_name"):
+                t["unique_name"] = it["author_id"]
+        if parsed.get("author_name") and not t.get("nickname"):
+            t["nickname"] = parsed["author_name"]
+        if parsed.get("living") is not None:
+            # 同一响应顺带给出直播态，写入 tracking 供直播链路对账
+            t["living_hint"] = bool(parsed["living"])
+
+        latest = ks_feed.pick_latest(items)
+        if latest is None:
+            # 一条时间都解不出：不猜、不报，如实记为被挡（避免用置顶冒充最新）
+            self.gated_count += 1
+            self._write_run_tracking(t, rid, success=False)
+            raise AdapterGated(detail="快手作品均无法解析发布时间，无法判断新旧")
+
+        prev_id = str(t.get("latest_post_id") or "")
+        prev_ts = _to_ts(t.get("latest_timestamp"))
+        new_id = latest["photo_id"]
+        new_ts = latest["timestamp"]
+
         out: List[PostModel] = []
-        prev_id = t.get("latest_post_id", "")
-        prev_ts = _to_ts(t.get("latest_published_at"))
-        for p in posts:
-            pid = p.get("photoId", "")
-            ts = _to_ts(p.get("timestamp"))
-            # 仅返回「比基线新」的作品（id 不同且时间更新；无时间则仅按 id 去重）
-            if pid and pid != prev_id and (prev_ts is None or ts is None or ts > prev_ts):
-                is_image = bool(p.get("is_image", False)) or not bool(p.get("isVideo", True))
-                out.append(PostModel(
-                    platform="kuaishou",
-                    post_id=pid,
-                    author=t.get("nickname", "") or p.get("author", "") or p.get("userName", ""),
-                    # 直接用可靠提取到的 photoId 构造规范视频页链接（fw/photo/{photoId}），
-                    # 不再盲信 API 可能返回的「fw/photo/{用户名}」错误 url（会报「参数格式错误」）。
-                    url=(f"https://v.m.chenzhongtech.com/fw/photo/{pid}" if pid
-                         else (p.get("url") or p.get("webUrl") or p.get("photoUrl") or "")),
-                    cover=p.get("coverUrl") or p.get("cover") or "",
-                    published_at=_ts_to_bj(ts),
-                    title=p.get("caption", ""),
-                    extra={
-                        "conf": "api",
-                        "type": "图文" if is_image else "视频",
-                        "dedup_key": f"post:kuaishou:{pid}",
-                    },
-                ))
-        # 更新基线（取最新一条）
-        if posts:
-            last = max(posts, key=lambda x: _to_ts(x.get("timestamp")) or 0)
-            latest_ts = _to_ts(last.get("timestamp"))
-            t["latest_post_id"] = last.get("photoId", "")
-            t["latest_published_at"] = _ts_to_bj(latest_ts)
-            if latest_ts is not None:
-                t["latest_timestamp"] = latest_ts
+        is_new = bool(new_id) and new_id != prev_id and (prev_ts is None or new_ts > prev_ts)
+        if is_new and prev_id:
+            # 只在有基线时推送：首轮建基线不推历史作品，避免用户被一次性刷屏
+            caption = ""
+            try:
+                caption = self._session(context).fetch_caption(new_id)
+            except Exception as e:  # noqa: BLE001
+                logger.debug("[kuaishou] 补取文案失败: %s", e)
+            out.append(PostModel(
+                platform="kuaishou",
+                post_id=new_id,
+                author=t.get("nickname", "") or latest.get("author_name", ""),
+                url=ks_feed.photo_url(new_id),
+                cover=latest.get("cover", ""),
+                published_at=_ts_to_bj(new_ts),
+                title=caption or latest.get("music_name", ""),
+                extra={
+                    "conf": "api",
+                    "type": "图文" if latest.get("is_image") else "视频",
+                    "dedup_key": f"post:kuaishou:{new_id}",
+                    "source": "profile_public",
+                },
+            ))
+        elif is_new and not prev_id:
+            logger.info("[kuaishou] %s 首轮建立基线（最新作品 %s），不推送历史作品",
+                        rid, new_id)
+
+        # 更新基线（始终以「按时间排序后的最新」为准，不是列表第一条）
+        t["latest_post_id"] = new_id
+        t["latest_timestamp"] = new_ts
+        t["latest_published_at"] = _ts_to_bj(new_ts)
+        if latest.get("cover"):
+            t["latest_cover"] = latest["cover"]
         self._write_run_tracking(t, rid, success=True)
         return out
 
@@ -484,66 +613,44 @@ class KuaishouAdapter(PlatformAdapter):
         if self.gated_count:
             t["gated_count"] = self.gated_count
 
-    # ---------- graphql（三级凭证降级）----------
-    @staticmethod
-    def _is_gated(payload: Any) -> bool:
-        """判定响应是否被风控。
+    # ---------- 直播兜底：dynamicIcon（免 Cookie 免验证码）----------
+    def _live_via_dynamic_icon(self, principal_id: str) -> Optional[Dict[str, Any]]:
+        """用 H5 小程序接口查直播态，SSR 解析失败时兜底。
 
-        快手不用 HTTP 状态码表达风控，而是 200 + ``result`` 非 0：
-        ``result=2`` 匿名被拦、``result=400002`` 验证码挑战。
+        实测这是快手少见的**完全不设防**的接口：裸 POST、无 Cookie、无验证码、
+        无签名，直接返回 ``{"result":1,"data":{"isLiving":bool,"liveStreamId":str}}``，
+        两个账号双向验证过（一个在播一个没播，结果都准）。比作品接口简单得多，
+        所以直播链路不必依赖浏览器。
+
+        Returns:
+            ``{"living": bool, "live_stream_id": str}``；请求失败或响应异常返回 None
+            （调用方保持原判定，不因兜底失败而误判）。
         """
-        return isinstance(payload, dict) and payload.get("result") not in (None, 0, "0")
-
-    def _graphql_once(self, rid: str, headers: Dict[str, str]) -> Dict[str, Any]:
-        """发一次 visionProfilePhotoList 请求（单级凭证，由阶梯调用）。"""
-        body = json.dumps({
-            "operationName": "visionProfilePhotoList",
-            "variables": {"userId": rid, "page": 1},
-            "query": (
-                "query visionProfilePhotoList($userId:String,$page:Int){"
-                "visionProfilePhotoList(userId:$userId,page:$page){photoId caption "
-                "coverUrl url timestamp is_image isVideo}}"
-            ),
-        }).encode("utf-8")
-        req = urllib.request.Request(
-            "https://www.kuaishou.com/graphql", data=body,
-            headers=headers, method="POST",
-        )
-        with urllib.request.urlopen(req, timeout=10) as r:
-            return json.loads(r.read())
-
-    def _fetch_graphql_photos(self, rid: str) -> List[Dict[str, Any]]:
-        """取作品列表，凭证按 L1 匿名 → L2 did → L3 Cookie 逐级升级。
-
-        原则是**能用弱凭证就别掏登录态**：匿名能过就不带 did，did 能过就不带 Cookie，
-        既降低账号暴露风险，也让「哪一级才够用」变成可观测数据（写入 tracking 的
-        ``cookie_used`` / ``did_used``）。全部等级都被风控才 raise AdapterGated —— 这
-        与「没有新作」是两回事，编排层据此记 cookie_warn 而不是静默。
-        """
-        ladder = CredentialLadder(
-            did=self.did, cookie=self.cookie, client_key=self.client_key,
-            extra_headers={
-                "Content-Type": "application/json",
-                "User-Agent": _KUAISHOU_UA,
-                "Referer": "https://www.kuaishou.com/",
-            },
-        )
-        result = ladder.run(
-            lambda headers, level: self._graphql_once(rid, headers),
-            should_retry=self._is_gated,
-        )
-        self.last_ladder = result  # 供编排层写 tracking（哪一级成功/试过几级）
-
-        if not result.ok:
-            tried = "/".join(result.levels_tried) or "无可用凭证"
-            self.gated_count += 1
-            raise AdapterGated(
-                detail=f"快手作品接口被风控（已试 {tried}），"
-                       f"可在 BLIVE_CONFIG.platforms.kuaishou.credentials 配置 cookie 突破"
+        try:
+            body = json.dumps({"userId": str(principal_id)}).encode("utf-8")
+            req = urllib.request.Request(
+                "https://v.m.chenzhongtech.com/rest/wd/ugH5App/user/dynamicIcon",
+                data=body, method="POST",
+                headers={
+                    "Content-Type": "application/json",
+                    "User-Agent": _KUAISHOU_MOBILE_UA,
+                    "Referer": "https://v.m.chenzhongtech.com/",
+                },
             )
-
-        data = result.value if isinstance(result.value, dict) else {}
-        return ((data.get("data") or {}).get("visionProfilePhotoList") or {}).get("feeds") or []
+            with urllib.request.urlopen(req, timeout=10) as r:
+                payload = json.loads(r.read())
+        except Exception as e:  # noqa: BLE001
+            logger.debug("[kuaishou] dynamicIcon 兜底失败: %s", e)
+            return None
+        if not isinstance(payload, dict) or payload.get("result") != 1:
+            return None
+        data = payload.get("data") or {}
+        if not isinstance(data, dict) or "isLiving" not in data:
+            return None
+        return {
+            "living": bool(data.get("isLiving")),
+            "live_stream_id": str(data.get("liveStreamId") or ""),
+        }
 
 
 #: 快手 SSR 里会出现的 JS 专有字面量（非合法 JSON），解析失败时替换为 null 重试。

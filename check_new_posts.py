@@ -1636,6 +1636,17 @@ def run_post_check(*, cfg_all: Dict[str, Any], persist: Any, now: Optional[Any] 
                            "增加 douyin_cookie 或设置环境变量 DOUYIN_COOKIE。")
         logger.info("[run_post_check] 新作品检测完成")
     finally:
+        # 适配器可能持有自建的浏览器上下文（如快手为跨账号复用风控预热而缓存的
+        # 那个）。统一回收：context 由 scheduler 传入时不会走下面的 browser.close()，
+        # 不显式释放就会随进程一直堆积。
+        if adapters is not None:
+            for _code in (adapters.list_platforms() or []):
+                _closer = getattr(adapters.get(_code), "close", None)
+                if callable(_closer):
+                    try:
+                        _closer()
+                    except Exception:  # noqa: BLE001
+                        pass
         if own_context:
             try:
                 context.close()
