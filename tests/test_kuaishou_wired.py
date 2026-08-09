@@ -69,6 +69,21 @@ def test_fetch_kuaishou_maps_nickname(monkeypatch):
     assert r["nickname"] == "肥阿肥"
 
 
+def test_fetch_kuaishou_maps_avatar(monkeypatch):
+    def fake_status(self, room_id):
+        return RoomModel(
+            platform="kuaishou", room_id=room_id, name="肥阿肥",
+            title="标题X", live_status=True, online=55, cover="http://c.jpg",
+            avatar="https://p2-pro.a.yximgs.com/uhead/xx_s.jpg",
+        )
+    monkeypatch.setattr(
+        __import__("backend.adapters.kuaishou", fromlist=["KuaishouAdapter"]).KuaishouAdapter,
+        "fetch_room_status", fake_status,
+    )
+    r = cs.fetch_kuaishou("KS1", {})
+    assert r["avatar"] == "https://p2-pro.a.yximgs.com/uhead/xx_s.jpg"
+
+
 # ---------------- check_status.main() 分发 ----------------
 
 def test_main_routes_kuaishou(tmp_path, monkeypatch):

@@ -641,7 +641,7 @@ def fetch_kuaishou(web_rid: str, cfg_all: Optional[Dict[str, Any]] = None) -> Di
             "title": m.title or "",
             "online": int(m.online or 0),
             "area": "",
-            "avatar": "",  # 直播不取头像，前端回退首字母
+            "avatar": m.avatar or "",  # 主播真实头像（SSR author.avatar 解析）
             "nickname": m.name or "",  # 主播真实昵称（SSR author.name 解析）
             "time": now_str,
         }

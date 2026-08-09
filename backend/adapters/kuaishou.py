@@ -380,6 +380,7 @@ class KuaishouAdapter(PlatformAdapter):
                     live_status=icon["living"],
                     online=room.online if room else 0,
                     cover=room.cover if room else "",
+                    avatar=room.avatar if room else "",
                     extra={"living": icon["living"], "source": "dynamic_icon",
                            "live_stream_id": icon["live_stream_id"],
                            "ssr_living": bool(room.live_status) if room else None},
@@ -435,6 +436,7 @@ class KuaishouAdapter(PlatformAdapter):
                 cover = liveroom.get("coverUrl") or ""
 
         user_name = KuaishouAdapter._extract_kuaishou_nickname(html, room_id)
+        user_avatar = KuaishouAdapter._extract_kuaishou_avatar(html, room_id)
 
         return RoomModel(
             platform="kuaishou",
@@ -444,6 +446,7 @@ class KuaishouAdapter(PlatformAdapter):
             live_status=living,
             online=online,
             cover=cover,
+            avatar=user_avatar,
             extra={"living": living, "source": "ssr"},
         )
 
@@ -472,6 +475,34 @@ class KuaishouAdapter(PlatformAdapter):
         m = re.search(r'"author"\s*:\s*\{[^}]*"name"\s*:\s*"([^"]*)"', html)
         if m:
             return m.group(1)
+        return ""
+
+    @staticmethod
+    def _extract_kuaishou_avatar(html: Any, room_id: str) -> str:
+        """从直播页 SSR/HTML 提取主播头像 URL（与昵称同源，优先匹配 room_id 对应 author）。
+
+        实测结构：``liveroom.playList[0].author`` 含 ``{"id": <room_id>, "name": <昵称>,
+        "avatar": "https:\\u002F\\u002Fp2-pro.a.yximgs.com\\u002Fuhead\\u002F..._s.jpg"}``。
+        快手 SSR 把 ``/`` 转义为 ``\\u002F``（也可能 ``\\/``），需还原为真实分隔符。
+        直接吃原始 HTML 做正则，规避 ``__INITIAL_STATE__`` 大对象解析不稳定与字段顺序差异。
+        """
+        if isinstance(html, (bytes, bytearray)):
+            html = html.decode("utf-8", "replace")
+        if not html:
+            return ""
+        # 主：author.id == room_id 的 avatar（精准命中本主播，避开推荐流其它 author）
+        m = re.search(
+            r'"author"\s*:\s*\{\s*"id"\s*:\s*"'
+            + re.escape(room_id)
+            + r'"[^}]{0,400}?"avatar"\s*:\s*"([^"]*)"',
+            html,
+        )
+        if m:
+            return m.group(1).replace("\\u002F", "/").replace("\\/", "/")
+        # 兜底：任一 author.avatar（无 id 匹配时的宽松回退）
+        m = re.search(r'"author"\s*:\s*\{[^}]{0,400}?"avatar"\s*:\s*"([^"]*)"', html)
+        if m:
+            return m.group(1).replace("\\u002F", "/").replace("\\/", "/")
         return ""
 
     # ---------- 新作 ----------

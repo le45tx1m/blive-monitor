@@ -112,6 +112,29 @@ def test_kuaishou_live_ssr_extracts_nickname(monkeypatch):
     assert m.extra.get("source") == "dynamic_icon"
 
 
+def test_kuaishou_live_ssr_extracts_avatar(monkeypatch):
+    """SSR 解析应提取主播头像（author.avatar），用于前端头像显示；
+    快手 SSR 把 '/' 转义为 '\\u002F'，需还原为真实 URL 分隔符。"""
+    avatar_raw = "https:\\u002F\\u002Fp2-pro.a.yximgs.com\\u002Fuhead\\u002FAB\\u002Fxx_s.jpg"
+    html = _ssr_html(
+        '{"liveroom":{"playList":[{"isLiving":false,"liveStream":{},'
+        '"author":{"id":"Sandy88888","name":"肥阿肥","avatar":"'
+        + avatar_raw + '"}}]}}'
+    )
+
+    def fake_get(self, url, headers=None, timeout=10):
+        return html
+
+    monkeypatch.setattr(KuaishouAdapter, "_http_get", fake_get)
+    # SSR 主路径：dynamicIcon 兜底返回 None，确保走 _room_from_html 提取
+    monkeypatch.setattr(
+        KuaishouAdapter, "_live_via_dynamic_icon", lambda self, rid: None,
+    )
+    m = KuaishouAdapter().fetch_room_status("Sandy88888")
+    assert m.avatar == "https://p2-pro.a.yximgs.com/uhead/AB/xx_s.jpg"
+    assert m.name == "肥阿肥"
+
+
 def test_kuaishou_live_degrade_on_failure(monkeypatch):
     """SSR 与 dynamicIcon 双双失败 → 优雅降级 offline，不抛异常。"""
     def fake_raise(self, *args, **kwargs):
