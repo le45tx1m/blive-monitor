@@ -503,6 +503,9 @@ class KuaishouFeedSession:
                               timeout=self.NAV_TIMEOUT_MS)
                 except Exception as e:  # noqa: BLE001
                     logger.debug("[kuaishou] %s 第 %d 次导航异常: %s", pid, i + 1, e)
+                # XHR 可能在 goto 期间就已返回（handler 已设 best），先判一次避免傻等
+                if best:
+                    break
                 # 精确等待页面自身发出的作品接口响应（比固定 sleep 更稳，也不会过早退出）
                 try:
                     page.wait_for_response(
