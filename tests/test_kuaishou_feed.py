@@ -5,7 +5,11 @@
 文件名里，随手编的 URL 解不出时间，等于没测到核心逻辑。
 """
 
+import base64
+import json
+
 from backend.adapters import kuaishou_feed as kf
+from backend.adapters import kuaishou_feed_core as core
 
 # 真实 URL 样本 -------------------------------------------------------------
 # 视频：/upic/<日期路径>/B<base64>_b_B<hash>.mp4
@@ -214,3 +218,189 @@ def test_纯站名标题视为无文案():
 def test_作品链接格式():
     assert kf.photo_url("3x2ywf5zitae5zg") == \
         "https://www.kuaishou.com/short-video/3x2ywf5zitae5zg"
+
+
+# =================== 会话：风控 token 打废（次数/时效受限）自愈 ===================
+# 风控 token 实测是「次数/时效受限」的：浏览器养熟的 token 连续命中若干次后退回
+# result=2（前 ~4 次成功、之后全废）。会话必须自愈，否则后续账号会静默失败。
+# 以下用 FakePage/FakeContext 模拟，不启真实浏览器。
+
+def _resp_json(result):
+    return json.dumps({
+        "data": {"result": result, "list": [{
+            "id": "3x2ywf5zitae5zg",
+            "author": {"id": "pineapple2005", "name": "魅力驿站"},
+            "poster": _REAL_VIDEO_URL, "playUrl": "", "workType": "multiple",
+        }]},
+    })
+
+
+class _FakeResp:
+    def __init__(self, url, body):
+        self.url = url
+        self._body = body
+
+    def body(self):
+        return self._body.encode("utf-8")
+
+
+class _FakeCtx:
+    """模拟浏览器 context：持有 token 配额状态（跨多次 fetch 共享）。"""
+
+    def __init__(self, budget):
+        self.budget = budget
+        self.used = 0
+        self.exhausted = False
+        self.warm_calls = 0
+
+    def new_page(self):
+        return _FakePage(self)
+
+    def cookies(self):
+        return [{"name": n} for n in core.ANTIBOT_COOKIES]
+
+    def close(self):
+        pass
+
+
+class _FakePage:
+    def __init__(self, ctx):
+        self.ctx = ctx
+        self._cb = None
+
+    def on(self, event, cb):
+        if event == "response":
+            self._cb = cb
+
+    def goto(self, url, **kw):
+        if core.WARMUP_URL in url:
+            self.ctx.warm_calls += 1
+            # 重新预热 = 拿到新 token，配额重置（不论之前是否已耗尽）
+            self.ctx.used = 0
+            self.ctx.exhausted = False
+
+    def wait_for_timeout(self, ms):
+        pass
+
+    def wait_for_response(self, pred, timeout=9000):
+        c = self.ctx
+        # 与 KuaishouFeedSession._warmup 的判定一致：没种下风控 token（cookies 空）
+        # 或 token 打废，都返回 result=2（匿名被挡）。
+        if c.exhausted or not c.cookies():
+            body = _resp_json(2)
+        else:
+            body = _resp_json(1)
+            c.used += 1
+            if c.used >= c.budget:
+                c.exhausted = True
+        resp = _FakeResp(core.PROFILE_PUBLIC_PATH + "?x=1", body)
+        if self._cb and pred(resp):
+            self._cb(resp)
+        return resp
+
+    @property
+    def context(self):
+        return self.ctx
+
+    def cookies(self):
+        return self.ctx.cookies()
+
+    def close(self):
+        pass
+
+    def title(self):
+        return "#热辣一夏-快手"
+
+
+class _FakeBrowser:
+    def __init__(self, budget):
+        self.budget = budget
+
+    def new_context(self, **kw):
+        return _FakeCtx(self.budget)
+
+    def close(self):
+        pass
+
+
+class _FakeSrc:
+    """传给 KuaishouFeedSession 的 browser_context；附带 .browser。"""
+
+    def __init__(self, budget):
+        self.browser = _FakeBrowser(budget)
+        self.last_ctx = None
+
+
+def _make_session(budget, max_uses=None):
+    src = _FakeSrc(budget)
+    real_new = src.browser.new_context
+
+    def _new(**kw):
+        src.last_ctx = real_new(**kw)
+        return src.last_ctx
+
+    src.browser.new_context = _new
+    sess = kf.KuaishouFeedSession(src, user_agent="")
+    if max_uses is not None:
+        sess.MAX_USES_PER_TOKEN = max_uses
+    return sess, src
+
+
+def test_配额阈值逻辑():
+    sess = kf.KuaishouFeedSession(object())
+    assert sess._quota_exhausted() is False
+    sess._uses = kf.KuaishouFeedSession.MAX_USES_PER_TOKEN
+    assert sess._quota_exhausted() is True
+    # 关闭主动重预热时永不触发
+    sess.MAX_USES_PER_TOKEN = 0
+    sess._uses = 999
+    assert sess._quota_exhausted() is False
+
+
+def test_打废_被动重预热恢复():
+    """token 配额小（budget=2）：前 2 次成功、第 3 次起打废 → result=2，
+    会话经强制重预热恢复，全部 fetch 成功，warm_calls >= 2。"""
+    sess, src = _make_session(budget=2)
+    results = [sess.fetch(f"pid{i}") for i in range(4)]
+    assert all(r["ok"] for r in results), [r.get("result") for r in results]
+    assert src.last_ctx.warm_calls >= 2, "打废后应至少有一次强制重预热"
+
+
+def test_打废_主动重预热在配额边界():
+    """主动重预热：MAX_USES_PER_TOKEN=2、token 配额充足（budget=10）时，
+    每成功 2 次会话就把 _warmed 置 False，下一个账号前重新预热。
+    捕获每次 fetch 返回后的 _warmed 状态（下一次 fetch 的预热会把它重新置 True，
+    所以要看「返回瞬间」而非最终态）。"""
+    sess, src = _make_session(budget=10, max_uses=2)
+    warm_states = []
+    for i in range(5):
+        r = sess.fetch(f"pid{i}")
+        assert r["ok"]
+        warm_states.append(sess._warmed)
+    # 第 2、4 次成功后应触发主动重预热 → 返回时 _warmed 已置 False
+    assert warm_states[1] is False, "第 2 次成功后应主动置 _warmed=False"
+    assert warm_states[3] is False, "第 4 次成功后应主动置 _warmed=False"
+    assert src.last_ctx.warm_calls >= 3, "应包含初始 + 2 次主动重预热"
+
+
+def test_纯IP被标记时如实记为被挡():
+    """若预热始终种不下 token（cookies 为空），则每轮全 result=2，
+    会话最多两轮后如实返回 ok=False，不无限空转。"""
+
+    class _NoTokenCtx(_FakeCtx):
+        def cookies(self):
+            return []  # 模拟种不下风控 token
+
+    src = _FakeSrc(10)
+    real_new = src.browser.new_context
+
+    def _new(**kw):
+        src.last_ctx = _NoTokenCtx(10)
+        return src.last_ctx
+
+    src.browser.new_context = _new
+    sess = kf.KuaishouFeedSession(src, user_agent="")
+    r = sess.fetch("pidX")
+    assert r["ok"] is False
+    assert r["result"] in (2, None)
+    assert "响应序列" in (r.get("detail") or "")
