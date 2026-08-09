@@ -4387,16 +4387,15 @@ function submitPostAdd(){
   var pTags=pTagsRaw&&pTagsRaw.value.trim()? pTagsRaw.value.trim().split(',').map(function(s){return s.trim();}).filter(function(s){return s;}) : [];
   var rec={platform:platform, id:norm.id, name:name||norm.id, tags:pTags};
   if(platform==='douyin' && norm.sec_uid) rec.sec_uid=norm.sec_uid;  // 快手无需 sec_uid，后端按 principalId 解析
-  apiAddPostRoom(rec)
-    .then(function(res){
-      postRooms=res.rooms||[]; renderPosts(); updateStatPosts();
+  apiAddAccountEverywhere(platform, raw, name, pTags, 'post')
+    .then(function(){
       togglePostAddForm(false);
       if(platform==='douyin' && norm.sec_uid){
-        toast('已添加'+pfName+'（已带 sec_uid，立即生效）', true);
+        toast('已添加'+pfName+'（直播+新作品，已带 sec_uid 立即生效）', true);
         // 带 sec_uid 的账号无需等 CI 解析，但触发一次检测以尽快回填昵称/作品
         triggerMonitor().catch(function(err){ toast('CI 触发失败：'+(err&&err.message?err.message:'未知错误'), false); });
       }else{
-        toast('已添加'+pfName+'，正在获取昵称与作品…', true);
+        toast('已添加'+pfName+'（直播+新作品监控），正在获取昵称与作品…', true);
         // 主动触发一次 CI：让它在几秒内解析身份 + 昵称并写回 post_rooms.json，
         // 前端最多刷新一次即可看到真实昵称（而非裸 id）。ghWriteWithRetry 已增强为
         // 基于最新 sha 重试 ≤5 次，CI 那次 post_rooms 写回也会先合并远端最新，不再 409。
@@ -4424,6 +4423,43 @@ function removePostRoom(arg){
   apiRemovePostRoom({id:id, platform:platform})
     .then(function(res){ postRooms=res.rooms||[]; renderPosts(); updateStatPosts(); toast('已移除「'+disp+'」', true); })
     .catch(function(err){ toast(err && err.message ? err.message : '移除失败', false); });
+}
+
+/**
+ * 添加账号时同时加入「直播监控(rooms.json)」与「新作品监控(post_rooms.json)」。
+ *  - bilibili 仅支持直播，无新作品监控；douyin/kuaishou 两者都加。
+ *  - raw 为原始输入（用于抖音 sec_uid / 快手 principalId 归一化）。
+ *  - primary 指定主链路（'live' 或 'post'）：主链路写入失败→抛错（与单独添加一致）；
+ *    另一条为尽力而为——已存在则忽略，其它错误仅提示、不阻断主链路结果。
+ *  两条写入各自走 ghWriteWithRetry（基于最新 sha 重试 ≤5 次），互不冲突。
+ */
+function apiAddAccountEverywhere(platform, raw, name, tags, primary){
+  function doLive(){
+    return apiAddRoom({platform:platform, id:String(raw), name:name, tags:tags})
+      .then(function(r){ rooms=r.rooms||[]; renderLive(); updateStatRooms(); return r; });
+  }
+  function doPost(){
+    if(platform!=='douyin' && platform!=='kuaishou') return Promise.resolve(null);
+    var rec={platform:platform, id:String(raw), name:name, tags:tags};
+    if(platform==='douyin'){
+      var nd=normalizeDouyinInput(raw);
+      if(nd.id) rec.id=nd.id;
+      if(nd.sec_uid) rec.sec_uid=nd.sec_uid;
+    }else{
+      var nk=normalizeKuaishouInput(raw);
+      if(nk.id) rec.id=nk.id;
+    }
+    return apiAddPostRoom(rec)
+      .then(function(r){ postRooms=r.rooms||[]; renderPosts(); updateStatPosts(); return r; });
+  }
+  function guard(p, isPrimary){
+    return p.catch(function(e){
+      if(isPrimary) throw e;
+      if(!/已在监控列表/.test(e&&e.message||'')) toast((platform==='kuaishou'?'快手':'抖音')+'新作品监控添加失败：'+(e&&e.message||e), false);
+      return null;
+    });
+  }
+  return Promise.all([guard(doLive(), primary==='live'), guard(doPost(), primary==='post')]);
 }
 
 /** 同步顶部「监控房间」统计数。 */
@@ -4529,14 +4565,15 @@ function submitAdd(){
   // B2 分组标签（逗号分隔 → tags[]）
   var tagsRaw=document.getElementById('roomTags').value.trim();
   var tags=tagsRaw? tagsRaw.split(',').map(function(s){return s.trim();}).filter(function(s){return s;}) : [];
-  apiAddRoom({platform:platform, id:id, name:name, tags:tags})
-    .then(function(res){
+  apiAddAccountEverywhere(platform, id, name, tags, 'live')
+    .then(function(){
       /* 关键修复：直接用写回时计算出的新列表更新本地 rooms，
          而不是 PUT 之后立刻 GET（GitHub Contents API 有 CDN 缓存，刚写入即刻 GET 会读到旧数据，
-         导致“添加/删除后必须刷新页面才看得到”）。本地列表即权威，渲染立即生效。 */
-      rooms=res.rooms||[]; renderLive(); updateStatRooms();
+         导致“添加/删除后必须刷新页面才看得到”）。本地列表即权威，渲染立即生效。
+         抖音/快手同时写入新作品监控(post_rooms.json)，bilibili 仅直播。 */
       toggleAddForm(false);
-      toast('已添加监控，正在获取状态…', true);
+      var both = (platform==='douyin' || platform==='kuaishou');
+      toast(both ? '已添加直播+新作品监控，正在获取状态…' : '已添加监控，正在获取状态…', true);
       /* 主动触发 CI 立即抓取新房间状态（省去最长 ~5 分钟等待）。
          此前为修 409 竞态临时去掉了触发；现 ghWriteWithRetry 已增强为基于最新 sha
          重试 ≤5 次、CI 写回也会先合并远端最新，重启用安全。 */
