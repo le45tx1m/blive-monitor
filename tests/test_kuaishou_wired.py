@@ -185,7 +185,7 @@ def test_new_posts_routes_kuaishou(tmp_path, monkeypatch, fake_playwright):
     calls = []
     monkeypatch.setattr(
         cnp, "handle_kuaishou_posts",
-        lambda entry, tracking, cfg_all, silence_cfg, now_str: (
+        lambda entry, tracking, cfg_all, silence_cfg, now_str, context=None: (
             calls.append(entry) or (False, False)
         ),
     )
@@ -195,6 +195,30 @@ def test_new_posts_routes_kuaishou(tmp_path, monkeypatch, fake_playwright):
     assert len(calls) == 1, "main() 应将快手条目分发到 handle_kuaishou_posts 恰好一次"
     assert calls[0].get("id") == "KS1"
     assert calls[0].get("platform") == "kuaishou"
+
+
+def test_handle_kuaishou_posts_passes_context(monkeypatch):
+    """handle_kuaishou_posts 必须把浏览器 context 透传给 fetch_new_posts。
+
+    此前重构把快手错误地放在浏览器启动前、且不传 context，导致 fetch_new_posts
+    因 context is None 恒 AdapterGated（快手新作监控恒失败）。本测试锁定透传行为。
+    """
+    from backend.adapters.kuaishou import KuaishouAdapter
+    captured = {}
+    def fake_fetch(self, author_or_room, since=None, baseline=None, context=None):
+        captured["context"] = context
+        return []
+    monkeypatch.setattr(KuaishouAdapter, "fetch_new_posts", fake_fetch)
+    # identity 解析失败回退用户名，不影响 context 透传验证。
+    # 注意：resolve_kuaishou_identity 是 handle_kuaishou_posts 内部局部导入的，
+    # 故必须打在源模块 backend.adapters.kuaishou 上（调用时重新从模块读取属性）。
+    import backend.adapters.kuaishou as ks_mod
+    monkeypatch.setattr(ks_mod, "resolve_kuaishou_identity", lambda *a, **k: None)
+    cnp.handle_kuaishou_posts(
+        {"platform": "kuaishou", "id": "Sandy88888", "name": "Sandy88888"},
+        {}, {}, {}, "2026-08-09 13:00:00", context="FAKE_CTX",
+    )
+    assert captured.get("context") == "FAKE_CTX", "context 未透传给 fetch_new_posts"
 
 
 # ===========================================================================

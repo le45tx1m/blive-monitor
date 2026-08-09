@@ -698,10 +698,15 @@ def _dedup_health_check(tracking: Dict[str, Dict[str, Any]]) -> None:
 
 def handle_kuaishou_posts(entry: Dict[str, Any], tracking: Dict[str, Dict[str, Any]],
                           cfg_all: Dict[str, Any], silence_cfg: Dict[str, Any],
-                          now_str: str):
-    """快手新作检测（匿名 scraping，无需 Playwright）。
+                          now_str: str, context: Any = None):
+    """快手新作检测（走 live_api/profile/public，需浏览器上下文）。
 
-    复用 KuaishouAdapter.fetch_new_posts（SSR/graphql 尽力而为）：
+    复用 KuaishouAdapter.fetch_new_posts（传入 caller 提供的 context）：
+      - context 由 main() 的 Playwright 浏览器块提供，KuaishouFeedSession 会用
+        context.browser.new_context() 自建隔离 context（避免与抖音 UA/cookie 串味）；
+      - fetch_new_posts 强制要求 context，context is None 会直接 raise AdapterGated
+        （即此前「快手被错误地放在浏览器启动前」导致恒 gated 的根因）。
+      - 首次抓取（tracking 无基线）→ 仅建基线、不推送，避免历史作品刷屏；
       - 首次抓取（tracking 无基线）→ 仅建基线、不推送，避免历史作品刷屏；
       - 基线之后 → 每个比基线新的作品写 new_post 事件 + 去重推送；
       - 接口被风控（AdapterGated）→ 写 cookie_warn 事件（与抖音风控一致），不刷屏；
@@ -750,7 +755,7 @@ def handle_kuaishou_posts(entry: Dict[str, Any], tracking: Dict[str, Dict[str, A
 
     try:
         # 用 principalId（或回退用户名）作 graphql userId
-        posts = adapter.fetch_new_posts(pid or rid, baseline=t)
+        posts = adapter.fetch_new_posts(pid or rid, baseline=t, context=context)
     except AdapterGated as g:
         append_event(rid, name, "kuaishou", "cookie_warn",
                      detail=f"快手接口被风控（{g.detail}），可在 BLIVE_CONFIG.platforms.kuaishou.credentials 配置 cookie 突破",
@@ -890,30 +895,7 @@ def main() -> None:
     if synced:
         logger.info("去重账本已从远端同步 %d 条较新记录", synced)
 
-    logger.info("开始检测 %d 个抖音用户的新作品...", len(post_rooms))
-
-    # 快手：匿名 scraping，无需 Playwright，独立预扫描（在启动浏览器之前，
-    # 避免为快手账号强制拉起无头浏览器）。抖音仍走下方 with 块（需浏览器解析 sec_uid）。
-    for entry in post_rooms:
-        if entry.get("platform", "douyin") != "kuaishou":
-            continue
-        rid = entry.get("id", "")
-        name = entry.get("name", rid) or rid
-        if not room_enabled(entry):
-            logger.info("  [%s] 已暂停（enabled=false），跳过检测", name)
-            continue
-        if not rid:
-            logger.warning("  post_rooms.json 中存在缺 id 的快手条目，已跳过")
-            append_event("", "(缺id)", "kuaishou", "system",
-                         detail="账号配置不完整（缺 id），已跳过", now=bjnow())
-            continue
-        try:
-            _chg, _gated = handle_kuaishou_posts(entry, tracking, cfg_all, silence_cfg, now_str)
-        except Exception as exc:
-            logger.error("  [%s] 快手新作检测异常: %s", name, exc)
-            _chg, _gated = True, False
-        changed = changed or _chg
-        gated_hint = gated_hint or _gated
+    logger.info("开始检测 %d 个抖音/快手用户的新作品...", len(post_rooms))
 
     from playwright.sync_api import sync_playwright
 
@@ -939,11 +921,8 @@ def main() -> None:
         post_rooms_dirty = False
         for entry in post_rooms:
             rid = entry.get("id", "")
-            name = entry.get("name", rid)
+            name = entry.get("name", rid) or rid
             platform = entry.get("platform", "douyin")
-            # 快手已在预扫描（Playwright 块之前）独立处理，此处跳过浏览器路径
-            if platform == "kuaishou":
-                continue
             # B3 批量启停：enabled===false 的账号完全跳过检测（看板保留上次状态）
             if not room_enabled(entry):
                 logger.info("  [%s] 已暂停（enabled=false），跳过检测", name)
@@ -951,8 +930,22 @@ def main() -> None:
             if not rid:
                 # 条目缺 id（配置不完整）→ 写 system 跳过，不刷屏（不写垃圾 error）
                 logger.warning("  post_rooms.json 中存在缺 id 的条目，已跳过")
-                append_event("", "(缺id)", "douyin", "system",
+                append_event("", "(缺id)", platform, "system",
                              detail="账号配置不完整（缺 id），已跳过", now=bjnow())
+                continue
+            if platform == "kuaishou":
+                # 快手走 live_api/profile/public（需浏览器上下文）：复用本浏览器，
+                # KuaishouFeedSession 会用 context.browser.new_context() 自建隔离 context，
+                # 避免与抖音 UA/cookie 串味。此前错误地放在浏览器启动前、且不传 context，
+                # 导致 fetch_new_posts 因 context is None 恒 AdapterGated。
+                try:
+                    _chg, _gated = handle_kuaishou_posts(
+                        entry, tracking, cfg_all, silence_cfg, now_str, context=context)
+                except Exception as exc:
+                    logger.error("  [%s] 快手新作检测异常: %s", name, exc)
+                    _chg, _gated = True, False
+                changed = changed or _chg
+                gated_hint = gated_hint or _gated
                 continue
             key = f"douyin_{rid}"
             t = tracking.get(key, {})
