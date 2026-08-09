@@ -39,6 +39,13 @@ kpfdrx3x/c.kuaishou/v.m.chenzhongtech 三子域、两个账号，结论一致）
    2025-11-05、list[3] 才是最新的 2026-08-07。**取 list[0] 当最新是错的**，
    必须按真实发布时间排序（时间来源见 :func:`decode_media_meta`）。
 
+退化自愈（代码层兜底）
+====================
+整轮导航若拦截到的全是 ``result=2`` / ``400002``（验证码挑战），说明预热没生效或被
+风控卡住，:meth:`KuaishouFeedSession.fetch` 会强制重预热再来一轮。这能救回「token
+种下了但首轮恰好没命中」的情况；若是出口 IP 被快手单独标记（纯 IP 信誉问题），两轮
+都仍 ``result=2``，此时如实记为被挡，不空转、也不伪造「无新作」。
+
 响应字段的坑
 ============
 条目里**没有 ``timestamp``，也没有 ``caption``**，可用字段只有
@@ -55,6 +62,11 @@ logger = logging.getLogger(__name__)
 
 #: 作品接口路径（匹配用，不含 query）。页面自身请求会附带 __NS_hxfalcon 签名。
 PROFILE_PUBLIC_PATH = "/live_api/profile/public"
+
+#: 主站风控 JS 会种下的关键 token；预热后必须存在，否则 profile 接口恒返回
+#: ``result=2``（匿名被挡/预热不足）。实测 ``domcontentloaded`` 时机偏早、常常只种下
+#: ``kwscode``/``kwssectoken``，需等 ``networkidle`` 让风控 JS 跑完才会补 ``kwfv1``。
+ANTIBOT_COOKIES = ("kwfv1", "kwssectoken", "kwscode")
 
 #: 冷启动预热地址：必须先访问主站，风控 JS 才会种下 kwfv1/kwssectoken/kwscode。
 #: 直接开 profile 页会因缺这些 token 恒返回 result=2。
@@ -369,10 +381,14 @@ class KuaishouFeedSession:
 
     #: 单账号最多重新导航几次（冷启动实测 4~5 次，留些余量）
     MAX_NAV = 7
-    #: 每次导航后等响应的秒数
+    #: 每次导航后等响应的秒数（仅作兜底退避用，主等待已改为精确等接口响应）
     WAIT_SEC = 7
     #: 导航超时（毫秒）
     NAV_TIMEOUT_MS = 45000
+    #: 预热后等待风控 JS 跑完的毫秒数（networkidle 通常已够，这里再补一点余量）
+    WARMUP_WAIT_MS = 4000
+    #: 预热最多重试几次（token 没种下就重导航主站，直到拿到或耗尽次数）
+    MAX_WARMUP_RETRY = 3
 
     def __init__(self, browser_context: Any, user_agent: str = "") -> None:
         self._src = browser_context
@@ -406,56 +422,73 @@ class KuaishouFeedSession:
         self._ctx = None
         self._warmed = False
 
-    def _warmup(self, page) -> None:
+    def _warmup(self, page) -> bool:
         """访问主站种风控 token（``kwfv1``/``kwssectoken``/``kwscode``）。
 
         跳过这步的话，profile 页发出的请求会恒返回 ``result=2`` —— 这是整条
         链路唯一不可省的前置动作。
+
+        **返回是否确认种下了关键 token**：之前「一次性置 ``_warmed=True``」的写法
+        在 token 实际没种下时也会误以为已预热，导致整轮静默失败（表现为所有账号
+        全 ``result=2``）。这里改成用 token 是否真实存在于 cookie 判定，并最多重试
+        ``MAX_WARMUP_RETRY`` 次；``networkidle`` 比 ``domcontentloaded`` 更能让风控
+        JS 跑完（实测 ``domcontentloaded`` 只种 ``kwscode``/``kwssectoken``，要等
+        ``networkidle`` 才会补 ``kwfv1``）。
         """
         if self._warmed:
-            return
-        try:
-            page.goto(WARMUP_URL, wait_until="domcontentloaded",
-                      timeout=self.NAV_TIMEOUT_MS)
-            page.wait_for_timeout(1500)
-            self._warmed = True
-        except Exception as e:  # noqa: BLE001
-            logger.warning("[kuaishou] 主站预热失败（继续尝试）: %s", e)
+            return True
+        planted = False
+        last_err = ""
+        for attempt in range(1, self.MAX_WARMUP_RETRY + 1):
+            try:
+                try:
+                    page.goto(WARMUP_URL, wait_until="networkidle",
+                              timeout=self.NAV_TIMEOUT_MS)
+                except Exception:  # noqa: BLE001 —— networkidle 偶发等不到，降级 domcontentloaded
+                    page.goto(WARMUP_URL, wait_until="domcontentloaded",
+                              timeout=self.NAV_TIMEOUT_MS)
+                page.wait_for_timeout(self.WARMUP_WAIT_MS)
+            except Exception as e:  # noqa: BLE001
+                last_err = str(e)
+                logger.warning("[kuaishou] 主站预热第 %d/%d 次失败: %s",
+                               attempt, self.MAX_WARMUP_RETRY, e)
+                continue
+            names = {c.get("name") for c in page.context.cookies()}
+            planted = bool(names & set(ANTIBOT_COOKIES))
+            if planted:
+                break
+        self._warmed = planted
+        if not planted:
+            logger.warning(
+                "[kuaishou] 主站预热未种下风控 token（profile 接口将恒 result=2）"
+                " last_err=%s cookies=%s",
+                last_err, sorted({c.get("name") for c in page.context.cookies()}),
+            )
+        return planted
 
     # ---- 抓取 ----
-    def fetch(self, principal_id: str) -> Dict[str, Any]:  # noqa: C901
-        """打开作者页、拦截页面自身的作品接口响应。
+    def _cycle(self, ctx, pid: str):
+        """单次「预热 + 导航循环」。返回 ``(parsed, seen)``。
 
-        Args:
-            principal_id: 快手 principalId（如 ``3x7ju263tgi5dn9``）。
-
-        Returns:
-            :func:`parse_profile_public` 的结果；失败时 ``ok=False`` 且
-            ``result`` 记录最后一次看到的状态码（2=预热不足，None=没拦到）。
+        ``parsed`` 命中作品列表时为 :func:`parse_profile_public` 的结果（``ok=True``），
+        否则为 ``ok=False`` 的失败字典；``seen`` 是这一轮拦截到的 ``result`` 状态码序列，
+        供上层判断是否要退化自愈（强制重预热）。
         """
         import json as _json
 
-        pid = str(principal_id or "").strip()
-        if not pid:
-            return {"ok": False, "result": None, "items": [], "living": None,
-                    "author_name": "", "author_id": "", "detail": "缺 principalId"}
-
-        ctx = self._ensure_ctx()
         page = ctx.new_page()
         best: Dict[str, Any] = {}
-        last_result = None
         seen: List[Any] = []
 
         def on_response(resp):
-            nonlocal best, last_result
+            nonlocal best, seen
+            if PROFILE_PUBLIC_PATH not in resp.url:
+                return
             try:
-                if PROFILE_PUBLIC_PATH not in resp.url:
-                    return
                 body = resp.body().decode("utf-8", "replace")
                 parsed = parse_profile_public(_json.loads(body))
             except Exception:  # noqa: BLE001 —— 单条响应解析失败不影响整轮
                 return
-            last_result = parsed.get("result")
             seen.append(parsed.get("result"))
             if parsed.get("ok") and not best:
                 best = parsed
@@ -470,10 +503,15 @@ class KuaishouFeedSession:
                               timeout=self.NAV_TIMEOUT_MS)
                 except Exception as e:  # noqa: BLE001
                     logger.debug("[kuaishou] %s 第 %d 次导航异常: %s", pid, i + 1, e)
-                page.wait_for_timeout(self.WAIT_SEC * 1000 // 3)
+                # 精确等待页面自身发出的作品接口响应（比固定 sleep 更稳，也不会过早退出）
+                try:
+                    page.wait_for_response(
+                        lambda r: PROFILE_PUBLIC_PATH in r.url, timeout=9000)
+                except Exception:  # noqa: BLE001 —— 等不到就靠下面的退避再导航
+                    pass
                 if best:
                     break
-                # result=2 是「预热还不够」，重新导航让页面重算签名/刷新 token
+                # result=2 是「预热还不够」/被风控卡住，退避后重新导航让页面重算签名
                 page.wait_for_timeout(1200)
                 if best:
                     break
@@ -486,11 +524,53 @@ class KuaishouFeedSession:
                 pass
 
         if best:
-            best["nav_count"] = len(seen)
-            return best
-        return {"ok": False, "result": last_result, "items": [], "living": None,
-                "author_name": "", "author_id": "", "nav_count": len(seen),
-                "detail": f"未拿到作品列表（响应序列={seen or '无'}）"}
+            return best, seen
+        last = seen[-1] if seen else None
+        return {"ok": False, "result": last, "items": [], "living": None,
+                "author_name": "", "author_id": "",
+                "detail": f"未拿到作品列表（响应序列={seen or '无'}）"}, seen
+
+    def fetch(self, principal_id: str) -> Dict[str, Any]:  # noqa: C901
+        """打开作者页、拦截页面自身的作品接口响应。
+
+        Args:
+            principal_id: 快手 principalId（如 ``3x7ju263tgi5dn9``）。
+
+        Returns:
+            :func:`parse_profile_public` 的结果；失败时 ``ok=False`` 且
+            ``result`` 记录最后一次看到的状态码（2=预热不足，None=没拦到）。
+
+        退化自愈：若整轮拦截到的全是 ``result=2`` / ``400002``（验证码挑战），说明
+        预热没生效或被风控卡住，强制重预热再来一轮 —— 这能救回「token 种下了但首轮
+        恰好没命中」的情况，也不至于在纯 IP 被标记时无限空转（最多两轮）。
+        """
+        pid = str(principal_id or "").strip()
+        if not pid:
+            return {"ok": False, "result": None, "items": [], "living": None,
+                    "author_name": "", "author_id": "", "detail": "缺 principalId"}
+
+        ctx = self._ensure_ctx()
+        parsed, seen = self._cycle(ctx, pid)
+        if parsed.get("ok"):
+            parsed["nav_count"] = len(seen)
+            parsed["seen"] = seen
+            return parsed
+
+        only_blocked = seen and all(s in (2, 400002) for s in seen)
+        if only_blocked:
+            logger.info("[kuaishou] %s 首轮全 result=2/400002，强制重预热重试", pid)
+            self._warmed = False
+            parsed2, seen2 = self._cycle(ctx, pid)
+            seen = seen + seen2
+            if parsed2.get("ok"):
+                parsed2["nav_count"] = len(seen)
+                return parsed2
+            parsed = parsed2
+
+        parsed["nav_count"] = len(seen)
+        parsed["seen"] = seen
+        parsed["detail"] = f"未拿到作品列表（响应序列={seen or '无'}）"
+        return parsed
 
     def fetch_caption(self, photo_id: str) -> str:
         """补取作品文案：接口不返回 ``caption``，从详情页 ``<title>`` 取。

@@ -177,6 +177,67 @@ def probe_browser(pid: str) -> dict:
     return result
 
 
+def probe_live_api_feed(pid: str) -> dict:
+    """复刻生产路径：直接用真实 ``KuaishouFeedSession`` 跑 ``live_api/profile/public``。
+
+    与旧两条通道（裸分享域接口 / 移动端浏览器拦截）不同，这条才是 check_new_posts.py
+    线上实际在用的。探针直接 import 真实适配器类，测的就是线上跑的代码，避免探针与
+    业务代码漂移；输出的 ``seen``（响应状态码序列）能直接看出预热是否种下 token、
+    以及是否卡在纯 ``result=2``（IP 信誉问题）还是会进展到 ``1``。
+    """
+    try:
+        sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        from backend.adapters.kuaishou_feed import (  # noqa: E402
+            KuaishouFeedSession, ANTIBOT_COOKIES,
+        )
+    except Exception as exc:  # noqa: BLE001
+        return {"error": f"import kuaishou_feed failed: {exc}", "verdict": "ERROR"}
+
+    try:
+        from playwright.sync_api import sync_playwright  # noqa: E402
+    except Exception as exc:  # noqa: BLE001
+        return {"error": f"playwright unavailable: {exc}", "verdict": "ERROR"}
+
+    exe = os.environ.get("CHROME_PATH") or None
+    out: dict = {}
+    with sync_playwright() as p:
+        launch_kw = {
+            "headless": True,
+            "args": [
+                "--no-sandbox",
+                "--disable-dev-shm-usage",
+                "--disable-blink-features=AutomationControlled",
+                "--disable-gpu",
+            ],
+        }
+        if exe:
+            launch_kw["executable_path"] = exe
+        browser = p.chromium.launch(**launch_kw)
+        main_ctx = browser.new_context(
+            user_agent=DESKTOP_UA, viewport={"width": 1280, "height": 900}, locale="zh-CN")
+        sess = KuaishouFeedSession(main_ctx, user_agent=DESKTOP_UA)
+        try:
+            r = sess.fetch(pid)
+            out = {
+                "ok": r.get("ok"),
+                "result": r.get("result"),
+                "nav_count": r.get("nav_count"),
+                "seen": r.get("seen"),
+                "items": len(r.get("items") or []),
+                "author_name": r.get("author_name"),
+                "detail": (r.get("detail") or "")[:300],
+            }
+        except Exception as exc:  # noqa: BLE001
+            out = {"error": str(exc), "verdict": "ERROR"}
+        sess.close()
+        main_ctx.close()
+        browser.close()
+
+    out["verdict"] = "OK" if out.get("ok") else "NO_RESULT1"
+    out["antibot_cookies_expected"] = list(ANTIBOT_COOKIES)
+    return out
+
+
 def main() -> int:
     pid = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_PID
     report = {
@@ -187,13 +248,17 @@ def main() -> int:
         "channels": {},
     }
 
-    print("== 1/2 裸 HTTP 分享域接口 ==", flush=True)
+    print("== 1/3 裸 HTTP 分享域接口 ==", flush=True)
     report["channels"]["raw_share_api"] = probe_raw_share_api(pid)
     print(json.dumps(report["channels"]["raw_share_api"], ensure_ascii=False)[:400], flush=True)
 
-    print("== 2/2 浏览器拦截（抖音式）==", flush=True)
+    print("== 2/3 浏览器拦截（抖音式/移动端）==", flush=True)
     report["channels"]["browser_intercept"] = probe_browser(pid)
     print(json.dumps(report["channels"]["browser_intercept"], ensure_ascii=False)[:800], flush=True)
+
+    print("== 3/3 生产路径 live_api/profile/public（真实适配器类）==", flush=True)
+    report["channels"]["live_api_profile_public"] = probe_live_api_feed(pid)
+    print(json.dumps(report["channels"]["live_api_profile_public"], ensure_ascii=False)[:800], flush=True)
 
     verdicts = {k: v.get("verdict") for k, v in report["channels"].items()}
     report["summary"] = verdicts
