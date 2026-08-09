@@ -2441,7 +2441,6 @@ body.batch-mode .blm-work-card {
         <div class="blm-toolbar-row">
           <div class="blm-toolbar-actions">
             <button class="blm-add-room-btn" onclick="toggleAddForm()">＋ 添加</button>
-            <button class="blm-add-room-btn blm-add-room-btn-ghost" onclick="toggleBothAddForm()">同时添加新作品监控</button>
             <button class="blm-add-room-btn blm-add-room-btn-ghost" onclick="toggleBatchAdd()" id="batchToggleBtn">批量添加</button>
             <button class="blm-add-room-btn blm-add-room-btn-ghost" onclick="toggleBatchMode()" id="batchModeBtn">批量管理</button>
           </div>
@@ -2456,23 +2455,11 @@ body.batch-mode .blm-work-card {
             </select>
             <input id="addId" class="blm-input" placeholder="抖音号 / 直播间号（必填）" inputmode="text" autocomplete="off">
             <input id="addName" class="blm-input" placeholder="名称（可选）" autocomplete="off">
-            <input id="roomTags" class="blm-input" placeholder="标签（可选，逗号分隔，如 游戏,学习）" autocomplete="off">
+            <input id="addTags" class="blm-input" placeholder="标签（可选，逗号分隔，如 游戏,学习）" autocomplete="off">
             <div style="display:flex;gap:var(--spacing-sm)">
               <button class="blm-btn blm-btn-primary" style="flex:1" onclick="submitAdd()">添加</button>
+              <button class="blm-btn blm-btn-ghost" id="addBothBtn" onclick="submitBothAdd('add','live')">同时添加新作品监控</button>
               <button class="blm-btn blm-btn-secondary" onclick="toggleAddForm(false)">取消</button>
-            </div>
-          </div>
-          <div class="blm-add-form" id="bothAddForm" style="display:none">
-            <select id="bothAddPlatform" class="blm-input" onchange="onBothAddPlatformChange()">
-              <option value="douyin">抖音</option>
-              <option value="kuaishou">快手</option>
-            </select>
-            <input id="bothAddId" class="blm-input" placeholder="抖音号 / sec_uid（必填）" autocomplete="off">
-            <input id="bothAddName" class="blm-input" placeholder="名称（可选）" autocomplete="off">
-            <input id="bothAddTags" class="blm-input" placeholder="标签（可选，逗号分隔，如 游戏,学习）" autocomplete="off">
-            <div style="display:flex;gap:var(--spacing-sm)">
-              <button class="blm-btn blm-btn-primary" style="flex:1" onclick="submitBothAdd('bothAdd','live')">添加直播+新作品</button>
-              <button class="blm-btn blm-btn-secondary" onclick="toggleBothAddForm(false)">取消</button>
             </div>
           </div>
         </div>
@@ -2522,7 +2509,6 @@ body.batch-mode .blm-work-card {
           </div>
           <div class="blm-toolbar-actions">
             <button class="blm-add-room-btn" onclick="togglePostAddForm()">＋ 添加</button>
-            <button class="blm-add-room-btn blm-add-room-btn-ghost" onclick="togglePostBothAddForm()">同时添加直播监控</button>
             <button class="blm-add-room-btn blm-add-room-btn-ghost" onclick="togglePostBatchAdd()" id="postBatchToggleBtn">批量添加</button>
             <button class="blm-add-room-btn blm-add-room-btn-ghost" onclick="toggleBatchMode()" id="postBatchModeBtn">批量管理</button>
           </div>
@@ -2536,23 +2522,11 @@ body.batch-mode .blm-work-card {
             </select>
             <input id="postAddId" class="blm-input" placeholder="抖音号 / sec_uid（粘贴 sec_uid 可立即生效）" autocomplete="off">
             <input id="postAddName" class="blm-input" placeholder="备注名（可选）" autocomplete="off">
-            <input id="postRoomTags" class="blm-input" placeholder="标签（可选，逗号分隔，如 游戏,学习）" autocomplete="off">
+            <input id="postAddTags" class="blm-input" placeholder="标签（可选，逗号分隔，如 游戏,学习）" autocomplete="off">
             <div style="display:flex;gap:var(--spacing-sm)">
               <button class="blm-btn blm-btn-primary" style="flex:1" onclick="submitPostAdd()">添加</button>
+              <button class="blm-btn blm-btn-ghost" onclick="submitBothAdd('postAdd','post')">同时添加直播监控</button>
               <button class="blm-btn blm-btn-secondary" onclick="togglePostAddForm(false)">取消</button>
-            </div>
-          </div>
-          <div class="blm-add-form" id="postBothAddForm" style="display:none">
-            <select id="postBothAddPlatform" class="blm-input" onchange="onPostBothAddPlatformChange()">
-              <option value="douyin">抖音</option>
-              <option value="kuaishou">快手</option>
-            </select>
-            <input id="postBothAddId" class="blm-input" placeholder="抖音号 / sec_uid（必填）" autocomplete="off">
-            <input id="postBothAddName" class="blm-input" placeholder="名称（可选）" autocomplete="off">
-            <input id="postBothAddTags" class="blm-input" placeholder="标签（可选，逗号分隔，如 游戏,学习）" autocomplete="off">
-            <div style="display:flex;gap:var(--spacing-sm)">
-              <button class="blm-btn blm-btn-primary" style="flex:1" onclick="submitBothAdd('postBothAdd','post')">添加直播+新作品</button>
-              <button class="blm-btn blm-btn-secondary" onclick="togglePostBothAddForm(false)">取消</button>
             </div>
           </div>
         </div>
@@ -4411,7 +4385,7 @@ function submitPostAdd(){
     if(!norm.id){ toast('无法识别该快手号', false); return; }
   }
   // B2 分组标签（逗号分隔 → tags[]）
-  var pTagsRaw=document.getElementById('postRoomTags');
+  var pTagsRaw=document.getElementById('postAddTags');
   var pTags=pTagsRaw&&pTagsRaw.value.trim()? pTagsRaw.value.trim().split(',').map(function(s){return s.trim();}).filter(function(s){return s;}) : [];
   var rec={platform:platform, id:norm.id, name:name||norm.id, tags:pTags};
   if(platform==='douyin' && norm.sec_uid) rec.sec_uid=norm.sec_uid;  // 快手无需 sec_uid，后端按 principalId 解析
@@ -4569,6 +4543,9 @@ function onAddPlatformChange(){
     inp.placeholder='直播间 ID（必填）';
     inp.inputMode='numeric'; inp.setAttribute('inputmode','numeric');
   }
+  /* B站无新作品监控：隐藏直播表单内的「同时添加新作品监控」按钮 */
+  var bothBtn=document.getElementById('addBothBtn');
+  if(bothBtn) bothBtn.style.display = (p==='bilibili') ? 'none' : '';
 }
 
 /** 新作品添加表单：平台切换时同步占位文案。 */
@@ -4592,7 +4569,7 @@ function submitAdd(){
   if(platform!=='bilibili' && platform!=='douyin' && platform!=='kuaishou'){ toast('平台不合法', false); return; }
   if(!id){ toast('房间 ID 必填', false); return; }
   // B2 分组标签（逗号分隔 → tags[]）
-  var tagsRaw=document.getElementById('roomTags').value.trim();
+  var tagsRaw=document.getElementById('addTags').value.trim();
   var tags=tagsRaw? tagsRaw.split(',').map(function(s){return s.trim();}).filter(function(s){return s;}) : [];
   apiAddRoom({platform:platform, id:id, name:name, tags:tags})
     .then(function(res){
@@ -4615,49 +4592,8 @@ function submitAdd(){
     });
 }
 
-/** 切换「添加直播+新作品」独立表单（不影响原有直播/新作品两个按钮）。 */
-function toggleBothAddForm(force){
-  var f=document.getElementById('bothAddForm');
-  if(!f) return;
-  var show = (force===undefined) ? (f.style.display!=='flex' && f.style.display!=='block') : force;
-  f.style.display = show ? 'flex' : 'none';
-  if(show){ toggleAddForm(false); toggleBatchAdd(false); }
-  if(!show){ document.getElementById('bothAddId').value=''; document.getElementById('bothAddName').value=''; document.getElementById('bothAddTags').value=''; }
-}
-
-function togglePostBothAddForm(force){
-  var f=document.getElementById('postBothAddForm');
-  if(!f) return;
-  var show = (force===undefined) ? (f.style.display!=='flex' && f.style.display!=='block') : force;
-  f.style.display = show ? 'flex' : 'none';
-  if(show){ togglePostAddForm(false); togglePostBatchAdd(false); }
-  if(!show){ document.getElementById('postBothAddId').value=''; document.getElementById('postBothAddName').value=''; document.getElementById('postBothAddTags').value=''; }
-}
-
-/** 「添加直播+新作品」表单（直播区）：平台切换时同步占位文案。 */
-function onBothAddPlatformChange(){
-  var p=document.getElementById('bothAddPlatform').value;
-  var inp=document.getElementById('bothAddId');
-  if(p==='kuaishou'){
-    inp.placeholder='快手号 / 主页链接（必填）';
-  }else{
-    inp.placeholder='抖音号 / sec_uid（粘贴 sec_uid 可立即生效）';
-  }
-}
-
-/** 「添加直播+新作品」表单（新作品区）：平台切换时同步占位文案。 */
-function onPostBothAddPlatformChange(){
-  var p=document.getElementById('postBothAddPlatform').value;
-  var inp=document.getElementById('postBothAddId');
-  if(p==='kuaishou'){
-    inp.placeholder='快手号 / 主页链接（必填）';
-  }else{
-    inp.placeholder='抖音号 / sec_uid（粘贴 sec_uid 可立即生效）';
-  }
-}
-
-/** 提交「添加直播+新作品监控」表单（直播区/新作品区共用）：一次输入双写 rooms.json(直播) 与 post_rooms.json(新作品)。
- *  prefix: 表单字段前缀（'bothAdd' = 直播区表单，'postBothAdd' = 新作品区表单）
+/** 提交「添加直播+新作品监控」表单（直播区/新作品区各自表单内复用）：一次输入双写 rooms.json(直播) 与 post_rooms.json(新作品)。
+ *  prefix: 表单字段前缀（'add' = 直播区表单，'postAdd' = 新作品区表单）
  *  primary: 主链路（'live' / 'post'），主链路写入失败致命，另一条尽力而为。 */
 function submitBothAdd(prefix, primary){
   if(!getGhToken()){ toast('请先到「配置」页设置 Token', false); show('config'); return; }
@@ -4679,7 +4615,7 @@ function submitBothAdd(prefix, primary){
   var tags=tagsRaw? tagsRaw.split(',').map(function(s){return s.trim();}).filter(function(s){return s;}) : [];
   apiAddAccountEverywhere(platform, raw, name, tags, primary)
     .then(function(){
-      if(prefix==='bothAdd'){ toggleBothAddForm(false); } else { togglePostBothAddForm(false); }
+      if(prefix==='add'){ toggleAddForm(false); } else if(prefix==='postAdd'){ togglePostAddForm(false); }
       if(platform==='douyin' && norm.sec_uid){
         toast('已添加'+pfName+'（直播+新作品，已带 sec_uid 立即生效）', true);
         triggerMonitor().catch(function(err){ toast('CI 触发失败：'+(err&&err.message?err.message:'未知错误'), false); });
