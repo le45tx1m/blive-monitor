@@ -651,6 +651,22 @@ class KuaishouAdapter(PlatformAdapter):
         t["latest_published_at"] = _ts_to_bj(new_ts)
         if latest.get("cover"):
             t["latest_cover"] = latest["cover"]
+        # 作品卡字段：每次成功抓取都回填（不只建基线），避免 handle_kuaishou_posts
+        # 在「无新作」轮因 out 为空提前返回、导致作品卡缺文案/链接/类型/头像。
+        t["latest_url"] = ks_feed.photo_url(new_id)
+        t["latest_type"] = "图文" if latest.get("is_image") else "视频"
+        _av = parsed.get("author_avatar") or latest.get("author_avatar") or ""
+        if _av:
+            t["avatar"] = _av
+        # 文案：仅当尚未抓到时才补取（避免每轮都发浏览器请求）；
+        # 建基线/历史首次抓取会走这一步，之后 latest_desc 非空即跳过。
+        if not t.get("latest_desc"):
+            _cap = ""
+            try:
+                _cap = self._session(context).fetch_caption(new_id)
+            except Exception as _e:  # noqa: BLE001
+                logger.debug("[kuaishou] 补取文案失败 %s: %s", new_id, _e)
+            t["latest_desc"] = _cap or latest.get("music_name", "")
         self._write_run_tracking(t, rid, success=True)
         return out
 

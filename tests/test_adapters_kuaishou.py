@@ -216,7 +216,8 @@ _REAL_LIST = [
         "poster": "https://p2.a.yximgs.com/upic/2026/08/07/16/BMjAyNjA4MDcxNjIwNTdfMTgwNTM0MDAyXzIwNDc2OTkzNjI0Ml8xXzM=_B94b24437ca17953af619e2b62ffed9b8.jpg",  # noqa: E501
         "workType": "video",
         "playUrl": "https://hwmov.a.yximgs.com/upic/2026/08/07/16/BMjAyNjA4MDcxNjIwNTdfMTgwNTM0MDAyXzIwNDc2OTkzNjI0Ml8xXzM=_b_B63e35bd16b353ea0e00535842fce5dbf.mp4",  # noqa: E501
-        "author": {"id": "pineapple2005", "name": "魅力驿站", "living": False},
+        "author": {"id": "pineapple2005", "name": "魅力驿站", "living": False,
+                   "avatar": "https://p2.a.yximgs.com/uhead/AB/abc_s.jpg"},
     },
 ]
 
@@ -312,15 +313,61 @@ def test_kuaishou_基线一致时无新作():
     assert a.fetch_new_posts("3x7ju263tgi5dn9", baseline=t, context=object()) == []
 
 
-def test_kuaishou_无新作时不浪费请求取文案():
-    """文案要额外开一个详情页，只有确认有新作才该付这个成本。"""
+def test_kuaishou_无新作且不缺文案时不浪费请求取文案():
+    """文案要额外开一个详情页：已抓到文案的「无新作」轮不再重复付这个成本。"""
     sess = _FakeSession()
     a = _adapter_with(sess)
     a.fetch_new_posts("3x7ju263tgi5dn9",
                       baseline={"latest_post_id": "3x2ywf5zitae5zg",
-                                "latest_timestamp": 1786090857},
+                                "latest_timestamp": 1786090857,
+                                "latest_desc": "已有文案"},
                       context=object())
     assert sess.caption_calls == 0
+
+
+def test_kuaishou_缺文案时补取一次():
+    """建基线/历史首次抓取时文案缺失，应补取一次（取完即停，不是每轮都取）。
+
+    此前只在「确认有新作」时才付文案请求成本，导致建基线那轮不取文案——
+    账号最新作品若是旧作、且无新作，文案永远空、作品卡显示「(无描述)」。
+    """
+    sess = _FakeSession()
+    a = _adapter_with(sess)
+    t = {"latest_post_id": "3x2ywf5zitae5zg", "latest_timestamp": 1786090857}
+    a.fetch_new_posts("3x7ju263tgi5dn9", baseline=t, context=object())
+    assert sess.caption_calls == 1
+    assert t["latest_desc"] == "#热辣一夏"
+
+
+def test_kuaishou_头像写入tracking():
+    """作品卡头像来自 profile 响应里的作者头像（条目 author.avatar 或 data.user），
+    应写进 tracking[...].avatar，供前端作品卡显示（不再只靠直播头像兜底）。"""
+    a = _adapter_with(_FakeSession())
+    t = {}
+    a.fetch_new_posts("3x7ju263tgi5dn9", baseline=t, context=object())
+    # 最新一条作品的作者头像（_REAL_LIST 第三条带 avatar）
+    assert t["avatar"] == "https://p2.a.yximgs.com/uhead/AB/abc_s.jpg"
+
+
+def test_kuaishou_头像取data_user兜底():
+    """条目 author 没头像时，从 profile 属主 data.user.avatar 兜底。"""
+    payload = {
+        "data": {
+            "user": {"id": "u1", "name": "n1", "avatar": "https://p2.a.yximgs.com/uhead/AB/user_s.jpg"},
+            "list": [
+                {"id": "p1",
+                 "poster": "https://p2.a.yximgs.com/upic/2026/08/07/16/BMjAyNjA4MDcxNjIwNTdfMTgwNTM0MDAyXzIwNDc2OTkzNjI0Ml8xXzM=_Bx.jpg",
+                 "workType": "video",
+                 "playUrl": "https://hwmov.a.yximgs.com/upic/2026/08/07/16/BMjAyNjA4MDcxNjIwNTdfMTgwNTM0MDAyXzIwNDc2OTkzNjI0Ml8xXzM=_b_Bx.mp4",
+                 "author": {"id": "u1", "name": "n1"}},
+            ],
+            "result": 1,
+        }
+    }
+    a = _adapter_with(_FakeSession(payload=payload))
+    t = {}
+    a.fetch_new_posts("u1", baseline=t, context=object())
+    assert t["avatar"] == "https://p2.a.yximgs.com/uhead/AB/user_s.jpg"
 
 
 def test_kuaishou_归属校验拦截他人作品():

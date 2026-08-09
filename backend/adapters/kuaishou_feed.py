@@ -156,6 +156,24 @@ def decode_media_meta(url: Any) -> Tuple[Optional[int], str]:
     return None, ""
 
 
+def _author_avatar(author: Any) -> str:
+    """从作者对象里尽力取出头像 URL（快手字段名不统一，多候选兜底）。"""
+    if not isinstance(author, dict):
+        return ""
+    cand = [
+        author.get("avatar"),
+        author.get("headUrl"),
+        author.get("headurl"),
+    ]
+    hu = author.get("headUrls")
+    if isinstance(hu, list) and hu:
+        cand.append(hu[0])
+    for c in cand:
+        if isinstance(c, str) and c.strip():
+            return c.strip()
+    return ""
+
+
 def normalize_item(raw: Any) -> Optional[Dict[str, Any]]:
     """把 ``data.list`` 的一条归一化成内部 dict（时间/归属自 URL 反解）。
 
@@ -172,6 +190,7 @@ def normalize_item(raw: Any) -> Optional[Dict[str, Any]]:
 
     author = raw.get("author") if isinstance(raw.get("author"), dict) else {}
     imgs = raw.get("imgUrls") if isinstance(raw.get("imgUrls"), list) else []
+    author_avatar = _author_avatar(author)
     play_url = str(raw.get("playUrl") or "")
     cover = str(raw.get("poster") or "")
 
@@ -194,6 +213,7 @@ def normalize_item(raw: Any) -> Optional[Dict[str, Any]]:
         "is_image": work_type in ("multiple", "single") or (not play_url and bool(imgs)),
         "author_id": str(author.get("id") or ""),
         "author_name": str(author.get("name") or ""),
+        "author_avatar": author_avatar,
         "music_name": str(raw.get("musicName") or ""),
         "counts": raw.get("counts") if isinstance(raw.get("counts"), dict) else {},
     }
@@ -227,9 +247,21 @@ def parse_profile_public(payload: Any) -> Dict[str, Any]:
 
     author_name = ""
     author_id = ""
+    author_avatar = ""
     for it in items:
         author_name = author_name or it.get("author_name") or ""
         author_id = author_id or it.get("author_id") or ""
+        author_avatar = author_avatar or it.get("author_avatar") or ""
+
+    # profile 属主头像（data.user / data.author / data.owner），兜底用列表首条作品作者头像；
+    # 留给前端作品卡显示，避免「有昵称没头像」的半截信息。
+    if not author_avatar:
+        for src in (data.get("user"), data.get("author"), data.get("owner")):
+            if isinstance(src, dict):
+                av = _author_avatar(src)
+                if av:
+                    author_avatar = av
+                    break
 
     return {
         "ok": bool(result == 1 and items),
@@ -238,6 +270,7 @@ def parse_profile_public(payload: Any) -> Dict[str, Any]:
         "living": bool(living) if living is not None else None,
         "author_name": author_name,
         "author_id": author_id,
+        "author_avatar": author_avatar,
     }
 
 

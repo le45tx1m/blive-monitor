@@ -3040,6 +3040,17 @@ function roomAvatar(r, s){
     : inner;
 }
 
+/* 作品卡头像兜底：post_tracking 缺 avatar 时，回退到同 id 直播房间已抓到的头像
+   （status.json / rooms.json，CI 直播监控已存）。避免「有昵称没头像」的半截信息。 */
+function findLiveAvatar(id){
+  var src = (typeof rooms !== 'undefined' && rooms) || (stat && stat.rooms) || [];
+  if(!src || !src.length) return '';
+  for(var i = 0; i < src.length; i++){
+    if(src[i] && src[i].id === id && src[i].avatar) return src[i].avatar;
+  }
+  return '';
+}
+
 function renderLive(){
   var lb=document.getElementById('liveBody');
   if(!rooms.length){lb.innerHTML='<div class="empty">📭 暂无监控房间</div>';return;}
@@ -3180,7 +3191,7 @@ function renderPosts(){
     var coverImg=tt.latest_cover?'<img class="blm-work-cover" src="'+e(tt.latest_cover)+'" alt="" onerror="this.remove()">':'';
     /* 横条视图用头像（真实头像优先，缺省回退首字母彩色圆），与卡片视图的视频封面区分 */
     var _ach=(name||'?').replace(/\s+/g,'').charAt(0)||'?';
-    var _avaUrl = tt.avatar || '';
+    var _avaUrl = tt.avatar || findLiveAvatar(id) || '';
     var _avaImg = _avaUrl ? '<img src="'+e(_avaUrl)+'" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display=\'none\'">' : '';
     var avatarHtml='<span class="blm-work-avatar '+(plat==='kuaishou'?'ava-kuaishou':(plat==='bilibili'?'ava-bili':'ava-douyin'))+'" aria-hidden="true">'+_avaImg+e(_ach)+'</span>';
     var titleLine=name, descLine='', linkLine=link;
