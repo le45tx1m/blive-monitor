@@ -1,13 +1,15 @@
 # blive-monitor 运行时依赖
 #
 # 直播状态检测（check_status.py）仅使用 Python 标准库，无需额外依赖。
-# 抖音新作品检测（check_new_posts.py）需要无头 Chromium，故安装 playwright。
+# 抖音/快手新作品检测（check_new_posts.py / tools/kuaishou_probe.py）需要无头 Chromium。
 #
-# 日志模块重构（log_utils.py / state_prune.py）同样仅用标准库
-# （logging / logging.handlers.RotatingFileHandler / json / os），无新增第三方依赖。
-#
+# 浏览器启动统一走 backend.adapters._browser：优先 patchright（浏览器级隐身抗快手风控，
+# RSSHub 同款方案），未安装时回退原生 playwright（隐身减弱但不中断监控）。
+# patchright 是 Playwright 的反检测 fork（独立包，不依赖 playwright 包），自带打补丁的
+# Chromium，需 `patchright install --with-deps chromium` 下载。
 # Python 版本要求: 3.8+
-playwright==1.58.0
+playwright==1.58.0        # 兜底：patchright 不可用时退回原生 playwright
+patchright==1.61.2        # 优先：浏览器级隐身抗风控
 
 # 校验工作流 YAML（test_refactor_edge 等测试需要），CI 安装避免 ImportError
 pyyaml>=6.0

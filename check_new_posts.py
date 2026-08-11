@@ -897,7 +897,7 @@ def main() -> None:
 
     logger.info("开始检测 %d 个抖音/快手用户的新作品...", len(post_rooms))
 
-    from playwright.sync_api import sync_playwright
+    from backend.adapters._browser import sync_playwright
 
     cookie = load_douyin_cookie()
     with sync_playwright() as pw:
@@ -1350,7 +1350,7 @@ def run_post_check(*, cfg_all: Dict[str, Any], persist: Any, now: Optional[Any] 
     own_context = False
     if context is None:
         try:
-            from playwright.sync_api import sync_playwright
+            from backend.adapters._browser import sync_playwright
             pw = sync_playwright().__enter__()
             browser = pw.chromium.launch(
                 headless=True,

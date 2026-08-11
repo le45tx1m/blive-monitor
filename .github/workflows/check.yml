@@ -63,21 +63,21 @@ jobs:
           n=$(python3 -c "import json;print(len(json.load(open('post_rooms.json'))))" 2>/dev/null || echo 0)
           if [ "$n" != "0" ]; then echo "enabled=true" >> "$GITHUB_OUTPUT"; else echo "enabled=false" >> "$GITHUB_OUTPUT"; fi
 
-      # 缓存 Playwright 浏览器（抖音作品监控使用）
+      # 缓存 patchright 浏览器（抖音/快手作品监控使用，优先 patchright 隐身）
       - name: Cache Playwright browsers
         if: ${{ steps.postlist.outputs.enabled == 'true' }}
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-1.58.0
+          key: patchright-1.61.2
 
-      # 安装 Playwright + Chromium（抖音作品监控需要）
+      # 安装 patchright + Chromium（优先 patchright 隐身抗风控；playwright 作为兜底一并安装）
       - name: Install Playwright
         if: ${{ steps.postlist.outputs.enabled == 'true' }}
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          playwright install --with-deps chromium
+          patchright install --with-deps chromium
 
       # 运行直播检测
       # GITHUB_TOKEN 供 notify_dedup.sync_from_remote 在推送前拉取远端最新去重账本

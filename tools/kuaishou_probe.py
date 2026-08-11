@@ -109,7 +109,7 @@ def probe_browser(pid: str) -> dict:
     这正是 check_new_posts.get_latest_aweme 对抖音所做的事。
     """
     try:
-        from playwright.sync_api import sync_playwright
+        from backend.adapters._browser import sync_playwright
     except Exception as exc:  # noqa: BLE001
         return {"error": f"playwright unavailable: {exc}", "verdict": "ERROR"}
 
@@ -194,7 +194,7 @@ def probe_live_api_feed(pid: str) -> dict:
         return {"error": f"import kuaishou_feed failed: {exc}", "verdict": "ERROR"}
 
     try:
-        from playwright.sync_api import sync_playwright  # noqa: E402
+        from backend.adapters._browser import sync_playwright  # noqa: E402
     except Exception as exc:  # noqa: BLE001
         return {"error": f"playwright unavailable: {exc}", "verdict": "ERROR"}
 

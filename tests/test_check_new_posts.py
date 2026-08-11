@@ -102,7 +102,11 @@ class _FakePW:
 
 
 def _install_fake_playwright():
-    """注入假的 playwright.sync_api 模块，使 main() 的 `from playwright... import` 成功。"""
+    """注入假的 sync_playwright：同时覆盖 backend.adapters._browser 与 playwright.sync_api，
+    使 main() 的 `from backend.adapters._browser import sync_playwright` 走假实现。"""
+    import backend.adapters._browser as bw
+    bw.sync_playwright = lambda: _FakePW()
+    # 兼容仍直接 import playwright.sync_api 的代码
     if "playwright" not in sys.modules:
         sys.modules["playwright"] = types.ModuleType("playwright")
     fake = types.ModuleType("playwright.sync_api")
@@ -629,6 +633,8 @@ def test_main_applies_cookie_via_env(tmp_path, monkeypatch):
 
         chromium = type("C", (), {"launch": staticmethod(lambda **kw: RecBrowser())})()
 
+    import backend.adapters._browser as _bw
+    _bw.sync_playwright = lambda: RecPW()
     sys.modules["playwright.sync_api"].sync_playwright = lambda: RecPW()
 
     cnp.main()

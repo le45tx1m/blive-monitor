@@ -167,7 +167,9 @@ class _FakePW:
 @pytest.fixture
 def fake_playwright(monkeypatch):
     import playwright.sync_api as sa
+    import backend.adapters._browser as bw
     monkeypatch.setattr(sa, "sync_playwright", lambda: _FakePW())
+    monkeypatch.setattr(bw, "sync_playwright", lambda: _FakePW())
 
 
 def test_new_posts_routes_kuaishou(tmp_path, monkeypatch, fake_playwright):
