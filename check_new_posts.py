@@ -162,10 +162,16 @@ def load_douyin_cookie() -> str:
 def load_kuaishou_cookie() -> str:
     """读取快手登录 Cookie（可选）。
 
-    优先环境变量 KUAISHOU_COOKIE；其次 BLIVE_CONFIG 里的 kuaishou_cookie 字段。
+    优先级（从高到低）：
+      1. 环境变量 KUAISHOU_COOKIE
+      2. BLIVE_CONFIG 里的 kuaishou_cookie 字段
+      3. 仓库文件 config/kuaishou_cookie.txt（纯 Cookie 串；CI 提交进仓库，免手动设 Secret）
     没有则返回空串——此时快手走免 Cookie 匿名通道（live_api/profile/public + 预热种
     token），与抖音的 DOUYIN_COOKIE 同理。配置后交由 KuaishouFeedSession 注入其隔离
     context，用于突破匿名被挡的风控（如 Nizi981116 这类卡 gated 的账号）。
+
+    注：第 3 路是把 cookie 作为仓库文件提交，免去在 GitHub Secrets 手动设置的环节；
+    因仓库为公开 GitHub Pages，cookie 会出现在公开 git 历史，登录态过期后需重新生成并提交。
     """
     env = os.environ.get("KUAISHOU_COOKIE", "").strip()
     if env:
@@ -175,7 +181,18 @@ def load_kuaishou_cookie() -> str:
         cfg = json.loads(raw) if raw else {}
     except Exception:
         cfg = {}
-    return (cfg.get("kuaishou_cookie") or "").strip()
+    cookie = (cfg.get("kuaishou_cookie") or "").strip()
+    if cookie:
+        return cookie
+    # 兜底：仓库内提交的纯 Cookie 文件（免手动设 Secret 的通道）。
+    cookie_file = os.path.join(REPO_DIR, "config", "kuaishou_cookie.txt")
+    try:
+        if os.path.isfile(cookie_file):
+            with open(cookie_file, "r", encoding="utf-8") as _fh:
+                return _fh.read().strip()
+    except Exception:
+        pass
+    return ""
 
 
 def apply_douyin_cookie(context, cookie_str: str) -> None:
