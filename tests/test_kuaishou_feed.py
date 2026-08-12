@@ -444,3 +444,22 @@ def test_kuaishou_cookie_empty_no_inject():
     sess = kf.KuaishouFeedSession(src, user_agent="", kuaishou_cookie="")
     ctx = sess._ensure_ctx()
     assert getattr(ctx, "injected", []) == []
+
+
+def test_parse_cookie_string_dedup_keeps_last():
+    """重名 cookie（用户从多个请求合并复制时常见）应去重、保留最后一条。
+
+    否则两条同名同域 cookie 会触发 Playwright add_cookies 的重复校验直接报错，
+    导致整个 Cookie 兜底通道崩溃。实测用户抓到的 Cookie 里 kwscode / kwssectoken /
+    kwpsecproductname 各出现两次且值不同。
+    """
+    s = "kwscode=a; kwscode=b; kwssectoken=x; kwssectoken=y; kwpsecproductname=v; kwpsecproductname=v"
+    out = kf._parse_cookie_string(s, ".kuaishou.com")
+    names = [c["name"] for c in out]
+    assert names.count("kwscode") == 1
+    assert names.count("kwssectoken") == 1
+    assert names.count("kwpsecproductname") == 1
+    by_name = {c["name"]: c["value"] for c in out}
+    assert by_name["kwscode"] == "b"        # 保留最后一条
+    assert by_name["kwssectoken"] == "y"
+    assert all(c["domain"] == ".kuaishou.com" and c["path"] == "/" for c in out)

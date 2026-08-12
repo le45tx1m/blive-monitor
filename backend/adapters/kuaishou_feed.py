@@ -88,19 +88,28 @@ def _parse_cookie_string(cookie_str: str, domain: str) -> List[Dict[str, str]]:
 
     仅做字符串拆分，不依赖浏览器；供 :meth:`KuaishouFeedSession._apply_kuaishou_cookie`
     复用，``domain`` 固定为 ``.kuaishou.com``（覆盖 www/live 等子域）。
+
+    重名去重（保留最后一条）：用户从多个请求合并复制 Cookie 时，``kwscode`` /
+    ``kwssectoken`` / ``kwpsecproductname`` 等字段常出现两次且值不同。同名同域的两条
+    cookie 会触发 Playwright ``add_cookies`` 的重复校验报错，这里按 name 去重、
+    保留后出现的（通常是较新/较全的那条）。
     """
     out: List[Dict[str, str]] = []
+    seen: Dict[str, Dict[str, str]] = {}
     for part in cookie_str.split(";"):
         part = part.strip()
         if not part or "=" not in part:
             continue
         k, v = part.split("=", 1)
-        out.append({
-            "name": k.strip(),
-            "value": v.strip(),
-            "domain": domain,
-            "path": "/",
-        })
+        k = k.strip()
+        v = v.strip()
+        if k in seen:
+            # 重名：保留最后一条的值（位置不变，避免打乱其它 cookie 顺序）
+            seen[k]["value"] = v
+        else:
+            item = {"name": k, "value": v, "domain": domain, "path": "/"}
+            seen[k] = item
+            out.append(item)
     return out
 
 
