@@ -83,6 +83,27 @@ from backend.adapters.kuaishou_feed_core import (  # noqa: F401
 logger = __import__("logging").getLogger(__name__)
 
 
+def _parse_cookie_string(cookie_str: str, domain: str) -> List[Dict[str, str]]:
+    """把 ``"k=v; k2=v2"`` 拆成 Playwright ``add_cookies`` 需要的 dict 列表。
+
+    仅做字符串拆分，不依赖浏览器；供 :meth:`KuaishouFeedSession._apply_kuaishou_cookie`
+    复用，``domain`` 固定为 ``.kuaishou.com``（覆盖 www/live 等子域）。
+    """
+    out: List[Dict[str, str]] = []
+    for part in cookie_str.split(";"):
+        part = part.strip()
+        if not part or "=" not in part:
+            continue
+        k, v = part.split("=", 1)
+        out.append({
+            "name": k.strip(),
+            "value": v.strip(),
+            "domain": domain,
+            "path": "/",
+        })
+    return out
+
+
 # ==================== 浏览器会话 ====================
 
 class KuaishouFeedSession:
@@ -118,12 +139,16 @@ class KuaishouFeedSession:
     #: 设为 0 可关闭主动重预热，仅保留「整轮全 result=2 强制重预热」的被动兜底。
     MAX_USES_PER_TOKEN = 4
 
-    def __init__(self, browser_context: Any, user_agent: str = "") -> None:
+    def __init__(self, browser_context: Any, user_agent: str = "",
+                 kuaishou_cookie: str = "") -> None:
         self._src = browser_context
         self._ua = user_agent
         self._ctx = None
         self._warmed = False
         self._uses = 0
+        # 可选：登录 Cookie（KUAISHOU_COOKIE），注入自建隔离 context 以突破匿名风控。
+        # 空串 = 走免 Cookie 匿名通道（live_api/profile/public + 预热种 token）。
+        self._kuaishou_cookie = kuaishou_cookie or ""
 
     # ---- 生命周期 ----
     def _ensure_ctx(self):
@@ -139,7 +164,21 @@ class KuaishouFeedSession:
         else:
             # 拿不到 browser 就直接用传进来的 context（测试替身/降级路径）
             self._ctx = self._src
+        # 可选：注入快手登录 Cookie（KUAISHOU_COOKIE），突破匿名被挡的风控
+        if self._kuaishou_cookie:
+            self._apply_kuaishou_cookie(self._ctx)
         return self._ctx
+
+    def _apply_kuaishou_cookie(self, ctx) -> None:
+        """把 KUAISHOU_COOKIE 拆条写入隔离 context（仅在配置了时调用）。"""
+        cookies = _parse_cookie_string(self._kuaishou_cookie, ".kuaishou.com")
+        if not cookies:
+            return
+        try:
+            ctx.add_cookies(cookies)
+            logger.info("[kuaishou] 已注入登录 Cookie（%d 条），可突破作品接口风控", len(cookies))
+        except Exception as e:  # noqa: BLE001
+            logger.warning("[kuaishou] 注入快手 Cookie 失败: %s", e)
 
     def close(self) -> None:
         """关闭自建 context（借用外部 context 时不动它）。"""

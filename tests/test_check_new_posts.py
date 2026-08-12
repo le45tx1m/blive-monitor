@@ -584,6 +584,15 @@ def test_load_douyin_cookie(monkeypatch):
     assert cnp.load_douyin_cookie() == "sessionid=env"
 
 
+def test_load_kuaishou_cookie(monkeypatch):
+    monkeypatch.delenv("KUAISHOU_COOKIE", raising=False)
+    monkeypatch.setenv("BLIVE_CONFIG", '{"kuaishou_cookie": "kuaishou.com=abc; t=1"}')
+    assert cnp.load_kuaishou_cookie() == "kuaishou.com=abc; t=1"
+    # 环境变量优先
+    monkeypatch.setenv("KUAISHOU_COOKIE", "kuaishou.com=env")
+    assert cnp.load_kuaishou_cookie() == "kuaishou.com=env"
+
+
 def test_apply_douyin_cookie():
     ctx = FakeCtx(FakePage())
     cnp.apply_douyin_cookie(ctx, "")           # 空 -> 不注入

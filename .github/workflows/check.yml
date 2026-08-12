@@ -97,6 +97,7 @@ jobs:
         env:
           BLIVE_CONFIG: ${{ secrets.BLIVE_CONFIG }}
           DOUYIN_COOKIE: ${{ secrets.DOUYIN_COOKIE }}
+          KUAISHOU_COOKIE: ${{ secrets.KUAISHOU_COOKIE }}
           ENABLE_POST_CHECK: "true"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

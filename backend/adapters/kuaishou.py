@@ -514,8 +514,10 @@ class KuaishouAdapter(PlatformAdapter):
         浏览器等于每个都付一遍冷启动代价，还更容易撞风控。
         """
         if self._feed_session is None:
+            from check_new_posts import load_kuaishou_cookie
+            cookie = load_kuaishou_cookie()
             self._feed_session = ks_feed.KuaishouFeedSession(
-                context, user_agent=_KUAISHOU_UA
+                context, user_agent=_KUAISHOU_UA, kuaishou_cookie=cookie
             )
         return self._feed_session
 

@@ -159,6 +159,25 @@ def load_douyin_cookie() -> str:
     return (cfg.get("douyin_cookie") or "").strip()
 
 
+def load_kuaishou_cookie() -> str:
+    """读取快手登录 Cookie（可选）。
+
+    优先环境变量 KUAISHOU_COOKIE；其次 BLIVE_CONFIG 里的 kuaishou_cookie 字段。
+    没有则返回空串——此时快手走免 Cookie 匿名通道（live_api/profile/public + 预热种
+    token），与抖音的 DOUYIN_COOKIE 同理。配置后交由 KuaishouFeedSession 注入其隔离
+    context，用于突破匿名被挡的风控（如 Nizi981116 这类卡 gated 的账号）。
+    """
+    env = os.environ.get("KUAISHOU_COOKIE", "").strip()
+    if env:
+        return env
+    raw = os.environ.get("BLIVE_CONFIG", "{}")
+    try:
+        cfg = json.loads(raw) if raw else {}
+    except Exception:
+        cfg = {}
+    return (cfg.get("kuaishou_cookie") or "").strip()
+
+
 def apply_douyin_cookie(context, cookie_str: str) -> None:
     """把 Cookie 字符串拆成单条写入浏览器上下文（仅当配置了才调用）。
 

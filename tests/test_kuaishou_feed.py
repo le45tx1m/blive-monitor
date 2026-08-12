@@ -259,6 +259,11 @@ class _FakeCtx:
     def cookies(self):
         return [{"name": n} for n in core.ANTIBOT_COOKIES]
 
+    def add_cookies(self, cookies):
+        """记录注入的 Cookie（测试用），与 Playwright context.add_cookies 同签名。"""
+        self.injected = getattr(self, "injected", [])
+        self.injected.extend(cookies)
+
     def close(self):
         pass
 
@@ -404,3 +409,38 @@ def test_纯IP被标记时如实记为被挡():
     assert r["ok"] is False
     assert r["result"] in (2, None)
     assert "响应序列" in (r.get("detail") or "")
+
+
+def test_kuaishou_cookie_injected_to_session_context():
+    """配置了 kuaishou_cookie 时，应注入到会话自建的隔离 context（domain=.kuaishou.com）。"""
+    src = _FakeSrc(10)
+    real_new = src.browser.new_context
+
+    def _new(**kw):
+        src.last_ctx = real_new(**kw)
+        return src.last_ctx
+
+    src.browser.new_context = _new
+    sess = kf.KuaishouFeedSession(
+        src, user_agent="", kuaishou_cookie="kuaishou.com=abc; passport_csrf_token=xyz")
+    ctx = sess._ensure_ctx()  # 触发自建 context + 注入
+    injected = getattr(ctx, "injected", [])
+    assert len(injected) == 2
+    assert injected[0]["domain"] == ".kuaishou.com"
+    assert injected[0]["name"] == "kuaishou.com" and injected[0]["value"] == "abc"
+    assert injected[1]["name"] == "passport_csrf_token"
+
+
+def test_kuaishou_cookie_empty_no_inject():
+    """未配置 cookie 时不应注入任何东西（保持免 Cookie 匿名通道）。"""
+    src = _FakeSrc(10)
+    real_new = src.browser.new_context
+
+    def _new(**kw):
+        src.last_ctx = real_new(**kw)
+        return src.last_ctx
+
+    src.browser.new_context = _new
+    sess = kf.KuaishouFeedSession(src, user_agent="", kuaishou_cookie="")
+    ctx = sess._ensure_ctx()
+    assert getattr(ctx, "injected", []) == []
