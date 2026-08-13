@@ -180,3 +180,102 @@ def test_parse_beijing_no_tz_bug():
     assert all(r == results[0] for r in results), f"跨时区结果不一致: {results}"
     expected = 1783690252000  # Date.UTC(2026,6,10,13,30,52)
     assert results[0] == expected, f"parseBeijing 返回值错误: {results[0]} != {expected}"
+
+
+@pytest.mark.skipif(not _has_node(), reason="node 不可用")
+class TestGhWriteWithRetryDelete:
+    """删除意图必须在「冲突 → 重试 → 并集合并」路径中存活。
+
+    2026-08「前端删除时好时坏，显示已删除实际没删」的根因：
+    删除的 PUT 撞上 409（CI 并发提交）后进重试，enhancedMerge 是并集语义，
+    把刚删掉的条目从远端合并回来，写回的文件里账号复活。
+    """
+
+    def _build_js(self, remote_rooms, fail_first_put=True):
+        html = _read_monitor()
+        js = "\n".join([
+            _extract_fn(html, "roomEntryKey"),
+            _extract_fn(html, "enhancedMerge"),
+            _extract_fn(html, "isRetryableError"),
+            _extract_fn(html, "ghWriteWithRetry"),
+        ])
+        stub = (
+            "\nvar getCalls=0, putCalls=0, putPayloads=[], freshSeen=[];\n"
+            "function ghGetFile(path, fresh){\n"
+            "  getCalls++; freshSeen.push(!!fresh);\n"
+            f"  return Promise.resolve({{rooms: {json.dumps(remote_rooms, ensure_ascii=False)}, sha:'sha'+getCalls}});\n"
+            "}\n"
+            "function ghPutFile(path, rooms, sha){\n"
+            "  putCalls++; putPayloads.push(JSON.parse(JSON.stringify(rooms)));\n"
+            + ("  if(putCalls===1) return Promise.reject({conflict:true});\n"
+               if fail_first_put else "")
+            + "  return Promise.resolve('newsha');\n"
+            "}\n"
+        )
+        harness = (
+            "\nghWriteWithRetry('rooms.json', function(rs){\n"
+            "  var next = rs.filter(function(r){ return String(r.id) !== 'A'; });\n"
+            "  return {rooms: next, changed: next.length !== rs.length};\n"
+            "}).then(function(res){\n"
+            "  console.log(JSON.stringify({rooms: res.rooms, putPayloads: putPayloads,\n"
+            "    putCalls: putCalls, freshSeen: freshSeen}));\n"
+            "}).catch(function(e){\n"
+            "  console.log(JSON.stringify({error: String((e && e.message) || e)}));\n"
+            "});\n"
+        )
+        return js + stub + harness
+
+    def _run_async(self, js):
+        f = tempfile.NamedTemporaryFile("w", suffix=".js", delete=False, encoding="utf-8")
+        try:
+            f.write(js)
+        finally:
+            f.close()
+        try:
+            r = subprocess.run(["node", f.name], capture_output=True, text=True, timeout=60)
+        finally:
+            os.unlink(f.name)
+        assert r.returncode == 0, f"node 执行失败: {r.stderr}"
+        return json.loads(r.stdout.strip())
+
+    def test_删除撞冲突重试后不得复活(self):
+        """首次 PUT 409 → 重试走并集合并 → 被删的 A 仍必须不在最终写回里。"""
+        remote = [
+            {"platform": "kuaishou", "id": "A", "name": "A"},
+            {"platform": "kuaishou", "id": "B", "name": "B-被CI改过"},
+        ]
+        out = self._run_async(self._build_js(remote, fail_first_put=True))
+        assert "error" not in out, out
+        assert out["putCalls"] == 2                       # 首次冲突 + 重试成功
+        for payload in out["putPayloads"]:
+            assert all(str(r["id"]) != "A" for r in payload), \
+                f"写回里出现了被删的 A: {payload}"
+        assert all(str(r["id"]) != "A" for r in out["rooms"])
+        # 未删除的 B 保留，且并集合并带来的远端字段富化不丢
+        b = next(r for r in out["rooms"] if r["id"] == "B")
+        assert b["name"] == "B-被CI改过"
+
+    def test_删除无冲突一次成功(self):
+        remote = [
+            {"platform": "kuaishou", "id": "A", "name": "A"},
+            {"platform": "kuaishou", "id": "B", "name": "B"},
+        ]
+        out = self._run_async(self._build_js(remote, fail_first_put=False))
+        assert "error" not in out, out
+        assert out["putCalls"] == 1
+        assert all(str(r["id"]) != "A" for r in out["putPayloads"][0])
+
+    def test_写回路径用fresh读穿透缓存(self):
+        """ghWriteWithRetry 必须用 fresh=true 读（拿最新 sha，降低 409 概率）。"""
+        remote = [{"platform": "kuaishou", "id": "B", "name": "B"}]
+        out = self._run_async(self._build_js(remote, fail_first_put=False))
+        assert "error" not in out, out
+        assert out["freshSeen"] and all(out["freshSeen"]), out["freshSeen"]
+
+    def test_无platform旧条目按id删除(self):
+        """历史条目（无 platform 字段）走 id-only 语义，删除同样不复活。"""
+        remote = [{"id": "A", "name": "A"}, {"id": "B", "name": "B"}]
+        out = self._run_async(self._build_js(remote, fail_first_put=True))
+        assert "error" not in out, out
+        for payload in out["putPayloads"]:
+            assert all(str(r["id"]) != "A" for r in payload)

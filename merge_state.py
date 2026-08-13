@@ -26,7 +26,8 @@ abort 后本地提交基于旧 base，push 非快进被拒，状态丢失。
                       —— 绝不丢失任何去重记录，是防重复推送的核心
   post_tracking.json: 每个账号取基线更新的那份（aweme_id 数值更大，或
                       create_time 更新）；sec_uid/nickname 取非空值
-  post_rooms.json   : 取并集（按 id 去重），sec_uid 取非空值
+  post_rooms.json   : 成员以远端为准（用户 web 直写 master 是最新意图），
+                      本地仅富化 sec_uid/name —— 并集会把中途删除的账号复活
   state.json        : 取本地（本 run 刚写入，最新）
   tracking.json     : 取本地（本 run 刚写入，最新）
   history.json      : 取并集（按 time+name 去重，保留最近 N 条）
@@ -159,32 +160,51 @@ def merge_post_tracking(local: Dict, remote: Dict) -> Dict:
     return merged
 
 
+def _post_room_key(entry) -> str:
+    """post_rooms 条目唯一键：``platform|id``（无 platform 的历史条目按约定视为 douyin）。"""
+    if not isinstance(entry, dict):
+        return ""
+    rid = str(entry.get("id") or "")
+    if not rid:
+        return ""
+    return f"{entry.get('platform') or 'douyin'}|{rid}"
+
+
 def merge_post_rooms(local: list, remote: list) -> list:
-    """合并作品监控列表：取并集（按 id 去重），sec_uid 取非空值。"""
+    """合并作品监控列表：**成员以远端为准**，本地仅做字段富化。
+
+    成员资格（哪些账号在列表里）由远端（origin/master）决定：前端 web 直写
+    master、CI 从不新增账号，远端就是用户意图的最新表达；本地副本来自本 run
+    开始时的 checkout，若按旧逻辑取并集，用户在 run 中途删除的账号会被复活
+    （2026-08「前端删除时好时坏」的根因之一：删了五分钟后又被 CI 提交回来）。
+
+    本地仅对「远端仍存在」的条目贡献字段富化：本 run 解析出的 sec_uid 覆盖
+    远端；name 以远端非空为准（用户可能中途改名），远端为空才用本地补。
+    """
     if not isinstance(local, list):
         local = []
     if not isinstance(remote, list):
         remote = []
-    by_id = {}
-    # 先放 remote，再 local 覆盖（local 优先，因为本 run 可能新增了 sec_uid）
-    for entry in remote:
-        rid = entry.get("id", "")
-        if rid:
-            by_id[rid] = entry
+    local_by_key = {}
     for entry in local:
-        rid = entry.get("id", "")
-        if not rid:
+        key = _post_room_key(entry)
+        if key:
+            local_by_key[key] = entry
+    merged = []
+    for entry in remote:
+        if not isinstance(entry, dict):
             continue
-        if rid in by_id:
-            # 合并：sec_uid 取非空
-            merged = dict(by_id[rid])
-            for field in ("sec_uid", "name"):
-                if entry.get(field):
-                    merged[field] = entry[field]
-            by_id[rid] = merged
-        else:
-            by_id[rid] = entry
-    return list(by_id.values())
+        l = local_by_key.get(_post_room_key(entry))
+        if not l:
+            merged.append(entry)
+            continue
+        m = dict(entry)
+        if l.get("sec_uid"):
+            m["sec_uid"] = l["sec_uid"]
+        if not m.get("name") and l.get("name"):
+            m["name"] = l["name"]
+        merged.append(m)
+    return merged
 
 
 def merge_history(local: list, remote: list) -> list:

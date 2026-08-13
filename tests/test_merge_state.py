@@ -98,12 +98,36 @@ def test_tracking_remote_newer_wins():
 
 # ---------- post_rooms 合并 ----------
 
-def test_rooms_union_by_id():
+def test_rooms_local_only_dropped_membership_remote_authoritative():
+    """成员以远端为准：本地 checkout 是 run 开始时的快照，不能把远端已删的账号带回来。"""
     local = [{"id": "A", "name": "A", "sec_uid": "SA"}]
     remote = [{"id": "B", "name": "B", "sec_uid": "SB"}]
     merged = ms.merge_post_rooms(local, remote)
     ids = {r["id"] for r in merged}
-    assert ids == {"A", "B"}
+    assert ids == {"B"}
+
+
+def test_rooms_deletion_respected():
+    """用户中途在 web 删除账号（远端已无），CI 持久化不得复活它。
+
+    2026-08「前端删除时好时坏」根因之一：旧并集逻辑把本地快照里的被删账号
+    又合并回去，删除五分钟后随 CI 提交复活。
+    """
+    local = [{"platform": "douyin", "id": "A", "name": "A"},
+             {"platform": "kuaishou", "id": "K1", "name": "K1"}]
+    remote = [{"platform": "kuaishou", "id": "K1", "name": "K1"}]  # A 已被用户删除
+    merged = ms.merge_post_rooms(local, remote)
+    assert len(merged) == 1
+    assert merged[0]["id"] == "K1"
+
+
+def test_rooms_remote_additions_kept():
+    """用户中途在 web 新增账号（远端有、本地快照无）必须保留。"""
+    local = [{"platform": "douyin", "id": "A", "name": "A"}]
+    remote = [{"platform": "douyin", "id": "A", "name": "A"},
+              {"platform": "douyin", "id": "NEW", "name": "NEW"}]
+    merged = ms.merge_post_rooms(local, remote)
+    assert {r["id"] for r in merged} == {"A", "NEW"}
 
 
 def test_rooms_sec_uid_filled_from_local():
@@ -120,6 +144,33 @@ def test_rooms_sec_uid_filled_from_remote():
     merged = ms.merge_post_rooms(local, remote)
     a = next(r for r in merged if r["id"] == "A")
     assert a["sec_uid"] == "SA"
+
+
+def test_rooms_name_remote_wins_when_nonempty():
+    """用户可能中途改名：远端 name 非空时优先，不被本地旧快照回写。"""
+    local = [{"id": "A", "name": "旧名", "sec_uid": "SA"}]
+    remote = [{"id": "A", "name": "新名", "sec_uid": "SA"}]
+    merged = ms.merge_post_rooms(local, remote)
+    assert merged[0]["name"] == "新名"
+
+
+def test_rooms_name_local_fills_blank():
+    local = [{"id": "A", "name": "本地解析的昵称", "sec_uid": "SA"}]
+    remote = [{"id": "A", "name": "", "sec_uid": "SA"}]
+    merged = ms.merge_post_rooms(local, remote)
+    assert merged[0]["name"] == "本地解析的昵称"
+
+
+def test_rooms_platform_aware_key():
+    """同 id 不同 platform 是两个账号：按 platform|id 匹配，互不串扰。"""
+    local = [{"platform": "douyin", "id": "X", "name": "dx", "sec_uid": "S1"},
+             {"platform": "kuaishou", "id": "X", "name": "kx-old"}]
+    remote = [{"platform": "douyin", "id": "X", "name": "dx", "sec_uid": ""}]
+    merged = ms.merge_post_rooms(local, remote)
+    # kuaishou|X 不在远端 → 被删；douyin|X 保留并富化 sec_uid
+    assert len(merged) == 1
+    assert merged[0]["platform"] == "douyin"
+    assert merged[0]["sec_uid"] == "S1"
 
 
 # ---------- history 合并 ----------

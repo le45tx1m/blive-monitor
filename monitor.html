@@ -3750,9 +3750,14 @@ function ghFetch(url, opts){
     });
 }
 
-/** 读取 rooms.json → {rooms, sha}。 */
-function ghGetFile(path){
-  return ghFetch(GH_API+'/'+path+'?ref='+GH_BRANCH, {method:'GET', headers:ghHeaders()})
+/** 读取 rooms.json → {rooms, sha}。
+ *  fresh=true 时给 URL 附加时间戳穿透 CDN 缓存：GitHub Contents GET 有缓存，
+ *  CI/上一次写回刚发生时读到的 sha 可能已过期 → PUT 409。写回路径（ghWriteWithRetry）
+ *  必须用 fresh 读；普通页面加载不必（保留缓存，省 API 配额）。 */
+function ghGetFile(path, fresh){
+  var url=GH_API+'/'+path+'?ref='+GH_BRANCH;
+  if(fresh) url+='&_t='+Date.now();
+  return ghFetch(url, {method:'GET', headers:ghHeaders()})
     .then(function(res){
       if(res.status===404) return {rooms:[], sha:null};
       if(!res.ok) throw new Error('读取失败（HTTP '+res.status+(res.data&&res.data.message?': '+res.data.message:'')+'）');
@@ -4197,16 +4202,24 @@ function isRetryableError(e){
  * 签名与返回形状严格保持：(path, mutate) => Promise<{rooms, changed, sha}>。
  * 内部增强（相对 2a/2b）：
  *   ① 409 / 5xx / 网络错误均退避重试（≤5 次，退避 0.5→1→2→4s 封顶 8s）；
- *   ② 每次重试先 ghGetFile 拿远端最新 base，再重跑 mutate（=不丢并发/CI 改动）；
- *   ③ 重试时以字段级 enhancedMerge(local, remote) 兜底（tags/enabled 本地优先、sec_uid/name 远端优先）。
+ *   ② 每次重试先 ghGetFile 拿远端最新 base（fresh 读穿透 CDN 缓存），再重跑 mutate（=不丢并发/CI 改动）；
+ *   ③ 重试时以字段级 enhancedMerge(local, remote) 兜底（tags/enabled 本地优先、sec_uid/name 远端优先）；
+ *   ④ 并集合并会把 mutate 删掉的条目从远端带回来，故合并后按 key 重新移除本轮被删条目 —— 删除意图不丢。
  * 首成功路径与旧版完全一致（不套 merge，保证 saveRoomEdit 等领域行为零回归）。
  */
+/** 房间条目 key（与 enhancedMerge 的 k() 同语义：两侧都无 platform 时只按 id）。 */
+function roomEntryKey(r, idOnly){
+  var id = String(r && r.id != null ? r.id : '');
+  return idOnly ? id : (((r && r.platform) ? r.platform + '|' : '') + id);
+}
+
 function ghWriteWithRetry(path, mutate){
   var attempt = 0;
   var MAX = 5;
   var backoff = [500, 1000, 2000, 4000, 8000]; // 退避序列，封顶 8s
   function run(useMerge){
-    return ghGetFile(path).then(function(file){
+    // fresh=true：写回路径必须读穿 CDN 缓存拿最新 sha，降低 409 概率
+    return ghGetFile(path, true).then(function(file){
       var res = mutate(file.rooms);
       if(!res.changed) return Object.assign({}, res, { sha: file.sha });
       var payload = res.rooms;
@@ -4214,6 +4227,22 @@ function ghWriteWithRetry(path, mutate){
       if(useMerge){
         var merged = enhancedMerge(res.rooms, file.rooms);
         payload = merged.rooms;
+        // enhancedMerge 是并集语义：mutate 删掉的条目会被它从远端加回来。
+        // 删除意图必须保住 —— 按 key 重新移除本轮被删条目，否则「删除撞冲突
+        // → 重试合并」会把账号复活：界面提示已删除，列表里却还在
+        // （2026-08「前端删除时好时坏」的根因）。
+        var baseList = file.rooms || [], nextList = res.rooms || [];
+        var idOnly = baseList.concat(nextList).every(function(r){ return !r.platform; });
+        var kept = {};
+        nextList.forEach(function(r){ kept[roomEntryKey(r, idOnly)] = 1; });
+        var removed = {};
+        baseList.forEach(function(r){
+          var key = roomEntryKey(r, idOnly);
+          if(!kept[key]) removed[key] = 1;
+        });
+        if(Object.keys(removed).length){
+          payload = payload.filter(function(r){ return !removed[roomEntryKey(r, idOnly)]; });
+        }
       }
       return ghPutFile(path, payload, file.sha).then(function(newSha){
         return Object.assign({}, res, { rooms: payload, changed: true, sha: newSha });
