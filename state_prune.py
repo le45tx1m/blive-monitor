@@ -11,6 +11,8 @@
   - post_tracking 孤儿：``f"douyin_{rid}"``（来自当前磁盘 post_rooms.json）
 """
 
+import os
+
 import common
 
 
@@ -48,11 +50,15 @@ def prune_history_orphans(history, active_keys):
 
 
 def prune_tracking_orphans(tracking, active_keys):
-    """级联清理 post_tracking.json 孤儿：删除 ``key ∉ active_keys`` 的账号状态。
+    """级联清理 tracking 类字典孤儿：删除 ``key ∉ active_keys`` 的账号状态。
+
+    通用实现（仅按 key 集合裁剪），既可用于 post_tracking.json（活钥来自 post_rooms.json），
+    也可用于 live tracking.json（活钥来自 rooms.json，形如 ``"{platform}_{rid}"``）。
+    两种用法的差异仅在 active_keys 的构造，本函数不参与键格式假设。
 
     Args:
-        tracking: post_tracking.json 内容（dict，key 形如 ``"douyin_{rid}"``）。
-        active_keys: 活钥集合，元素形如 ``"douyin_{rid}"``（来自当前磁盘 post_rooms.json）。
+        tracking: tracking 类字典（post_tracking.json / tracking.json），key 形如 ``"douyin_{rid}"``。
+        active_keys: 活钥集合（来自当前磁盘的 rooms.json 或 post_rooms.json）。
 
     Returns:
         清理后的 tracking 字典（新对象）。
@@ -62,6 +68,45 @@ def prune_tracking_orphans(tracking, active_keys):
     if not isinstance(active_keys, set):
         active_keys = set(active_keys)
     return {k: v for k, v in tracking.items() if k in active_keys}
+
+
+def find_orphan_covers(rooms, post_rooms, covers_dir):
+    """返回 assets/covers 下、无对应房间（直播或新作品）的孤儿封面完整路径列表。
+
+    封面命名约定：``{platform}_{id}.jpg``（与 transcode_covers 一致，post 缺 platform 时按 douyin 兜底）。
+    活房间集合 = rooms.json 的 ``platform_id`` ∪ post_rooms.json 的 ``platform_id``
+    （post_rooms 条目缺 platform 按 douyin 兜底，与前端/后端键构造保持一致）。
+
+    Args:
+        rooms: rooms.json 内容（list[dict]）。
+        post_rooms: post_rooms.json 内容（list[dict]）。
+        covers_dir: 封面目录（绝对/相对路径）。
+
+    Returns:
+        孤儿封面完整路径列表（无则空列表）。纯函数，不读写磁盘（仅 os.listdir 只读扫描）。
+    """
+    rooms = rooms if isinstance(rooms, list) else []
+    post_rooms = post_rooms if isinstance(post_rooms, list) else []
+    live_set = {
+        f"{r.get('platform', 'bilibili')}_{r.get('id', '')}"
+        for r in rooms if r.get("id")
+    }
+    post_set = {
+        f"{(r.get('platform') or 'douyin')}_{r.get('id', '')}"
+        for r in post_rooms if r.get("id")
+    }
+    active = live_set | post_set
+
+    orphans = []
+    if not covers_dir or not os.path.isdir(covers_dir):
+        return orphans
+    for fn in os.listdir(covers_dir):
+        if not fn.endswith(".jpg"):
+            continue
+        base = fn[:-4]  # 去掉 .jpg
+        if base not in active:
+            orphans.append(os.path.join(covers_dir, fn))
+    return orphans
 
 
 #: 身份解析可自动补齐的 config 字段（任务八）。

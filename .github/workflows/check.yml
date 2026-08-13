@@ -174,7 +174,9 @@ jobs:
           # status.json 由脚本每轮重写（含 updated/time 等易变时间戳）。前端新鲜度由 Pages 每次部署时从
           # 工作区拷贝最新 status.json 保证（见 Build Pages 步骤），故 git 提交只在「meaningful 内容变化」时
           # 纳入 status.json，忽略纯时间戳变动，避免每 5 分钟空推一条 commit。
-          git add -f $PERSIST_FILES assets/covers
+          # 状态文件被 .gitignore 忽略，用 -f 强制纳入；assets/covers 用 `git add -A` 以同时 stage 封面删除（孤儿清理），
+          # 区别于 `git add -f`（不会 stage 删除，会导致已删封面残留在仓库）。
+          git add -f $PERSIST_FILES && git add -A assets/covers
           # status.json：仅当其 meaningful 内容（去掉 updated 与每房间 time/live_duration）相比 HEAD 变化才提交
           # 内联 heredoc（python3 - <<'PY'）会被 GitHub Actions 的 js-yaml 误判合并键而解析失败，
           # 故抽取为独立脚本 tools/strip_status.py（与 96802b1 的「消除重复推送」同目标）。
@@ -228,7 +230,9 @@ jobs:
             done
             [ -d "$TMPD/covers" ] && mkdir -p assets/covers && cp -r "$TMPD/covers/"* assets/covers/ 2>/dev/null || true
             rm -rf "$TMPD"
-            git add -f $PERSIST_FILES assets/covers
+            # 状态文件被 .gitignore 忽略，用 -f 强制纳入；assets/covers 用 `git add -A` 以同时 stage 封面删除（孤儿清理），
+          # 区别于 `git add -f`（不会 stage 删除，会导致已删封面残留在仓库）。
+          git add -f $PERSIST_FILES && git add -A assets/covers
             python3 tools/strip_status.py
             # 重试也仅在状态真变时才提交，避免为无变化空推
             if git diff --cached --quiet; then echo "重试：状态无变化，跳过"; break; fi

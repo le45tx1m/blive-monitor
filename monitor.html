@@ -4357,6 +4357,63 @@ function apiRemovePostRoom(o){
     return {rooms:next, changed:true};
   });
 }
+/* ===== 彻底删除：派生缓存清理（best-effort，不阻塞主删除结果） ===== */
+
+/** 取文件 sha（用于 DELETE），不解析内容；404 返回 null。 */
+function ghGetSha(path){
+  return ghFetch(GH_API+'/'+path+'?ref='+GH_BRANCH, {method:'GET', headers:ghHeaders()})
+    .then(function(res){
+      if(res.status===404) return null;
+      if(!res.ok) throw new Error('读取失败（HTTP '+res.status+'）');
+      return (res.data && res.data.sha) ? res.data.sha : null;
+    });
+}
+
+/** 删除 GitHub 仓库内文件（如孤儿封面）。需先取 sha。 */
+function ghDeleteFile(path, sha){
+  return ghFetch(GH_API+'/'+path, {
+    method:'DELETE',
+    headers:ghHeaders({'Content-Type':'application/json'}),
+    body:JSON.stringify({ message:'chore(rooms): remove orphan cover for deleted account', sha:sha, branch:GH_BRANCH })
+  }).then(function(res){
+    if(!res.ok) throw new Error('封面删除失败（HTTP '+res.status+'）');
+    return true;
+  });
+}
+
+/** 从 dict 型 JSON 文件（post_tracking.json / tracking.json）移除指定 key。 */
+function apiRemoveDictKey(path, key){
+  return ghWriteWithRetry(path, function(rs){
+    if(!rs || typeof rs !== 'object' || !rs.hasOwnProperty(key)) return {rooms:rs, changed:false};
+    var next={}; for(var k in rs){ if(k!==key) next[k]=rs[k]; }
+    return {rooms:next, changed:true};
+  });
+}
+
+/** 删除账号封面图（assets/covers/{platform}_{id}.jpg），不存在则跳过。 */
+function apiDeleteCover(platform, id){
+  var name = platform+'_'+String(id)+'.jpg';
+  return ghGetSha('assets/covers/'+name).then(function(sha){
+    if(!sha) return false; // 无封面，跳过
+    return ghDeleteFile('assets/covers/'+name, sha);
+  }).catch(function(){ return false; }); // 404 / 网络等，忽略
+}
+
+/**
+ * 彻底删除：清掉账号的派生缓存（新作基线 post_tracking + live 跟踪 tracking + 封面图）。
+ * best-effort：任一失败仅 console.warn，不阻塞主删除流程。
+ * @param {string} platform
+ * @param {string} id
+ */
+function cascadeCleanupAccount(platform, id){
+  var key = platform+'_'+String(id);
+  Promise.all([
+    apiRemoveDictKey('post_tracking.json', key).catch(function(e){ console.warn('[cleanup] post_tracking 清理失败', e); }),
+    apiRemoveDictKey('tracking.json', key).catch(function(e){ console.warn('[cleanup] tracking 清理失败', e); }),
+    apiDeleteCover(platform, id).catch(function(e){ console.warn('[cleanup] 封面清理失败', e); })
+  ]);
+}
+
 /** 同步顶部「新作品号」统计数。 */
 function updateStatPosts(){ var el=document.getElementById('statPosts'); if(el) el.textContent = postRooms.length; var _vp=document.getElementById('visPosts'); if(_vp)_vp.textContent=postRooms.length; }
 /**
@@ -4452,8 +4509,18 @@ function removePostRoom(arg){
     if(postRooms[i].platform===platform && String(postRooms[i].id)===id){ disp=postRooms[i].name||id; break; }
   }
   if(!window.confirm('确定移除监控「'+disp+'」？')) return;
+  /* 主：清新作品列表；随后交叉清同 id 的直播列表（best-effort，不在则忽略）；最后级联扫缓存 */
   apiRemovePostRoom({id:id, platform:platform})
-    .then(function(res){ postRooms=res.rooms||[]; renderPosts(); updateStatPosts(); toast('已移除「'+disp+'」', true); })
+    .then(function(res){
+      postRooms=res.rooms||[]; renderPosts(); updateStatPosts();
+      return apiRemoveRoom({platform:platform, id:id})
+        .then(function(r2){ rooms=r2.rooms||[]; renderLive(); updateStatRooms(); })
+        .catch(function(){ /* 该账号不在直播列表，忽略 */ });
+    })
+    .then(function(){
+      cascadeCleanupAccount(platform, id);
+      toast('已移除「'+disp+'」', true);
+    })
     .catch(function(err){ toast(err && err.message ? err.message : '移除失败', false); });
 }
 
@@ -4669,10 +4736,16 @@ function removeRoom(arg){
     if(rooms[i].platform===platform && String(rooms[i].id)===id){ disp=rooms[i].name||id; break; }
   }
   if(!window.confirm('确定移除监控「'+disp+'」？')) return;
+  /* 主：清直播列表；随后交叉清同 id 的新作品列表（best-effort，不在则忽略）；最后级联扫缓存 */
   apiRemoveRoom({platform:platform, id:id})
     .then(function(res){
-      /* 同上：用写回时计算出的新列表直接更新本地，避免 GET 缓存导致删除后仍需刷新才消失 */
       rooms=res.rooms||[]; renderLive(); updateStatRooms();
+      return apiRemovePostRoom({platform:platform, id:id})
+        .then(function(r2){ postRooms=r2.rooms||[]; renderPosts(); updateStatPosts(); })
+        .catch(function(){ /* 该账号不在新作品列表，忽略 */ });
+    })
+    .then(function(){
+      cascadeCleanupAccount(platform, id);
       toast('已移除「'+disp+'」', true);
     })
     .catch(function(err){ toast(err && err.message ? err.message : '移除失败', false); });
@@ -5394,33 +5467,26 @@ function deleteSelected(){
   if(!getGhToken()){ toast('请先到「配置」页设置 Token', false); show('config'); return; }
   var keys=Object.keys(selected);
   if(!keys.length){ toast('请先勾选房间', false); return; }
-  // 按列表归类：selected key 形如 platform|id
-  var liveKeys={}, postIds={};
+  // 选中项 key 形如 platform|id；视为「彻底删除该账号」：同时从直播(rooms.json)与新作品(post_rooms.json)两列表移除并级联扫缓存。
+  var accounts=[];
   keys.forEach(function(k){
-    var p=k.split('|'); var platform=p[0], id=p[1];
-    if(rooms.some(function(r){ return r.platform===platform && String(r.id)===String(id); })) liveKeys[k]=true;
-    if(postRooms.some(function(r){ return String(r.id)===String(id); })) postIds[String(id)]=true;
+    var p=k.split('|'); accounts.push({platform:p[0], id:String(p[1])});
   });
-  var liveN=Object.keys(liveKeys).length, postN=Object.keys(postIds).length;
-  if(!liveN && !postN){ toast('勾选项不在任何监控列表', false); return; }
-  var total=keys.length;
-  if(!window.confirm('确定删除选中的 '+total+' 个监控？此操作不可撤销。')) return;
+  var total=accounts.length;
+  if(!window.confirm('确定彻底删除选中的 '+total+' 个账号？将从直播与新作品监控中同时移除，并清除其全部缓存。此操作不可撤销。')) return;
   var jobs=[];
-  if(liveN){
-    jobs.push(ghWriteWithRetry('rooms.json', function(rs){
-      var next=rs.filter(function(r){ return !liveKeys[r.platform+'|'+String(r.id)]; });
-      return {rooms:next, changed: next.length!==rs.length};
-    }).then(function(res){ rooms=res.rooms; }));
-  }
-  if(postN){
-    jobs.push(ghWriteWithRetry('post_rooms.json', function(rs){
-      var next=rs.filter(function(r){ return !postIds[String(r.id)]; });
-      return {rooms:next, changed: next.length!==rs.length};
-    }).then(function(res){ postRooms=res.rooms; }));
-  }
+  jobs.push(ghWriteWithRetry('rooms.json', function(rs){
+    var next=rs.filter(function(r){ return !accounts.some(function(a){ return a.platform===r.platform && String(a.id)===String(r.id); }); });
+    return {rooms:next, changed: next.length!==rs.length};
+  }).then(function(res){ rooms=res.rooms; }));
+  jobs.push(ghWriteWithRetry('post_rooms.json', function(rs){
+    var next=rs.filter(function(r){ return !accounts.some(function(a){ return (r.platform||'douyin')===a.platform && String(a.id)===String(a.id); }); });
+    return {rooms:next, changed: next.length!==rs.length};
+  }).then(function(res){ postRooms=res.rooms; }));
   Promise.all(jobs).then(function(){
     selected={}; renderLive(); renderPosts(); updateBatchBar(); updateStatRooms(); updateStatPosts();
-    toast('已删除选中房间', true);
+    accounts.forEach(function(a){ cascadeCleanupAccount(a.platform, a.id); }); // best-effort 级联清缓存
+    toast('已彻底删除选中账号', true);
   }).catch(function(err){ toast(err&&err.message||'批量删除失败', false); });
 }
 /** 显示/隐藏批量条并刷新计数（live/posts 两个视图均更新）。 */

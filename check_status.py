@@ -1209,6 +1209,34 @@ def main() -> None:
     history = state_prune.prune_history_orphans(history, active_keys)
     save_json_file(HISTORY_FILE, history)
 
+    # 固化阶段：级联清理 live tracking.json 孤儿（基于当前磁盘 rooms.json 的 platform_rid 活钥）。
+    # 与 history 孤儿同理，防止前端删除房间后残留 live 跟踪状态（重加即带旧基线）。
+    live_active_keys = {
+        f"{r.get('platform', 'bilibili')}_{r.get('id', '')}"
+        for r in rooms_now
+        if r.get("id")
+    }
+    tracking = state_prune.prune_tracking_orphans(tracking, live_active_keys)
+    save_json_file(TRACKING_FILE, tracking)
+
+    # 固化阶段：清理孤儿封面（无对应房间的新作品/直播封面）。
+    # 覆盖命名 {platform}_{id}.jpg，活房间集合 = rooms.json ∪ post_rooms.json。
+    # 删除自身由 check.yml 的 `git add -A assets/covers` 纳入提交（区别于 git add -f 不会 stage 删除）。
+    try:
+        covers_dir = os.path.join(REPO_DIR, "assets", "covers")
+        post_rooms_now = load_json_file(os.path.join(REPO_DIR, "post_rooms.json"), []) or []
+        orphan_covers = state_prune.find_orphan_covers(rooms_now, post_rooms_now, covers_dir)
+        for _oc in orphan_covers:
+            try:
+                os.remove(_oc)
+                logger.info("已删除孤儿封面: %s", _oc)
+            except OSError as e:
+                logger.warning("删除孤儿封面失败 %s: %s", _oc, e)
+        if orphan_covers:
+            logger.info("清理孤儿封面 %d 个", len(orphan_covers))
+    except Exception as e:
+        logger.warning("清理孤儿封面失败（不影响主流程）: %s", e)
+
     # 裁剪去重账本（丢弃过期 live: key，post: key 永久保留）
     try:
         dedup_prune()
