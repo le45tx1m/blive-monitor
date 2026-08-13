@@ -140,3 +140,33 @@
 - **token**：git remote 里的 `ghp_` 仅能 git 操作，不能写 Secret。
 - **测试**：本沙箱无浏览器（playwright/patchright 不一定可跑），`kuaishou_feed` 的"最新一条"逻辑无法在此实证，只能靠 CI 跑后看结果。
 - 本地改动推送前务必 `git pull --rebase origin master`，CI/web 常抢改 `rooms.json` 与 state 文件。
+
+---
+
+## 8. 2026-08-13 下午续查：「Nizi981116 抓不到最新」根因 = 出口地域（修正 §2.2 的判断）
+
+> 排查者：千问办公助理（本沙箱出口 = 杭州阿里云，大陆 IP）
+
+### 根因（已实证，可复现）
+快手 `live_api/profile/public` **按访问者地域返回不同的作品列表**：
+
+| 出口 | Nizi981116 返回 |
+|---|---|
+| 大陆（杭州阿里云，本沙箱） | 5 条，含最新 2023-06-15 `3x6uavw8xesypye`，`pcursor=no_more`，连测 4 次稳定一致 |
+| GitHub Actions（海外 Azure） | **缺最新一条**，基线自首次建基线（2026-08-13 03:33）起恒停在 2020-01-23 `3xi6qc9eg8w5vvg`，当日 12 个历史快照全部如此 |
+
+- §2.2 的「导航标识」修复不是根因：改快手号导航后 CI 依旧缺那条；同样代码在大陆出口稳定拿到含最新的完整列表。
+- 用户确认该账号共 5 条作品 → 大陆出口列表 = 全集。
+- wada / Sandy 不受影响（其最新作品在海外出口也可见），说明是「按内容/账号」的差异而非全站封锁。
+- 匿名通道（graphql/H5/主站匿名）全部实测无法绕过；主站全集接口需登录（result=109）。
+
+### 本轮已提交的改动
+1. **基线防回退**（`kuaishou.py fetch_new_posts`）：本轮最新比已有基线旧 → 判定退化列表，基线保持不变并告警（防止海外退化视图把基线打回旧帖、下轮又误推）。
+2. **观测字段** `last_fetch_items`（id+ts）：记录每轮接口真实返回，CI 从下一轮起可直接看到拿到了哪几条。
+3. **出口代理支持**：`check_new_posts.load_browser_proxy()`，env `BROWSER_PROXY` 或 `BLIVE_CONFIG.browser_proxy`，格式 `http://[user:pass@]host:port`；workflow 已加 `BROWSER_PROXY: ${{ secrets.BROWSER_PROXY }}`。配置大陆出口代理后浏览器抓取全部走代理。
+4. 新增单测 4 个（防回退/首轮建基线/观测字段/代理解析），247 项全过。
+
+### 待办
+- [ ] **用户提供大陆出口代理**并设入 GitHub Secret `BROWSER_PROXY`（只能经 GitHub UI 设置）。配置后验证 `last_fetch_items` 出现 5 条、`latest_post_id` 前进到 `3x6uavw8xesypye`，并会收到 2023-06-15 那条的补推（去重账本无记录，会正常推送一次）。
+- [ ] **passToken 已疑似失效**：排查中曾用 `config/kuaishou_cookie.txt` 的 passToken 走 `id.kuaishou.com/pass/kuaishou/login/passToken?sid=kuaishou.server.webday7&callback=https://www.kuaishou.com/rest/infra/sts?followUrl=...` 成功换到一次主站会话（证明该路可通、可做成自动续期），随后报「账号异常，请重新登录」（token 疑被轮换消耗，勿再重试旧 token）。live 通道不依赖 passToken，生产监控不受影响；若未来要走主站登录通道，需用户重新抓 cookie。
+- [ ] 若代理后仍有个别作品不可见（更细的地域限制），唯一剩余路径是主站登录通道（`rest/v/profile/feed`，需 `kuaishou.server.webday7_st` 会话）。

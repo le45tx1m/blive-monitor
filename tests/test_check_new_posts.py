@@ -593,6 +593,31 @@ def test_load_kuaishou_cookie(monkeypatch):
     assert cnp.load_kuaishou_cookie() == "kuaishou.com=env"
 
 
+def test_load_browser_proxy(monkeypatch):
+    """出口代理：未配置返回 None（直连）；配置后解析成 playwright proxy 参数。"""
+    monkeypatch.delenv("BROWSER_PROXY", raising=False)
+    monkeypatch.setenv("BLIVE_CONFIG", "{}")
+    assert cnp.load_browser_proxy() is None
+
+    # 无协议前缀自动补 http
+    monkeypatch.setenv("BROWSER_PROXY", "1.2.3.4:8080")
+    assert cnp.load_browser_proxy() == {"server": "http://1.2.3.4:8080"}
+
+    # 带认证
+    monkeypatch.setenv("BROWSER_PROXY", "http://user:***@1.2.3.4:8080")
+    assert cnp.load_browser_proxy() == {
+        "server": "http://1.2.3.4:8080", "username": "user", "password": "***"}
+
+    # BLIVE_CONFIG 兜底；环境变量优先
+    monkeypatch.delenv("BROWSER_PROXY", raising=False)
+    monkeypatch.setenv("BLIVE_CONFIG", '{"browser_proxy": "http://9.9.9.9:1080"}')
+    assert cnp.load_browser_proxy() == {"server": "http://9.9.9.9:1080"}
+
+    # 格式不合法 → 回退直连而不是崩溃
+    monkeypatch.setenv("BROWSER_PROXY", "notaurl")
+    assert cnp.load_browser_proxy() is None
+
+
 def test_apply_douyin_cookie():
     ctx = FakeCtx(FakePage())
     cnp.apply_douyin_cookie(ctx, "")           # 空 -> 不注入

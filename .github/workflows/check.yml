@@ -98,6 +98,10 @@ jobs:
           BLIVE_CONFIG: ${{ secrets.BLIVE_CONFIG }}
           DOUYIN_COOKIE: ${{ secrets.DOUYIN_COOKIE }}
           KUAISHOU_COOKIE: ${{ secrets.KUAISHOU_COOKIE }}
+          # 出口代理（可选）：快手按访问地域返回不同作品列表，海外 runner 会漏
+          # 部分账号的最新作品（2026-08 实测 Nizi981116）。配置大陆出口代理后
+          # 浏览器抓取流量走代理即可拿全。格式 http://[user:pass@]host:port。
+          BROWSER_PROXY: ${{ secrets.BROWSER_PROXY }}
           ENABLE_POST_CHECK: "true"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

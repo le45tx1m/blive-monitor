@@ -195,6 +195,45 @@ def load_kuaishou_cookie() -> str:
     return ""
 
 
+def load_browser_proxy() -> Optional[Dict[str, str]]:
+    """读取浏览器出口代理（可选），把作品抓取流量走到指定地域出口。
+
+    优先级：环境变量 BROWSER_PROXY > BLIVE_CONFIG.browser_proxy。
+    格式：``http://host:port`` 或 ``http://user:pass@host:port``。
+
+    为什么需要它（2026-08 实测，排查「Nizi981116 抓不到最新」时确认）：
+    快手对不同地域的访问者返回**不同的作品列表** —— 同一账号，大陆出口 IP
+    能拿到全部作品（含最新一条），GitHub Actions 的海外出口拿到的列表少
+    最新一条（接口还返回 pcursor=no_more，伪装成「没有更多」）。监控跑在
+    海外 runner 上就会永远漏掉这类作品。配置大陆出口代理后，Chromium 的
+    全部抓取流量走代理即可拿到完整列表。未配置返回 None（直连，行为不变）。
+    """
+    raw = os.environ.get("BROWSER_PROXY", "").strip()
+    if not raw:
+        try:
+            cfg = json.loads(os.environ.get("BLIVE_CONFIG", "{}") or "{}")
+        except Exception:
+            cfg = {}
+        raw = str(cfg.get("browser_proxy") or "").strip()
+    if not raw:
+        return None
+    from urllib.parse import urlparse
+    try:
+        u = urlparse(raw if "://" in raw else f"http://{raw}")
+        if not u.hostname or not u.port:
+            raise ValueError("缺 host 或端口")
+        out: Dict[str, str] = {"server": f"{u.scheme or 'http'}://{u.hostname}:{u.port}"}
+        if u.username:
+            out["username"] = u.username
+        if u.password:
+            out["password"] = u.password
+        logger.info("浏览器抓取走代理: %s", out["server"])
+        return out
+    except Exception as e:  # noqa: BLE001
+        logger.warning("BROWSER_PROXY 格式不合法，忽略并直连: %r (%s)", raw[:80], e)
+        return None
+
+
 def apply_douyin_cookie(context, cookie_str: str) -> None:
     """把 Cookie 字符串拆成单条写入浏览器上下文（仅当配置了才调用）。
 
@@ -936,6 +975,9 @@ def main() -> None:
     from backend.adapters._browser import sync_playwright
 
     cookie = load_douyin_cookie()
+    # 可选出口代理（BROWSER_PROXY / BLIVE_CONFIG.browser_proxy）：快手按访问地域
+    # 返回不同作品列表，海外 runner 会漏最新作品，走大陆出口代理可拿全（2026-08 实测）
+    _proxy = load_browser_proxy()
     with sync_playwright() as pw:
         browser = pw.chromium.launch(
             headless=True,
@@ -945,6 +987,7 @@ def main() -> None:
                 "--disable-blink-features=AutomationControlled",
                 "--disable-gpu",
             ],
+            **({"proxy": _proxy} if _proxy else {}),
         )
         context = browser.new_context(
             user_agent=DEFAULT_USER_AGENT,
@@ -1388,10 +1431,12 @@ def run_post_check(*, cfg_all: Dict[str, Any], persist: Any, now: Optional[Any] 
         try:
             from backend.adapters._browser import sync_playwright
             pw = sync_playwright().__enter__()
+            _proxy = load_browser_proxy()
             browser = pw.chromium.launch(
                 headless=True,
                 args=["--no-sandbox", "--disable-dev-shm-usage",
                       "--disable-blink-features=AutomationControlled", "--disable-gpu"],
+                **({"proxy": _proxy} if _proxy else {}),
             )
             context = browser.new_context(
                 user_agent=DEFAULT_USER_AGENT,

@@ -607,6 +607,13 @@ class KuaishouAdapter(PlatformAdapter):
             # 同一响应顺带给出直播态，写入 tracking 供直播链路对账
             t["living_hint"] = bool(parsed["living"])
 
+        # 观测：固化本轮接口实际返回的列表（仅 id+时间戳）。2026-08 实测快手对
+        # 不同地域访问者返回不同列表（同一账号海外出口比大陆出口少最新一条），
+        # 没有这个字段，「为什么这轮没看到那条」永远无法回答。
+        t["last_fetch_items"] = [
+            {"id": it["photo_id"], "ts": it.get("timestamp")} for it in items
+        ]
+
         latest = ks_feed.pick_latest(items)
         if latest is None:
             # 一条时间都解不出：不猜、不报，如实记为被挡（避免用置顶冒充最新）
@@ -618,6 +625,21 @@ class KuaishouAdapter(PlatformAdapter):
         prev_ts = _to_ts(t.get("latest_timestamp"))
         new_id = latest["photo_id"]
         new_ts = latest["timestamp"]
+
+        # 基线回退保护：本轮「最新」比已有基线还旧，说明本轮列表是退化视图
+        # （2026-08 实测：快手对不同地域出口返回不同列表，海外出口会少最新一条）。
+        # 此时保持基线不动：否则「最新作品」会被回写成旧帖，下一轮正常抓取又把
+        # 同一条旧帖当新作重推，来回抖动。代价：作者删除最新作品后基线不会自动
+        # 回落（需人工清 tracking 重置），两害相权取其轻。
+        if prev_id and new_id != prev_id and prev_ts is not None \
+                and new_ts is not None and new_ts < prev_ts:
+            logger.warning(
+                "[kuaishou] %s 本轮列表缺少已知更新的作品（基线 %s/%s，本轮最新 %s/%s），"
+                "疑似退化列表（地域/风控差异），基线保持不变",
+                rid, prev_id, _ts_to_bj(prev_ts), new_id, _ts_to_bj(new_ts),
+            )
+            self._write_run_tracking(t, rid, success=True)
+            return []
 
         out: List[PostModel] = []
         is_new = bool(new_id) and new_id != prev_id and (prev_ts is None or new_ts > prev_ts)

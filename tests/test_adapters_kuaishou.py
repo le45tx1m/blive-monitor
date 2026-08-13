@@ -542,3 +542,54 @@ def test_kuaishou_运行观测不覆盖已有principal_id():
     KuaishouAdapter()._write_run_tracking(t, "3xrgxqkqp829xz6", success=False)
     assert t["principal_id"] == "3xoldoldoldold1"
     assert "last_success" not in t  # 失败轮次不得刷新成功时间
+
+
+def test_kuaishou_退化列表不能把基线打回旧帖():
+    """基线是 2026-08-07（最新），本轮列表退化只剩旧帖 → 基线保持不动。
+
+    2026-08 实测：快手按访问者地域返回不同列表——同一账号，海外出口的列表
+    比大陆出口少最新一条（还回 pcursor=no_more 伪装成「就这些」）。若此时把
+    基线回写成旧帖：① 看板上「最新作品」倒退；② 下一轮正常列表又把那条旧帖
+    当新作重推。基线必须只进不退。
+    """
+    degraded_payload = {
+        "data": {
+            "live": {"author": {"living": False}, "living": False},
+            "list": _REAL_LIST[:2],   # 只剩 2025-11-05 / 2025-03-05 两条旧帖
+            "result": 1,
+        }
+    }
+    a = _adapter_with(_FakeSession(payload=degraded_payload))
+    t = {"latest_post_id": "3x2ywf5zitae5zg", "latest_timestamp": 1786090857,
+         "latest_published_at": "2026-08-07 16:20:57"}
+    posts = a.fetch_new_posts("3x7ju263tgi5dn9", baseline=t, context=object())
+
+    assert posts == []                              # 不推
+    assert t["latest_post_id"] == "3x2ywf5zitae5zg"  # 基线不回退
+    assert t["latest_timestamp"] == 1786090857
+    assert t["latest_published_at"] == "2026-08-07 16:20:57"
+    assert t.get("last_success")                    # 本轮抓取本身是成功的
+
+
+def test_kuaishou_首轮建基线不受回退保护影响():
+    """没有基线时照常建基线（哪怕列表很旧）——回退保护只保护已有基线。"""
+    a = _adapter_with(_FakeSession(payload={
+        "data": {"live": {"author": {"living": False}, "living": False},
+                 "list": _REAL_LIST[:1], "result": 1},
+    }))
+    t: dict = {}
+    posts = a.fetch_new_posts("3x7ju263tgi5dn9", baseline=t, context=object())
+    assert posts == []                       # 首轮不推历史
+    assert t["latest_post_id"] == "3x65q35quat5aku"
+
+
+def test_kuaishou_本轮实际列表写入观测字段():
+    """last_fetch_items 记录接口真实返回（id+ts），供排查地域/风控差异。"""
+    a = _adapter_with(_FakeSession())
+    t: dict = {}
+    a.fetch_new_posts("3x7ju263tgi5dn9", baseline=t, context=object())
+    items = t.get("last_fetch_items")
+    assert isinstance(items, list) and len(items) == 3
+    assert {it["id"] for it in items} == {
+        "3x65q35quat5aku", "3xf6tyg537gawuk", "3x2ywf5zitae5zg"}
+    assert all("ts" in it for it in items)
