@@ -30,6 +30,7 @@
 > ## 🔄 2026-08-14（续3）更新：多日趋势实证闭环（跨 08-07 ~ 08-14 回溯确认）
 > - **`did` 跨多日零漂移**：对 `origin/master` 全部历史提交做 UTC 归一时间序回溯，`did` 轨迹为 `web_38ee…`(pre-fix) → `null`(回归) → `web_d6d698fea12a0722d654539cc323b3f5`(`bc01ded7` 兜底 fix 落地)。**fix 落地后 `did` 变更次数 = 0**；`bc01ded7..HEAD`(`59292eb3`) 之间**无任何提交重写/回退** `kuaishou_guest_visitor.json`——`did` 自 08-14 13:52Z 起持续复用，跨多轮 CI、跨多日零漂移。印证 `19a4f1ef`(CI `web_` 前缀保护) + `5f02695f`(`_cycle` 兜底捕获) 双保险生效。
 > - **`gated_count` 全量峰值扫描无累积恶化**：08-07~08-14 全部 6 个曾入监控的快手账号（`Sandy88888`/`Nizi981116`/`wadaxiwachangmingran`/`wikw-0403-`/`HUizi-G-H`/`ii050824`）`gated_count` **历史峰值均 = 1**，无任一账号出现 `2/3/…` 累积。`Nizi981116` 现不在监控（见 §8 出口地域问题），其余 5 个当前全 `gated=1`/`anonymous`。
+> - **实时连续观测补刀（13:55~14:23Z，36 轮 × 45s）**：对 `origin/master` 做 28 分钟实时轮询，`did` 36/36 轮恒为 `web_d6d698fea12a0722d654539cc323b3f5`、`gated` 恒为 `[1,1,1,1,1]`；期间我方 doc 推送（`fa647540`→`a6775884`）与 CI 多轮 state 提交（`32391fb0`→`59292eb3`→`3bb80344`→`b2a0feba`）交错发生，但 `kuaishou_guest_visitor.json` **从未被回退成 null**——证明双保险在真实并发写场景下也成立。
 > - **结论**：`did` 稳定复用 + gated 不涨经产线多日实跑验证成立，任务全部验收点通过。详见交付文档 `KUAISHOU_VISITOR_DID_DELIVERY.md` §6。
 
 ---
