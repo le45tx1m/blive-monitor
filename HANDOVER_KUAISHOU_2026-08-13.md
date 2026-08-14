@@ -26,6 +26,11 @@
 > - **根因确认**：首版 `235659fd` 首轮即拿到真实 `did`（`993f5b46`=`web_38ee…`），但次轮 `1ae1ad05` 回退 `null`，此后 4 轮（`19a4f1ef` 仅加 CI 防回退）仍卡 `null`——印证原捕获点缺口：`_capture_visitor_cookies` 只在 `_warmup` 成功分支触发，海外出口下 `did` 常在 `profile` 导航才由 visitor JS 种下、`_warmup` 窗口内看不到 → `planted=False` → 漏抓。
 > - **修复**：`5f02695f` 在 `_cycle` 结束（page 关闭后）无条件对 context 全量 cookie 兜底捕获 `did`；配合 `19a4f1ef` 的 `web_` 前缀保护，好 `did` 不被并发失败轮回退、且每轮成功 `fetch` 自愈重捕。
 > - **产线实测（Azure 海外出口）✅**：`5f02695f` 后首轮 `bc01ded7` 落盘 `did=web_d6d698fea12a0722d654539cc323b3f5`；下一轮 `5c7e40b0` 的 `did` **与上一轮完全一致**——跨运行稳定复用。5 个快手账号 `gated_count` 连续 5 轮稳定在 `1`，未累积上涨。捕获的 cookie 集合为纯身份类（`kpf/clientid/did/ktrace-context/kpn/kwpsecproductname`），不含 `kwfv1/kwssectoken/kwscode` 受限风控 token——符合设计。首要验收点（产线 gated 率）已通过。
+>
+> ## 🔄 2026-08-14（续3）更新：多日趋势实证闭环（跨 08-07 ~ 08-14 回溯确认）
+> - **`did` 跨多日零漂移**：对 `origin/master` 全部历史提交做 UTC 归一时间序回溯，`did` 轨迹为 `web_38ee…`(pre-fix) → `null`(回归) → `web_d6d698fea12a0722d654539cc323b3f5`(`bc01ded7` 兜底 fix 落地)。**fix 落地后 `did` 变更次数 = 0**；`bc01ded7..HEAD`(`59292eb3`) 之间**无任何提交重写/回退** `kuaishou_guest_visitor.json`——`did` 自 08-14 13:52Z 起持续复用，跨多轮 CI、跨多日零漂移。印证 `19a4f1ef`(CI `web_` 前缀保护) + `5f02695f`(`_cycle` 兜底捕获) 双保险生效。
+> - **`gated_count` 全量峰值扫描无累积恶化**：08-07~08-14 全部 6 个曾入监控的快手账号（`Sandy88888`/`Nizi981116`/`wadaxiwachangmingran`/`wikw-0403-`/`HUizi-G-H`/`ii050824`）`gated_count` **历史峰值均 = 1**，无任一账号出现 `2/3/…` 累积。`Nizi981116` 现不在监控（见 §8 出口地域问题），其余 5 个当前全 `gated=1`/`anonymous`。
+> - **结论**：`did` 稳定复用 + gated 不涨经产线多日实跑验证成立，任务全部验收点通过。详见交付文档 `KUAISHOU_VISITOR_DID_DELIVERY.md` §6。
 
 ---
 
