@@ -771,6 +771,23 @@ def _dedup_health_check(tracking: Dict[str, Dict[str, Any]]) -> None:
         )
 
 
+def order_rooms_baseline_first(post_rooms: List[Dict[str, Any]],
+                               tracking: Dict[str, Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """把尚无基线的账号排到最前（稳定排序，其余保持原顺序）。
+
+    为什么：新添加的账号第一次抓取只建基线、不推送。若它排在队尾，前面的账号
+    把浏览器会话/token 配额/时间预算耗尽后它整轮轮空 → 「添加后等很久才抓到」。
+    让没基线的账号先跑，能最快完成建基线，之后进入正常的「有基线→比对新作」循环。
+    快手尤其受益：其会话 token 配额有限（MAX_USES_PER_TOKEN），队尾账号常赶不上。
+    """
+    def _key(e: Dict[str, Any]) -> int:
+        platform = e.get("platform") or "douyin"
+        rid = str(e.get("id") or "")
+        t = tracking.get(f"{platform}_{rid}") or {}
+        return 0 if not t.get("latest_post_id") else 1
+    return sorted(post_rooms, key=_key)
+
+
 def handle_kuaishou_posts(entry: Dict[str, Any], tracking: Dict[str, Dict[str, Any]],
                           cfg_all: Dict[str, Any], silence_cfg: Dict[str, Any],
                           now_str: str, context: Any = None):
@@ -842,6 +859,15 @@ def handle_kuaishou_posts(entry: Dict[str, Any], tracking: Dict[str, Dict[str, A
         append_event(rid, name, "kuaishou", "error", detail=f"获取作品异常: {e}", now=bjnow())
         tracking[key] = t
         return True, False
+
+    # 首次建基线要可见：新添加的账号建好基线后明确记一条「监控已生效」，
+    # 否则看板上完全看不出这账号到底抓没抓到（2026-08 用户反馈「添加后
+    # 等很久很久不知道好没好」）。
+    if not had_baseline and t.get("latest_post_id"):
+        append_event(rid, name, "kuaishou", "system",
+                     detail=(f"已建立基线（最新作品 {t.get('latest_published_at') or '?'}），"
+                             f"监控已生效，该账号再发布新作品时将推送通知"),
+                     now=bjnow())
 
     if not posts:
         # 无新作（或风控返回空），基线已在 adapter 内更新（若有变化），落盘即可
@@ -971,6 +997,12 @@ def main() -> None:
         logger.info("去重账本已从远端同步 %d 条较新记录", synced)
 
     logger.info("开始检测 %d 个抖音/快手用户的新作品...", len(post_rooms))
+
+    # 尚无基线的账号排到最前：新添加的账号优先拿到本轮最稳定的浏览器会话与
+    # token 配额。排在队尾的新账号容易在前面的账号把时间/配额耗尽后整轮轮空，
+    # 表现为「添加后等很久很久才建基线」（2026-08 用户反馈，快手尤甚）。
+    # sorted 是稳定排序：同类账号保持原有相对顺序。
+    post_rooms = order_rooms_baseline_first(post_rooms, tracking)
 
     from backend.adapters._browser import sync_playwright
 

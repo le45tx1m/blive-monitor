@@ -234,6 +234,45 @@ def merge_history(local: list, remote: list) -> list:
     return merged
 
 
+def tracking_keys_from_rooms(rooms) -> set:
+    """post_rooms → post_tracking 活钥集合：``f"{platform}_{id}"``（platform 缺省 douyin）。
+
+    与 check_new_posts 里 cur_keys 的构造规则严格一致。
+    """
+    keys = set()
+    for e in rooms or []:
+        if isinstance(e, dict) and e.get("id"):
+            keys.add(f"{e.get('platform') or 'douyin'}_{e['id']}")
+    return keys
+
+
+def history_keys_from_rooms(rooms) -> set:
+    """post_rooms → history 活钥集合：``f"{platform}|{id}"``（与 state_prune 约定一致）。"""
+    keys = set()
+    for e in rooms or []:
+        if isinstance(e, dict) and e.get("id"):
+            keys.add(f"{e.get('platform') or 'douyin'}|{e['id']}")
+    return keys
+
+
+def prune_merged_history(history: list, active_keys: set) -> list:
+    """按活跃账号裁剪合并后的 history（与 state_prune.prune_history_orphans 同约定：
+    带 rid 的条目按 platform|rid 精确匹配；无 rid 的存量条目保守保留）。"""
+    if not isinstance(history, list):
+        return []
+    out = []
+    for entry in history:
+        if not isinstance(entry, dict):
+            continue
+        rid = entry.get("rid")
+        if rid:
+            if f"{entry.get('platform', '')}|{rid}" in active_keys:
+                out.append(entry)
+        else:
+            out.append(entry)
+    return out
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="合并本地与远端状态文件")
     parser.add_argument("ref", help="远端 ref（如 origin/master）")
@@ -245,12 +284,19 @@ def main() -> int:
 
     # 定义需要合并的文件及其合并策略
     # (filename, merge_func, is_list)
+    # 顺序敏感：post_rooms 必须最先合并 —— 其结果（成员以远端为准）决定
+    # post_tracking / history 的存活范围。旧实现里 check_new_posts 的孤儿清理
+    # 会被随后的并集合并复活，导致「删除账号后缓存永远清不掉、重新添加还带
+    # 旧基线」（2026-08 用户反馈）。
     mergers = [
+        ("post_rooms.json", merge_post_rooms, True),
         ("notify_dedup.json", merge_notify_dedup, False),
         ("post_tracking.json", merge_post_tracking, False),
-        ("post_rooms.json", merge_post_rooms, True),
         ("history.json", merge_history, True),
     ]
+
+    active_tracking_keys = None
+    active_history_keys = None
 
     changed = False
     for filename, merge_fn, is_list in mergers:
@@ -276,6 +322,21 @@ def main() -> int:
             remote_data = load_json(remote_text)
 
         merged = merge_fn(local_data, remote_data)
+
+        # 成员裁剪：合并结果里「已删账号」的状态不得复活
+        if filename == "post_rooms.json":
+            active_tracking_keys = tracking_keys_from_rooms(merged)
+            active_history_keys = history_keys_from_rooms(merged)
+        elif filename == "post_tracking.json" and active_tracking_keys is not None:
+            before = len(merged)
+            merged = {k: v for k, v in merged.items() if k in active_tracking_keys}
+            if len(merged) != before:
+                print(f"  post_tracking.json: 合并后裁掉 {before - len(merged)} 个已删账号的状态（彻底清理）")
+        elif filename == "history.json" and active_history_keys is not None:
+            before = len(merged)
+            merged = prune_merged_history(merged, active_history_keys)
+            if len(merged) != before:
+                print(f"  history.json: 合并后裁掉 {before - len(merged)} 条已删账号的记录")
 
         # 检查是否有变化
         local_str = json.dumps(local_data, ensure_ascii=False, sort_keys=True)

@@ -411,6 +411,59 @@ def test_纯IP被标记时如实记为被挡():
     assert "响应序列" in (r.get("detail") or "")
 
 
+def test_warmup_主站打不开但已带风控token时短路():
+    """CI 海外出口 www.kuaishou.com 频繁 ERR_TIMED_OUT（每次 goto 45s，3 次重试
+    白烧 3+ 分钟）。若注入的登录 Cookie 已带风控 token，首次失败即应按已预热
+    继续，而不是空耗满 3 次重试。"""
+
+    class _TimeoutPage(_FakePage):
+        def goto(self, url, **kw):
+            if core.WARMUP_URL in url:
+                self.ctx.warm_calls += 1
+                raise RuntimeError("net::ERR_TIMED_OUT at " + url)
+            return super().goto(url, **kw)
+
+    class _TimeoutCtx(_FakeCtx):
+        def new_page(self):
+            return _TimeoutPage(self)
+
+    ctx = _TimeoutCtx(4)
+    sess = kf.KuaishouFeedSession(ctx, user_agent="")
+    sess._ctx = ctx  # 直接塞入，跳过 _ensure_ctx
+    page = ctx.new_page()
+
+    assert sess._warmup(page) is True      # 带着注入 token 按已预热处理
+    assert sess._warmed is True
+    # 单次尝试 = networkidle + domcontentloaded 两次 goto；短路 = 只跑 1 次尝试
+    assert ctx.warm_calls == 2, "首次尝试失败即短路，不应重试满 3 次"
+
+
+def test_warmup_主站打不开且无token时仍重试():
+    """没有任何风控 token 时不能短路 —— 照旧重试满 MAX_WARMUP_RETRY 再放弃。"""
+
+    class _TimeoutPage(_FakePage):
+        def goto(self, url, **kw):
+            if core.WARMUP_URL in url:
+                self.ctx.warm_calls += 1
+                raise RuntimeError("net::ERR_TIMED_OUT at " + url)
+            return super().goto(url, **kw)
+
+    class _BareCtx(_FakeCtx):
+        def cookies(self):
+            return []  # 无注入 cookie、也种不下 token
+
+        def new_page(self):
+            return _TimeoutPage(self)
+
+    ctx = _BareCtx(4)
+    sess = kf.KuaishouFeedSession(ctx, user_agent="")
+    sess._ctx = ctx
+    page = ctx.new_page()
+
+    assert sess._warmup(page) is False
+    assert ctx.warm_calls == 2 * sess.MAX_WARMUP_RETRY
+
+
 def test_kuaishou_cookie_injected_to_session_context():
     """配置了 kuaishou_cookie 时，应注入到会话自建的隔离 context（domain=.kuaishou.com）。"""
     src = _FakeSrc(10)

@@ -236,6 +236,16 @@ class KuaishouFeedSession:
                 last_err = str(e)
                 logger.warning("[kuaishou] 主站预热第 %d/%d 次失败: %s",
                                attempt, self.MAX_WARMUP_RETRY, e)
+                # 主站打不开也别空耗重试：注入的登录 Cookie 里若已带风控 token，
+                # 直接按已预热继续（2026-08 CI 实测海外出口 www.kuaishou.com 频繁
+                # ERR_TIMED_OUT，3 次重试白烧 3+ 分钟，而带着注入 token 直接导航
+                # profile 页仍有机会拿到 result=1）。
+                names = {c.get("name") for c in page.context.cookies()}
+                if names & set(ANTIBOT_COOKIES):
+                    logger.info("[kuaishou] 主站不可达，但上下文已带风控 Cookie"
+                                "（登录 Cookie 注入），按已预热继续")
+                    planted = True
+                    break
                 continue
             names = {c.get("name") for c in page.context.cookies()}
             planted = bool(names & set(ANTIBOT_COOKIES))

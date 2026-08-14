@@ -886,3 +886,30 @@ def test_main_poison_guard_ok_when_handle_matches(tmp_path, monkeypatch):
     tracking = json.loads(tf.read_text(encoding="utf-8"))
     assert len(calls) == 1          # 作品数 10→12 正常推测推送
     assert "sec_uid" in tracking["douyin_MS4wABC"]  # 未误清
+
+
+def test_order_rooms_baseline_first():
+    """无基线的新账号排最前（稳定排序），让新添加的账号优先拿到会话/配额。"""
+    rooms = [
+        {"platform": "kuaishou", "id": "OLD1"},
+        {"platform": "douyin", "id": "OLD2"},
+        {"platform": "kuaishou", "id": "NEW1"},
+        {"platform": "douyin", "id": "NEW2"},
+    ]
+    tracking = {
+        "kuaishou_OLD1": {"latest_post_id": "p"},
+        "douyin_OLD2": {"latest_post_id": "p"},
+        # NEW1 / NEW2 无 tracking → 无基线
+    }
+    ordered = cnp.order_rooms_baseline_first(rooms, tracking)
+    assert [e["id"] for e in ordered] == ["NEW1", "NEW2", "OLD1", "OLD2"]
+
+    # 全部有基线 → 原顺序不变
+    t2 = {f"{e.get('platform')}_{e['id']}": {"latest_post_id": "p"} for e in rooms}
+    assert [e["id"] for e in cnp.order_rooms_baseline_first(rooms, t2)] == \
+        ["OLD1", "OLD2", "NEW1", "NEW2"]
+
+    # 无 platform 的旧条目按 douyin 约定匹配 tracking
+    legacy = [{"id": "L1"}, {"platform": "kuaishou", "id": "NEWK"}]
+    t3 = {"douyin_L1": {"latest_post_id": "p"}}
+    assert [e["id"] for e in cnp.order_rooms_baseline_first(legacy, t3)] == ["NEWK", "L1"]

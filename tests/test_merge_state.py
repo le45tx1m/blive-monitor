@@ -234,3 +234,81 @@ def test_history_merge_with_type_is_idempotent():
     merged = ms.merge_history(local, remote)
     assert len(merged) == 1  # 同 time+name+platform 去重
     assert merged[0]["type"] == "new_post"
+
+
+# ---------- 合并后孤儿裁剪（删除彻底清理） ----------
+
+def test_tracking_keys_from_rooms():
+    rooms = [
+        {"platform": "kuaishou", "id": "K1"},
+        {"id": "D1"},                      # 无 platform → douyin 约定
+        {"platform": "douyin", "id": "D2"},
+        {"platform": "douyin"},            # 无 id → 忽略
+    ]
+    assert ms.tracking_keys_from_rooms(rooms) == {
+        "kuaishou_K1", "douyin_D1", "douyin_D2"}
+
+
+def test_history_keys_from_rooms():
+    rooms = [{"platform": "kuaishou", "id": "K1"}, {"id": "D1"}]
+    assert ms.history_keys_from_rooms(rooms) == {"kuaishou|K1", "douyin|D1"}
+
+
+def test_prune_merged_history():
+    history = [
+        {"rid": "A", "platform": "douyin", "time": "t1"},    # 活跃 → 保留
+        {"rid": "GONE", "platform": "douyin", "time": "t2"},  # 已删 → 裁掉
+        {"time": "t3", "type": "system"},                     # 无 rid 存量 → 保守保留
+    ]
+    out = ms.prune_merged_history(history, {"douyin|A"})
+    assert len(out) == 2
+    assert all(e.get("rid") != "GONE" for e in out)
+
+
+def test_main_合并后彻底清理已删账号(tmp_path):
+    """端到端：CI run 中途用户删了账号 —— 本地是 run 开始时的旧快照（还含被删
+    账号的状态），远端（master，web 直写）已无该账号。合并后被删账号的
+    tracking/history 必须清掉，不得被并集复活（2026-08「删号后缓存残留」根因）。"""
+    import subprocess
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+    subprocess.run(["git", "config", "user.email", "t@t.t"], cwd=repo, check=True)
+    subprocess.run(["git", "config", "user.name", "t"], cwd=repo, check=True)
+
+    def w(name, obj):
+        (repo / name).write_text(json.dumps(obj, ensure_ascii=False), encoding="utf-8")
+
+    # 远端（HEAD）= 用户删除后的最新状态：只剩 A
+    w("post_rooms.json", [{"platform": "kuaishou", "id": "A", "name": "A"}])
+    w("post_tracking.json", {"kuaishou_A": {"latest_post_id": "p1"}})
+    w("history.json", [{"rid": "A", "platform": "kuaishou", "time": "t1", "name": "A"}])
+    w("notify_dedup.json", {})
+    subprocess.run(["git", "add", "-A"], cwd=repo, check=True)
+    subprocess.run(["git", "commit", "-qm", "remote state after deletion"], cwd=repo, check=True)
+
+    # 本地 = CI run 的旧快照：run 开始时 GONE 还在，本轮还处理了它
+    w("post_rooms.json", [{"platform": "kuaishou", "id": "A", "name": "A"},
+                          {"platform": "kuaishou", "id": "GONE", "name": "GONE"}])
+    w("post_tracking.json", {"kuaishou_A": {"latest_post_id": "p1"},
+                             "kuaishou_GONE": {"latest_post_id": "p2"}})
+    w("history.json", [{"rid": "A", "platform": "kuaishou", "time": "t1", "name": "A"},
+                       {"rid": "GONE", "platform": "kuaishou", "time": "t2", "name": "GONE"}])
+
+    import sys
+    argv_saved = sys.argv
+    sys.argv = ["merge_state.py", "HEAD", "--repo", str(repo)]
+    try:
+        assert ms.main() == 0
+    finally:
+        sys.argv = argv_saved
+
+    merged_rooms = json.loads((repo / "post_rooms.json").read_text(encoding="utf-8"))
+    merged_tracking = json.loads((repo / "post_tracking.json").read_text(encoding="utf-8"))
+    merged_history = json.loads((repo / "history.json").read_text(encoding="utf-8"))
+    assert {e["id"] for e in merged_rooms} == {"A"}
+    assert set(merged_tracking.keys()) == {"kuaishou_A"}, \
+        f"被删账号的 tracking 复活了: {list(merged_tracking.keys())}"
+    assert all(e.get("rid") != "GONE" for e in merged_history), \
+        "被删账号的 history 复活了"
