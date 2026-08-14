@@ -272,6 +272,17 @@ jobs:
           cp post_rooms.json _site/
           cp post_tracking.json _site/
 
+      # 前端版本号：部署时用当前 commit 短 SHA + UTC 时间烙进页面（monitor.html 右下角角标 / index.html 页脚）。
+      # 这样每次部署都自动带正确版本，无需手动 bump——用户刷新即可确认「最新推送是否已上线」。
+      - name: Stamp frontend version
+        run: |
+          VER="$(git rev-parse --short HEAD)"
+          BUILD="$(date -u +'%Y-%m-%d %H:%M UTC')"
+          for f in _site/monitor.html _site/index.html; do
+            [ -f "$f" ] || continue
+            sed -i "s|__APP_VERSION__|${VER} · ${BUILD}|g" "$f"
+          done
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
 
