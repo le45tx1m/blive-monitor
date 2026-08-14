@@ -5945,7 +5945,7 @@ setTimeout(renderFeedPostsPreview, 100);
 </script>
 <style>
 /* 前端版本角标：文本由 CI 部署时动态写入（当前 commit 短 SHA + UTC 时间） */
-#blmAppVer{position:fixed;right:10px;bottom:8px;z-index:60;font-size:11px;line-height:1;color:#9a9aae;background:rgba(11,11,18,.55);border:1px solid rgba(255,255,255,.10);padding:4px 9px;border-radius:999px;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);user-select:none;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.2px}
+#blmAppVer{position:fixed;right:10px;bottom:calc(var(--tab-bar-height,66px) + 12px);z-index:200;font-size:11px;line-height:1;color:#c9c9da;background:rgba(11,11,18,.62);border:1px solid rgba(255,255,255,.16);padding:4px 9px;border-radius:999px;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);user-select:none;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.2px}
 </style>
 <div id="blmAppVer">v__APP_VERSION__</div>
 </body>
