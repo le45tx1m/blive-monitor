@@ -1,22 +1,8 @@
 {
-  "douyin_32062056217": {
-    "sec_uid": "MS4wLjABAAAASbtZpohJd3E4CMctcy5mTwdLJYq1wQt27I5muIshIxlT11i88tVEyQgMs34lIlDO",
-    "latest_cover": "https://raw.githubusercontent.com/racheko-lab/blive-monitor/master/assets/covers/douyin_32062056217.jpg",
-    "latest_cover_cdn": "https://p3-sign.douyinpic.com/tos-cn-p-0015/oQEVPdPB3aVjWA2IraWIo4QNaC6iA4JiAaOiT~tplv-dy-cropcenter:300:400.png?lk3s=2aa63f9f&x-expires=1786719600&x-signature=ebOq3Brpq0Tg1fGPuR8qb%2BIsj40%3D&from=715538335&s=PackSourceEnum_DOUYIN_REFLOW&se=true&sh=300_400&sc=cover&biz_tag=aweme_video&l=20260814172419F32493A876D45F7D5F48",
-    "latest_aweme_id": "7663495032004038810",
-    "latest_ct": 1784296481,
-    "mode": "api",
-    "latest_count": 1784296481,
-    "nickname": "Sayonal_",
-    "latest_desc": "不是说好了不哭的#淡淡的忧伤",
-    "latest_type": "图文",
-    "latest_url": "https://www.douyin.com/note/7663495032004038810",
-    "avatar": "https://p3-pc.douyinpic.com/aweme/720x720/aweme-avatar/tos-cn-avt-0015_602c5d8ee34311549115864959f13e48.jpeg?from=2956013662"
-  },
   "douyin_L88_____": {
     "sec_uid": "MS4wLjABAAAAIUjkPI5wnLh04rbUG43D8ZKsqAuWxbihVIJ5mnWVDrc",
     "latest_cover": "https://raw.githubusercontent.com/racheko-lab/blive-monitor/master/assets/covers/douyin_L88_____.jpg",
-    "latest_cover_cdn": "https://p26-sign.douyinpic.com/tos-cn-p-0015/o0DEQZOjIiqBGBfCmeEDfB27YvAFD1mAAgtUQX~tplv-dy-cropcenter:300:400.png?lk3s=2aa63f9f&x-expires=1786716000&x-signature=jG%2FO08RRjrVvJjbKCAHx7qhNWwU%3D&from=715538335&s=PackSourceEnum_DOUYIN_REFLOW&se=true&sh=300_400&sc=cover&biz_tag=aweme_video&l=2026081416534947E9D54D6B0FBA6D14DF",
+    "latest_cover_cdn": "https://p3-sign.douyinpic.com/tos-cn-p-0015/o0DEQZOjIiqBGBfCmeEDfB27YvAFD1mAAgtUQX~tplv-dy-cropcenter:300:400.png?lk3s=2aa63f9f&x-expires=1786723200&x-signature=cKNjHqQDSf6tKGzv70xmBt3k99g%3D&from=715538335&s=PackSourceEnum_DOUYIN_REFLOW&se=true&sh=300_400&sc=cover&biz_tag=aweme_video&l=20260814181725E3F48489980955AB3D67",
     "latest_aweme_id": "7673683172215010250",
     "latest_ct": 0,
     "mode": "api",
@@ -26,6 +12,20 @@
     "latest_desc": "她说给我接烟灰是她这辈子的荣誉，这面子咱得给。#虚假演绎仅供娱乐请勿模仿",
     "latest_type": "视频",
     "latest_url": "https://www.douyin.com/video/7673683172215010250"
+  },
+  "douyin_MS4wLjABAAAASMZtyFokppaU8Iyatpar3jIhPyYJC7r3ID5ptw4DROI": {
+    "sec_uid": "MS4wLjABAAAASMZtyFokppaU8Iyatpar3jIhPyYJC7r3ID5ptw4DROI",
+    "latest_cover": "https://raw.githubusercontent.com/racheko-lab/blive-monitor/master/assets/covers/douyin_MS4wLjABAAAASMZtyFokppaU8Iyatpar3jIhPyYJC7r3ID5ptw4DROI.jpg",
+    "latest_cover_cdn": "https://p5-ex-gddgtc-sign.douyinpic.com/tos-cn-i-0813c000-ce/ogo8JKfD8EoF7eUBVXOEBf0V9ElAKE5AFAAaIg~tplv-dy-cropcenter:300:400.png?lk3s=2aa63f9f&x-expires=1786723200&x-signature=mvi2cSwl4mct4LqUjeyqnjj%2FPF8%3D&from=715538335&s=PackSourceEnum_DOUYIN_REFLOW&se=true&sh=300_400&sc=cover&biz_tag=aweme_video&l=20260814181709D87795B46F9B5F757BE0",
+    "latest_aweme_id": "7673393086533982715",
+    "latest_ct": 0,
+    "mode": "api",
+    "latest_count": 0,
+    "nickname": "开心愛酱壹佰E",
+    "latest_desc": "",
+    "latest_type": "视频",
+    "latest_url": "https://www.douyin.com/video/7673393086533982715",
+    "avatar": "https://p3-pc.douyinpic.com/aweme/720x720/aweme-avatar/tos-cn-avt-0015_bf458f5edcacd0de192f291f2ab8796a.jpeg?from=2956013662"
   },
   "douyin_wenying0421": {
     "sec_uid": "MS4wLjABAAAA12uSTzQuBsLhr1A_bMsgPODP8h4VWkwgr3bCzdfcRagpAXHbljnnWEFtcE0I_x-J",
@@ -41,30 +41,78 @@
     "latest_type": "视频",
     "latest_url": "https://www.douyin.com/video/7673724331386026102"
   },
-  "kuaishou_Sandy88888": {
-    "gated_count": 1,
+  "kuaishou_HUizi-G-H": {
     "credential_level": "anonymous",
     "cookie_used": false,
     "did_used": false,
-    "origin_user_id": "2117550",
-    "unique_name": "Sandy88888",
-    "nickname": "肥阿肥",
+    "gated_count": 1,
+    "origin_user_id": "2672593",
+    "unique_name": "HUizi-G-H",
+    "nickname": "Liiiiii-🐰",
     "living_hint": false,
-    "latest_post_id": "3x6zh63ab9abu9g",
-    "latest_timestamp": 1640181225,
-    "latest_published_at": "2021-12-22 21:53:45",
-    "latest_cover": "https://raw.githubusercontent.com/racheko-lab/blive-monitor/master/assets/covers/kuaishou_Sandy88888.jpg",
-    "last_success": "2026-08-14 16:03:46",
-    "latest_url": "https://www.kuaishou.com/short-video/3x6zh63ab9abu9g",
-    "latest_type": "视频",
-    "avatar": "https://p22.a.yximgs.com/uhead/AB/2019/06/09/11/BMjAxOTA2MDkxMTM3MzBfMjExNzU1MF8xX2hkODI1XzQ5Mw==_s.jpg",
-    "latest_desc": "又一年❤️",
     "last_fetch_items": [
       {
-        "id": "3x6zh63ab9abu9g",
-        "ts": 1640181225
+        "id": "3xw9itkz4w6eb22",
+        "ts": 1743562776
+      },
+      {
+        "id": "3xy7i7rpph9m7vc",
+        "ts": 1780649697
+      },
+      {
+        "id": "3xiycg966g9zkuu",
+        "ts": 1775369898
+      },
+      {
+        "id": "3xp4dburpfe9wwc",
+        "ts": 1774659445
+      },
+      {
+        "id": "3x49wwmbhd7fstc",
+        "ts": 1772205683
+      },
+      {
+        "id": "3x5v98qvp9jbqym",
+        "ts": 1771651060
+      },
+      {
+        "id": "3x6q4jka8bb4hc6",
+        "ts": 1771324822
+      },
+      {
+        "id": "3xtrxvryd9nwd89",
+        "ts": 1770877386
+      },
+      {
+        "id": "3xfenin58iut59y",
+        "ts": 1767167064
+      },
+      {
+        "id": "3xrms7sqdnig6w2",
+        "ts": 1759329282
+      },
+      {
+        "id": "3xb6zubj5852e6w",
+        "ts": 1756352878
+      },
+      {
+        "id": "3xmc6f7sxvak3hi",
+        "ts": 1752658499
+      },
+      {
+        "id": "3xjjj26r8kvtbdu",
+        "ts": 1752339415
       }
-    ]
+    ],
+    "latest_post_id": "3xy7i7rpph9m7vc",
+    "latest_timestamp": 1780649697,
+    "latest_published_at": "2026-06-05 16:54:57",
+    "latest_cover": "https://raw.githubusercontent.com/racheko-lab/blive-monitor/master/assets/covers/kuaishou_HUizi-G-H.jpg",
+    "latest_url": "https://www.kuaishou.com/short-video/3xy7i7rpph9m7vc",
+    "latest_type": "视频",
+    "avatar": "https://p22.a.yximgs.com/uhead/AB/2026/07/06/22/BMjAyNjA3MDYyMjI1MjVfMjY3MjU5M18xX2hkODc3Xzg4Mw==_s.jpg",
+    "latest_desc": "#假装是甜妹",
+    "last_success": "2026-08-14 17:25:32"
   },
   "kuaishou_wikw-0403-": {
     "credential_level": "anonymous",
@@ -147,93 +195,6 @@
     "latest_desc": "比起天晴 我更需要你#天气之子 #阳菜 #新海城 #ooc致歉",
     "last_success": "2026-08-14 01:04:21"
   },
-  "kuaishou_HUizi-G-H": {
-    "credential_level": "anonymous",
-    "cookie_used": false,
-    "did_used": false,
-    "gated_count": 1,
-    "origin_user_id": "2672593",
-    "unique_name": "HUizi-G-H",
-    "nickname": "Liiiiii-🐰",
-    "living_hint": false,
-    "last_fetch_items": [
-      {
-        "id": "3xw9itkz4w6eb22",
-        "ts": 1743562776
-      },
-      {
-        "id": "3xy7i7rpph9m7vc",
-        "ts": 1780649697
-      },
-      {
-        "id": "3xiycg966g9zkuu",
-        "ts": 1775369898
-      },
-      {
-        "id": "3xp4dburpfe9wwc",
-        "ts": 1774659445
-      },
-      {
-        "id": "3x49wwmbhd7fstc",
-        "ts": 1772205683
-      },
-      {
-        "id": "3x5v98qvp9jbqym",
-        "ts": 1771651060
-      },
-      {
-        "id": "3x6q4jka8bb4hc6",
-        "ts": 1771324822
-      },
-      {
-        "id": "3xtrxvryd9nwd89",
-        "ts": 1770877386
-      },
-      {
-        "id": "3xfenin58iut59y",
-        "ts": 1767167064
-      },
-      {
-        "id": "3xrms7sqdnig6w2",
-        "ts": 1759329282
-      },
-      {
-        "id": "3xb6zubj5852e6w",
-        "ts": 1756352878
-      },
-      {
-        "id": "3xmc6f7sxvak3hi",
-        "ts": 1752658499
-      },
-      {
-        "id": "3xjjj26r8kvtbdu",
-        "ts": 1752339415
-      }
-    ],
-    "latest_post_id": "3xy7i7rpph9m7vc",
-    "latest_timestamp": 1780649697,
-    "latest_published_at": "2026-06-05 16:54:57",
-    "latest_cover": "https://raw.githubusercontent.com/racheko-lab/blive-monitor/master/assets/covers/kuaishou_HUizi-G-H.jpg",
-    "latest_url": "https://www.kuaishou.com/short-video/3xy7i7rpph9m7vc",
-    "latest_type": "视频",
-    "avatar": "https://p22.a.yximgs.com/uhead/AB/2026/07/06/22/BMjAyNjA3MDYyMjI1MjVfMjY3MjU5M18xX2hkODc3Xzg4Mw==_s.jpg",
-    "latest_desc": "#假装是甜妹",
-    "last_success": "2026-08-14 17:25:32"
-  },
-  "douyin_70782856945": {
-    "sec_uid": "MS4wLjABAAAAXWPkodA6DTIsuuegT8zdKRrPnFVVebMe0G1ist71jDtOKzEhGsB5VeHLA5uWu4IK",
-    "latest_cover": "https://raw.githubusercontent.com/racheko-lab/blive-monitor/master/assets/covers/douyin_70782856945.jpg",
-    "latest_cover_cdn": "https://p11-sign.douyinpic.com/tos-cn-i-0813c001/o0DCO3yABjyBdzzUAAAeclfjACAi0ci1gE8IWs~tplv-dy-cropcenter:300:400.png?lk3s=2aa63f9f&x-expires=1786719600&x-signature=DSGnIRW6upgLCP%2Fw%2FKJScmMRHy8%3D&from=715538335&s=PackSourceEnum_DOUYIN_REFLOW&se=true&sh=300_400&sc=cover&biz_tag=aweme_video&l=20260814172434259CE109A6D25376E7EA",
-    "latest_aweme_id": "7670881423683139290",
-    "latest_ct": 0,
-    "mode": "api",
-    "latest_count": 0,
-    "nickname": "米多多",
-    "avatar": "https://p3-pc.douyinpic.com/aweme/720x720/aweme-avatar/tos-cn-i-0813c001_oMMXB5P7iI3mAhbAvtBxiAjAgobgAIvEwaBA4.jpeg?from=2956013662",
-    "latest_desc": "幸福有很多种收到大闺闺送的奶茶花是一种@ 微醺，#霸王茶姬 #秋天的第一杯奶茶",
-    "latest_type": "视频",
-    "latest_url": "https://www.douyin.com/video/7670881423683139290"
-  },
   "kuaishou_wadaxiwachangmingran": {
     "credential_level": "anonymous",
     "cookie_used": false,
@@ -251,7 +212,7 @@
     "latest_type": "图文",
     "avatar": "https://p22.a.yximgs.com/uhead/AB/2026/02/22/21/BMjAyNjAyMjIyMTUwMzFfODgxMzU0MjM4XzFfaGQ3OTBfOTY=_s.jpg",
     "latest_desc": "我们这一路走来真的不容易",
-    "last_success": "2026-08-14 12:20:22",
+    "last_success": "2026-08-14 18:18:47",
     "last_fetch_items": [
       {
         "id": "3x2ba75yfi36z5c",
@@ -303,18 +264,57 @@
       }
     ]
   },
-  "douyin_MS4wLjABAAAASMZtyFokppaU8Iyatpar3jIhPyYJC7r3ID5ptw4DROI": {
-    "sec_uid": "MS4wLjABAAAASMZtyFokppaU8Iyatpar3jIhPyYJC7r3ID5ptw4DROI",
-    "latest_cover": "https://raw.githubusercontent.com/racheko-lab/blive-monitor/master/assets/covers/douyin_MS4wLjABAAAASMZtyFokppaU8Iyatpar3jIhPyYJC7r3ID5ptw4DROI.jpg",
-    "latest_cover_cdn": "https://p3-sign.douyinpic.com/tos-cn-i-0813c000-ce/ogo8JKfD8EoF7eUBVXOEBf0V9ElAKE5AFAAaIg~tplv-dy-cropcenter:300:400.png?lk3s=2aa63f9f&x-expires=1786719600&x-signature=R7ox%2BaCTcnHyqhpiPgFuUhEghsQ%3D&from=715538335&s=PackSourceEnum_DOUYIN_REFLOW&se=true&sh=300_400&sc=cover&biz_tag=aweme_video&l=20260814172449A076E05AC68C827D7672",
-    "latest_aweme_id": "7673393086533982715",
+  "kuaishou_Sandy88888": {
+    "gated_count": 1,
+    "credential_level": "anonymous",
+    "cookie_used": false,
+    "did_used": false,
+    "origin_user_id": "2117550",
+    "unique_name": "Sandy88888",
+    "nickname": "肥阿肥",
+    "living_hint": false,
+    "latest_post_id": "3x6zh63ab9abu9g",
+    "latest_timestamp": 1640181225,
+    "latest_published_at": "2021-12-22 21:53:45",
+    "latest_cover": "https://raw.githubusercontent.com/racheko-lab/blive-monitor/master/assets/covers/kuaishou_Sandy88888.jpg",
+    "last_success": "2026-08-14 18:18:31",
+    "latest_url": "https://www.kuaishou.com/short-video/3x6zh63ab9abu9g",
+    "latest_type": "视频",
+    "avatar": "https://p22.a.yximgs.com/uhead/AB/2019/06/09/11/BMjAxOTA2MDkxMTM3MzBfMjExNzU1MF8xX2hkODI1XzQ5Mw==_s.jpg",
+    "latest_desc": "又一年❤️",
+    "last_fetch_items": [
+      {
+        "id": "3x6zh63ab9abu9g",
+        "ts": 1640181225
+      }
+    ]
+  },
+  "douyin_32062056217": {
+    "sec_uid": "MS4wLjABAAAASbtZpohJd3E4CMctcy5mTwdLJYq1wQt27I5muIshIxlT11i88tVEyQgMs34lIlDO",
+    "latest_cover": "https://raw.githubusercontent.com/racheko-lab/blive-monitor/master/assets/covers/douyin_32062056217.jpg",
+    "latest_cover_cdn": "https://p26-sign.douyinpic.com/tos-cn-p-0015/oQEVPdPB3aVjWA2IraWIo4QNaC6iA4JiAaOiT~tplv-dy-cropcenter:300:400.png?lk3s=2aa63f9f&x-expires=1786723200&x-signature=FDXx7zdcUX7cE70TTrMj6xFHbOU%3D&from=715538335&s=PackSourceEnum_DOUYIN_REFLOW&se=true&sh=300_400&sc=cover&biz_tag=aweme_video&l=20260814181638DFBF6D40544E057D5F16",
+    "latest_aweme_id": "7663495032004038810",
+    "latest_ct": 1784296481,
+    "mode": "api",
+    "latest_count": 1784296481,
+    "nickname": "Sayonal_",
+    "latest_desc": "不是说好了不哭的#淡淡的忧伤",
+    "latest_type": "图文",
+    "latest_url": "https://www.douyin.com/note/7663495032004038810",
+    "avatar": "https://p3-pc.douyinpic.com/aweme/720x720/aweme-avatar/tos-cn-avt-0015_602c5d8ee34311549115864959f13e48.jpeg?from=2956013662"
+  },
+  "douyin_70782856945": {
+    "sec_uid": "MS4wLjABAAAAXWPkodA6DTIsuuegT8zdKRrPnFVVebMe0G1ist71jDtOKzEhGsB5VeHLA5uWu4IK",
+    "latest_cover": "https://raw.githubusercontent.com/racheko-lab/blive-monitor/master/assets/covers/douyin_70782856945.jpg",
+    "latest_cover_cdn": "https://p11-sign.douyinpic.com/tos-cn-i-0813c001/o0DCO3yABjyBdzzUAAAeclfjACAi0ci1gE8IWs~tplv-dy-cropcenter:300:400.png?lk3s=2aa63f9f&x-expires=1786719600&x-signature=DSGnIRW6upgLCP%2Fw%2FKJScmMRHy8%3D&from=715538335&s=PackSourceEnum_DOUYIN_REFLOW&se=true&sh=300_400&sc=cover&biz_tag=aweme_video&l=20260814172434259CE109A6D25376E7EA",
+    "latest_aweme_id": "7670881423683139290",
     "latest_ct": 0,
     "mode": "api",
     "latest_count": 0,
-    "nickname": "开心愛酱壹佰E",
-    "latest_desc": "",
+    "nickname": "米多多",
+    "avatar": "https://p3-pc.douyinpic.com/aweme/720x720/aweme-avatar/tos-cn-i-0813c001_oMMXB5P7iI3mAhbAvtBxiAjAgobgAIvEwaBA4.jpeg?from=2956013662",
+    "latest_desc": "幸福有很多种收到大闺闺送的奶茶花是一种@ 微醺，#霸王茶姬 #秋天的第一杯奶茶",
     "latest_type": "视频",
-    "latest_url": "https://www.douyin.com/video/7673393086533982715",
-    "avatar": "https://p3-pc.douyinpic.com/aweme/720x720/aweme-avatar/tos-cn-avt-0015_bf458f5edcacd0de192f291f2ab8796a.jpeg?from=2956013662"
+    "latest_url": "https://www.douyin.com/video/7670881423683139290"
   }
 }
