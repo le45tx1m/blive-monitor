@@ -7,6 +7,7 @@
 
 import base64
 import json
+import os
 
 from backend.adapters import kuaishou_feed as kf
 from backend.adapters import kuaishou_feed_core as core
@@ -434,8 +435,8 @@ def test_warmup_主站打不开但已带风控token时短路():
 
     assert sess._warmup(page) is True      # 带着注入 token 按已预热处理
     assert sess._warmed is True
-    # 单次尝试 = networkidle + domcontentloaded 两次 goto；短路 = 只跑 1 次尝试
-    assert ctx.warm_calls == 2, "首次尝试失败即短路，不应重试满 3 次"
+    # 单次尝试 = 1 次 goto（旧版 networkidle+domcontentloaded 双 goto 已废弃）；短路 = 只跑 1 次尝试
+    assert ctx.warm_calls == 1, "首次尝试失败即短路，不应重试满 3 次"
 
 
 def test_warmup_主站打不开且无token时仍重试():
@@ -461,7 +462,130 @@ def test_warmup_主站打不开且无token时仍重试():
     page = ctx.new_page()
 
     assert sess._warmup(page) is False
-    assert ctx.warm_calls == 2 * sess.MAX_WARMUP_RETRY
+    # 无 token 不短路，照旧重试满 MAX_WARMUP_RETRY 次（每次 1 次 goto）
+    assert ctx.warm_calls == sess.MAX_WARMUP_RETRY
+
+
+def test_capture_visitor_cookies_keeps_did_filters_login_and_antibot():
+    """首次预热捕获游客身份：保留 did/kpn/clientid，过滤登录态(userId)与受限风控
+    token(kwfv1)；domain 归一化到 .kuaishou.com；并落盘供跨运行复用。"""
+    kf.reset_guest_visitor_cache()
+
+    class _Ctx:
+        def cookies(self):
+            return [
+                {"name": "did", "value": "web_abc123", "domain": ".kuaishou.com", "path": "/"},
+                {"name": "kpn", "value": "KUAISHOU_VISION", "domain": ".kuaishou.com", "path": "/"},
+                {"name": "clientid", "value": "3", "domain": "www.kuaishou.com", "path": "/"},
+                {"name": "kwfv1", "value": "x", "domain": ".kuaishou.com", "path": "/"},        # 受限 token，不跨运行复用
+                {"name": "userId", "value": "LOGIN_SECRET", "domain": ".kuaishou.com", "path": "/"},  # 登录态，绝不缓存
+            ]
+
+    kf.KuaishouFeedSession._capture_visitor_cookies(None, _Ctx())
+    names = {c["name"] for c in kf._GUEST_VISITOR_COOKIES}
+    assert kf._GUEST_DID_CACHE == "web_abc123"
+    assert names == {"did", "kpn", "clientid"}, names
+    assert "kwfv1" not in names and "userId" not in names
+    # domain 归一化到 .kuaishou.com（跨 www/live 子域可见）
+    assert next(c for c in kf._GUEST_VISITOR_COOKIES if c["name"] == "clientid")["domain"] == ".kuaishou.com"
+    # 已落盘
+    assert os.path.exists(kf._GUEST_CACHE_FILE)
+    kf.reset_guest_visitor_cache()
+
+
+def test_apply_visitor_cookies_injects_cache():
+    """匿名通道：_apply_visitor_cookies 把缓存的稳定 did 注入新 context（复用同一访客）。"""
+    kf.reset_guest_visitor_cache()
+    kf._GUEST_DID_CACHE = "web_inject9"
+    kf._GUEST_VISITOR_COOKIES = [{"name": "did", "value": "web_inject9", "domain": ".kuaishou.com", "path": "/"}]
+
+    class _Ctx:
+        def __init__(self):
+            self.injected = []
+
+        def add_cookies(self, cs):
+            self.injected.extend(cs)
+
+    ctx = _Ctx()
+    kf.KuaishouFeedSession._apply_visitor_cookies(None, ctx)
+    assert any(c["name"] == "did" and c["value"] == "web_inject9" for c in ctx.injected)
+    kf.reset_guest_visitor_cache()
+
+
+def test_warmup_requires_did_not_only_antibot():
+    """新逻辑：仅种下风控 token 但缺 did，不算预热成功（did 才是游客身份关键）。"""
+    class _Ctx:
+        def cookies(self):
+            return [{"name": n} for n in core.ANTIBOT_COOKIES]  # 只有 antibot，无 did
+
+    class _Page:
+        def __init__(self, ctx):
+            self.ctx = ctx
+
+        def goto(self, url, **kw):
+            pass
+
+        def wait_for_timeout(self, ms):
+            pass
+
+        def wait_for_response(self, pred, timeout=9000):
+            pass
+
+        @property
+        def context(self):
+            return self.ctx
+
+        def cookies(self):
+            return self.ctx.cookies()
+
+        def close(self):
+            pass
+
+    ctx, page = _Ctx(), _Page(_Ctx())
+    sess = kf.KuaishouFeedSession(ctx, user_agent="")
+    sess._warmed = False
+    sess.VISITOR_WAIT_MS = 50  # 让轮询快速超时，避免等满 10s
+    assert sess._warmup(page) is False
+
+
+def test_warmup_plants_with_did_and_antibot():
+    """did + 风控 token 都种下时，预热成功并捕获 did 进缓存。"""
+    class _Ctx:
+        def cookies(self):
+            return [{"name": "did", "value": "web_ok1", "domain": ".kuaishou.com", "path": "/"}] + \
+                   [{"name": n, "domain": ".kuaishou.com", "path": "/"} for n in core.ANTIBOT_COOKIES]
+
+    class _Page:
+        def __init__(self, ctx):
+            self.ctx = ctx
+
+        def goto(self, url, **kw):
+            pass
+
+        def wait_for_timeout(self, ms):
+            pass
+
+        def wait_for_response(self, pred, timeout=9000):
+            pass
+
+        @property
+        def context(self):
+            return self.ctx
+
+        def cookies(self):
+            return self.ctx.cookies()
+
+        def close(self):
+            pass
+
+    kf.reset_guest_visitor_cache()
+    ctx, page = _Ctx(), _Page(_Ctx())
+    sess = kf.KuaishouFeedSession(ctx, user_agent="")
+    sess._warmed = False
+    sess.VISITOR_WAIT_MS = 50
+    assert sess._warmup(page) is True
+    assert kf._GUEST_DID_CACHE == "web_ok1"
+    kf.reset_guest_visitor_cache()
 
 
 def test_kuaishou_cookie_injected_to_session_context():

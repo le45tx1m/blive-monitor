@@ -144,8 +144,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.com"
           # 状态文件列表（DRY：避免 4 处重复拼写错误）
-          STATE_FILES="state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json status.json summary_state.json"
-          PERSIST_FILES="state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json summary_state.json"
+          STATE_FILES="state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json status.json summary_state.json kuaishou_guest_visitor.json"
+          PERSIST_FILES="state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json summary_state.json kuaishou_guest_visitor.json"
           # 关键：用语义合并替代 git pull --rebase。
           # 旧方案 `git pull --rebase` 在状态文件有本地改动时会失败（远端也改了同一文件），
           # abort 后提交基于旧 base、push 非快进被拒 → 状态丢失 → 下一轮重复推送。

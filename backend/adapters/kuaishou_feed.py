@@ -39,6 +39,22 @@ kpfdrx3x/c.kuaishou/v.m.chenzhongtech 三子域、两个账号，结论一致）
    2025-11-05、list[3] 才是最新的 2026-08-07。**取 list[0] 当最新是错的**，
    必须按真实发布时间排序（时间来源见 :func:`kuaishou_feed_core.decode_media_meta`）。
 
+游客身份（did）必须稳定复用，否则永远被当「新访客」
+====================================================
+快手 visitor JS 给每个**全新浏览器上下文**都生成新的 ``did``（游客/设备 ID，
+``web_<hex>``）。匿名云 IP 下，每次都像「第一次来的新访客」→ 风控权重更高、
+更容易被 gated（``result=2`` / ``400002``）—— 这正是「快手还是风控」的根因之一。
+
+对策见 :class:`KuaishouFeedSession` 与模块顶部的游客身份缓存：
+* **首次成功预热**时抓出 ``did`` 等「设备/配置类」身份 cookie（``_GUEST_IDENTITY_COOKIE_NAMES``），
+  落盘到 ``config/kuaishou_guest_visitor.json`` 并随状态文件一起被 CI 提交；
+* 之后**每个新 context**（包括跨 CI 运行）都注入**同一个 did**，让快手认作「同一游客」，
+  逐步积累正常访客信誉，压低 gated 率。
+* **风控 token**（``kwfv1``/``kwssectoken``/``kwscode``）**不跨运行复用** —— 它们次数/时效
+  受限，每次预热让 visitor JS 现算刷新，避免复用一个已被打废的旧 token 反而更可疑。
+
+调试/起号时可调 :func:`reset_guest_visitor_cache` 清掉缓存，下轮重新养一个全新 did。
+
 风控 token 是「次数/时效受限」的（打废）
 ======================================
 实测浏览器养熟的 token 不是无限耐用：导出后裸 HTTP 复用立刻 ``result=2``；
@@ -60,6 +76,10 @@ kpfdrx3x/c.kuaishou/v.m.chenzhongtech 三子域、两个账号，结论一致）
 > 本模块只负责浏览器会话与预热；这样单测无需启动 Chromium。
 """
 
+import json
+import os
+import threading
+import time
 from typing import Any, Dict, List, Optional
 
 # 纯逻辑全部来自 kuaishou_feed_core（无浏览器依赖、可单测）；此处 re-export 以保持
@@ -81,6 +101,97 @@ from backend.adapters.kuaishou_feed_core import (  # noqa: F401
 )
 
 logger = __import__("logging").getLogger(__name__)
+
+
+# ==================== 稳定游客身份缓存（跨 context / 跨运行复用 did） ====================
+#
+# 风控根因：快手 visitor JS 给每个**全新 context** 都生成新的 ``did``（游客/设备 ID，
+# 形如 ``web_<hex>``）。匿名云 IP 下，每次都像「第一次来的新访客」→ 风控权重更高、
+# 更容易被 gated（result=2 / 400002）。本模块在**首次成功预热**时把游客身份
+# cookie（did 等）抓出来，后续每个 context 注入**同一个 did**，让快手认作「同一游客」
+# 而非每次新访客，从而降低 gated 率。
+#
+# 只缓存「设备/配置类」身份 cookie，**绝不**跨运行复用 ``kwfv1/kwssectoken/kwscode``
+# 这类次数/时效受限的风控 token —— 它们每次预热都让 visitor JS 现算刷新，避免复用一个
+# 已被打废的旧 token 反而更可疑。
+#
+# 缓存同时落盘到仓库（见 CI 的 PERSIST_FILES），于是**跨 CI 运行**也复用同一 did，
+# 让这个匿名设备逐步积累「正常访客」信誉，是压低产线 gated 率的关键杠杆。
+_GUEST_IDENTITY_COOKIE_NAMES = (
+    "did", "kpf", "kpn", "clientid", "didv",
+    "ktrace-context", "kwpsecproductname",
+)
+
+# 缓存文件路径：仓库根目录，与 state.json 等状态文件并列。必须放在根目录（而非
+# config/ 子目录）—— CI 的 Persist 步骤会 `git reset --hard origin/master` 再 `git
+# add` 状态文件，子目录文件走 TMPD 备份/恢复时会丢前缀无法还原；根目录文件则被
+# STATE_FILES / PERSIST_FILES 一并备份提交，从而跨 CI 运行保留同一 did。
+_GUEST_CACHE_FILE = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    "kuaishou_guest_visitor.json",
+)
+
+_GUEST_CACHE_LOCK = threading.Lock()
+_GUEST_DID_CACHE: Optional[str] = None
+_GUEST_VISITOR_COOKIES: List[Dict[str, Any]] = []
+
+
+def _load_guest_visitor_cache() -> None:
+    """启动时从磁盘读回上一轮捕获的游客身份（did 等），用于跨运行复用。"""
+    global _GUEST_DID_CACHE, _GUEST_VISITOR_COOKIES
+    try:
+        if not os.path.exists(_GUEST_CACHE_FILE):
+            return
+        with open(_GUEST_CACHE_FILE, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+        if isinstance(data.get("cookies"), list):
+            _GUEST_VISITOR_COOKIES = [c for c in data["cookies"] if isinstance(c, dict)]
+        _GUEST_DID_CACHE = data.get("did") or None
+        if _GUEST_DID_CACHE:
+            logger.info("[kuaishou] 载入缓存游客身份 did=%s（跨运行复用）",
+                        _GUEST_DID_CACHE[:14] + "…")
+    except Exception as e:  # noqa: BLE001
+        logger.debug("[kuaishou] 读取游客身份缓存失败（忽略，本轮重新养）: %s", e)
+
+
+def _save_guest_visitor_cache() -> None:
+    """把当前游客身份（did 等）落盘，供后续运行/context 复用。失败静默忽略。"""
+    try:
+        d = os.path.dirname(_GUEST_CACHE_FILE)
+        if d and not os.path.exists(d):
+            os.makedirs(d, exist_ok=True)
+        with _GUEST_CACHE_LOCK:
+            payload = {"did": _GUEST_DID_CACHE,
+                       "cookies": _GUEST_VISITOR_COOKIES}
+        with open(_GUEST_CACHE_FILE, "w", encoding="utf-8") as fh:
+            json.dump(payload, fh)
+    except Exception as e:  # noqa: BLE001
+        logger.debug("[kuaishou] 写入游客身份缓存失败（忽略）: %s", e)
+
+
+def reset_guest_visitor_cache() -> None:
+    """清空游客身份缓存（调试/起号用）。下次预热会重新养一个全新 did。"""
+    global _GUEST_DID_CACHE, _GUEST_VISITOR_COOKIES
+    with _GUEST_CACHE_LOCK:
+        _GUEST_DID_CACHE = None
+        _GUEST_VISITOR_COOKIES = []
+    try:
+        if os.path.exists(_GUEST_CACHE_FILE):
+            os.remove(_GUEST_CACHE_FILE)
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _norm_kuaishou_domain(domain: str) -> str:
+    """把身份 cookie 的 domain 归一化到 ``.kuaishou.com``，确保 www/live 等子域都可见。"""
+    d = (domain or "").lower()
+    if d.endswith("kuaishou.com"):
+        return ".kuaishou.com"
+    return domain or ".kuaishou.com"
+
+
+# 进程启动即尝试读回上一轮缓存（无文件/无权限时静默跳过）。
+_load_guest_visitor_cache()
 
 
 def _parse_cookie_string(cookie_str: str, domain: str) -> List[Dict[str, str]]:
@@ -140,8 +251,12 @@ class KuaishouFeedSession:
     WAIT_SEC = 7
     #: 导航超时（毫秒）
     NAV_TIMEOUT_MS = 45000
-    #: 预热后等待风控 JS 跑完的毫秒数（networkidle 通常已够，这里再补一点余量）
-    WARMUP_WAIT_MS = 4000
+    #: 预热后轮询等到游客 cookie（did + 风控 token）种下的最长毫秒数。
+    #: 取代旧版 ``networkidle``（快手 SPA 永不 idle，旧版必等满 45s 才降级，单轮 ~54s）。
+    #: 实测 ``domcontentloaded`` + 轮询约 6~9s 即可等到 did 与 kwfv1/kwssectoken/kwscode 全套种下。
+    VISITOR_WAIT_MS = 10000
+    #: 轮询间隔（毫秒）
+    VISITOR_POLL_MS = 400
     #: 预热最多重试几次（token 没种下就重导航主站，直到拿到或耗尽次数）
     MAX_WARMUP_RETRY = 3
     #: 同一 token 连续成功抓取多少次后主动重预热（打废自愈，实测配额 ~4）。
@@ -173,9 +288,14 @@ class KuaishouFeedSession:
         else:
             # 拿不到 browser 就直接用传进来的 context（测试替身/降级路径）
             self._ctx = self._src
-        # 可选：注入快手登录 Cookie（KUAISHOU_COOKIE），突破匿名被挡的风控
+        # 登录 Cookie（KUAISHOU_COOKIE）优先：注入后可直接突破匿名风控。
+        # 否则走免 Cookie 匿名通道：先注入上一轮捕获的**稳定游客身份**（did 等），
+        # 让快手认作「同一游客」而非每次新访客（降低 gated），风控 token 仍由 visitor
+        # JS 本次现算刷新（见 _warmup）。
         if self._kuaishou_cookie:
             self._apply_kuaishou_cookie(self._ctx)
+        else:
+            self._apply_visitor_cookies(self._ctx)
         return self._ctx
 
     def _apply_kuaishou_cookie(self, ctx) -> None:
@@ -188,6 +308,66 @@ class KuaishouFeedSession:
             logger.info("[kuaishou] 已注入登录 Cookie（%d 条），可突破作品接口风控", len(cookies))
         except Exception as e:  # noqa: BLE001
             logger.warning("[kuaishou] 注入快手 Cookie 失败: %s", e)
+
+    def _apply_visitor_cookies(self, ctx) -> None:
+        """匿名通道：把缓存的稳定游客身份 cookie（did 等）注入 context。
+
+        仅注入「设备/配置类」身份 cookie（见 ``_GUEST_IDENTITY_COOKIE_NAMES``），
+        不注入已被打废风险的风控 token。首次运行缓存为空时直接跳过，由 ``_warmup``
+        现场养出 did 并捕获。
+        """
+        cookies = _GUEST_VISITOR_COOKIES
+        if not cookies:
+            return
+        try:
+            ctx.add_cookies(cookies)
+            logger.info("[kuaishou] 注入稳定游客身份 cookie（%d 条，did=%s），复用同一访客降风控",
+                        len(cookies), (_GUEST_DID_CACHE or "")[:14] + "…")
+        except Exception as e:  # noqa: BLE001
+            logger.warning("[kuaishou] 注入游客身份 cookie 失败: %s", e)
+
+    def _capture_visitor_cookies(self, ctx) -> None:
+        """预热成功后抓取游客身份 cookie（did 等）进模块缓存，供后续复用/落盘。"""
+        global _GUEST_DID_CACHE, _GUEST_VISITOR_COOKIES
+        try:
+            all_cookies = ctx.cookies()
+        except Exception:  # noqa: BLE001
+            return
+        picked = [
+            {**c, "domain": _norm_kuaishou_domain(c.get("domain"))}
+            for c in all_cookies
+            if c.get("name") in _GUEST_IDENTITY_COOKIE_NAMES
+            and ".kuaishou.com" in (c.get("domain") or "")
+        ]
+        if not picked:
+            return
+        # 合并进缓存（按 name 去重，保留最新值）
+        by_name: Dict[str, Dict[str, Any]] = {}
+        for c in list(_GUEST_VISITOR_COOKIES) + picked:
+            by_name[c.get("name")] = c
+        _GUEST_VISITOR_COOKIES = list(by_name.values())
+        did = next((c["value"] for c in picked if c["name"] == "did"), None)
+        if did:
+            _GUEST_DID_CACHE = did
+            logger.info("[kuaishou] 捕获稳定游客 did=%s（后续复用，降低风控）",
+                        did[:14] + "…")
+        _save_guest_visitor_cache()
+
+    def _wait_visitor_cookies(self, page) -> bool:
+        """轮询直到 visitor JS 真正种下 ``did`` + 风控 token（取代旧版 networkidle）。
+
+        旧版 ``wait_until='networkidle'`` 在快手 SPA 上永远等不到，必等满 45s 超时后才
+        降级 ``domcontentloaded``，单轮白烧 ~54s。这里 ``domcontentloaded`` 返回后，
+        直接在 Python 侧轮询 ``context.cookies()``（不受 httpOnly 限制、比读
+        ``document.cookie`` 更全），直到 ``did`` 与 ``ANTIBOT_COOKIES`` 都出现或超时。
+        """
+        deadline = time.monotonic() + self.VISITOR_WAIT_MS / 1000.0
+        while time.monotonic() < deadline:
+            names = {c.get("name") for c in page.context.cookies()}
+            if "did" in names and (names & set(ANTIBOT_COOKIES)):
+                return True
+            page.wait_for_timeout(self.VISITOR_POLL_MS)
+        return False
 
     def close(self) -> None:
         """关闭自建 context（借用外部 context 时不动它）。"""
@@ -205,18 +385,22 @@ class KuaishouFeedSession:
         return self.MAX_USES_PER_TOKEN > 0 and self._uses >= self.MAX_USES_PER_TOKEN
 
     def _warmup(self, page) -> bool:
-        """访问主站种风控 token（``kwfv1``/``kwssectoken``/``kwscode``）。
+        """访问主站跑完整 visitor JS，种下 ``did`` + 风控 token（``kwfv1``/``kwssectoken``/``kwscode``）。
 
         跳过这步的话，profile 页发出的请求会恒返回 ``result=2`` —— 这是整条
         链路唯一不可省的前置动作。
 
-        **返回是否确认种下了关键 token**：之前「一次性置 ``_warmed=True``」的写法
+        **返回是否确认种下了游客身份**：之前「一次性置 ``_warmed=True``」的写法
         在 token 实际没种下时也会误以为已预热，导致整轮静默失败（表现为所有账号
-        全 ``result=2``）。这里改成用 token 是否真实存在于 cookie 判定，并最多重试
-        ``MAX_WARMUP_RETRY`` 次；``networkidle`` 比 ``domcontentloaded`` 更能让风控
-        JS 跑完（实测 ``domcontentloaded`` 只种 ``kwscode``/``kwssectoken``，要等
-        ``networkidle`` 才会补 ``kwfv1``）。任何一次真正的预热都会重置 ``_uses``
-        （新 token = 新配额起点）。
+        全 ``result=2``）。这里改成用 cookie 是否真实存在判定，并最多重试
+        ``MAX_WARMUP_RETRY`` 次。
+
+        关键改进（修复「快手还是风控」）：
+        * 不再用 ``wait_until='networkidle'``（快手 SPA 永不 idle，旧版必等满 45s 超时
+          才降级，单轮 ~54s），改为 ``domcontentloaded`` + :meth:`_wait_visitor_cookies`
+          轮询，约 6~9s 即可确认 did 与风控 token 全套种下。
+        * 预热成功后 :meth:`_capture_visitor_cookies` 抓出 did 等游客身份，供后续
+          context 复用同一 did（见模块顶部缓存说明），避免每次被当「新访客」抬高风险权重。
         """
         if self._warmed:
             return True
@@ -225,13 +409,10 @@ class KuaishouFeedSession:
         last_err = ""
         for attempt in range(1, self.MAX_WARMUP_RETRY + 1):
             try:
-                try:
-                    page.goto(WARMUP_URL, wait_until="networkidle",
-                              timeout=self.NAV_TIMEOUT_MS)
-                except Exception:  # noqa: BLE001 —— networkidle 偶发等不到，降级 domcontentloaded
-                    page.goto(WARMUP_URL, wait_until="domcontentloaded",
-                              timeout=self.NAV_TIMEOUT_MS)
-                page.wait_for_timeout(self.WARMUP_WAIT_MS)
+                page.goto(WARMUP_URL, wait_until="domcontentloaded",
+                          timeout=self.NAV_TIMEOUT_MS)
+                # 显式等到 visitor JS 真正种下 did + 风控 token（不再白等 networkidle 45s）
+                self._wait_visitor_cookies(page)
             except Exception as e:  # noqa: BLE001
                 last_err = str(e)
                 logger.warning("[kuaishou] 主站预热第 %d/%d 次失败: %s",
@@ -248,13 +429,16 @@ class KuaishouFeedSession:
                     break
                 continue
             names = {c.get("name") for c in page.context.cookies()}
-            planted = bool(names & set(ANTIBOT_COOKIES))
+            planted = ("did" in names) and bool(names & set(ANTIBOT_COOKIES))
             if planted:
                 break
+        if planted:
+            # 抓出游客身份（did 等）进缓存，后续 context/运行复用同一访客
+            self._capture_visitor_cookies(page.context)
         self._warmed = planted
         if not planted:
             logger.warning(
-                "[kuaishou] 主站预热未种下风控 token（profile 接口将恒 result=2）"
+                "[kuaishou] 主站预热未种下游客身份（profile 接口将恒 result=2）"
                 " last_err=%s cookies=%s",
                 last_err, sorted({c.get("name") for c in page.context.cookies()}),
             )

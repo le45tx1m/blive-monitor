@@ -12,6 +12,16 @@
 > - cookie 变为**可选覆盖**：仅当个别账号匿名仍被挡时，才通过环境变量 `KUAISHOU_COOKIE` 或 `BLIVE_CONFIG.kuaishou_cookie` 显式注入（不再有「提交 cookie 到仓库」的通道）。
 > - 因此下文所有「覆盖/提交 `config/kuaishou_cookie.txt`」「cookie 过期需轮换」的运维指引**已废弃**，请勿再照做。
 
+> ## 🔄 2026-08-14（续）更新：Playwright 跑完整 visitor JS 拿游客 cookie + 稳定 did 复用
+>
+> - **问题**：即便无 cookie 匿名通道能通（`result=1`），产线（GitHub Actions 海外 Azure IP）仍频繁被风控（gated / `result=2` / `400002`）。根因之一是快手 visitor JS 给**每个全新浏览器上下文**都生成新 `did`（游客/设备 ID `web_<hex>`）——匿名云 IP 下每次都像「第一次来的新访客」→ 风控权重更高、更易被挡。
+> - **修复（无 cookie 前提下）**：改 `backend/adapters/kuaishou_feed.py` 的 `KuaishouFeedSession`：
+>   1. **预热不再等 `networkidle`**：快手 SPA 永不 idle，旧版 `wait_until="networkidle"` 必等满 45s 超时才降级 `domcontentloaded`，单轮 ~54s。改为 `domcontentloaded` + `_wait_visitor_cookies()` 轮询 `context.cookies()`，直到 `did` 与 `kwfv1/kwssectoken/kwscode` 全套种下（实测 ~1.1s）。
+>   2. **稳定游客 `did` 捕获 + 复用**：首次成功预热后 `_capture_visitor_cookies()` 抓出 `did` 等「设备/配置类」身份 cookie（**不含** `kwfv1/kwssectoken/kwscode` 等受限风控 token），落盘 `kuaishou_guest_visitor.json` 并随状态文件被 CI 提交；之后每个新 context（含跨 CI 运行）经 `_apply_visitor_cookies()` 注入**同一 did**，让快手认作「同一游客」逐步积累信誉。
+> - **实测**：沙箱环境两「轮」（全新 context）warmup 均 1.1s、`result=1`、且 `did` 跨轮完全一致（`DID_REUSE_OK`）。产线 gated 率是否下降需下一轮 CI 实跑验证。
+> - **跨运行持久化**：`kuaishou_guest_visitor.json` 已加入 CI 的 `STATE_FILES`/`PERSIST_FILES`（与 `state.json` 同级，根目录），能扛过 `git reset --hard origin/master` 被提交，从而跨运行保留同一 `did`。
+> - **调试/起号**：`reset_guest_visitor_cache()` 可清空缓存，下轮重新养一个全新 `did`。
+
 ---
 
 ## 0. 一句话现状
@@ -81,6 +91,8 @@
 | **公开仓库暴露 cookie** | `config/kuaishou_cookie.txt` 在公开 git 历史，会话期内有被冒用风险。 | 接受过的权衡。要彻底消除就改走 Secret 通道（§2.1）。cookie 过期即轮换可降风险。 |
 | **principalId 导航回退** | 若 Nizi981116 无快手号，resolver 可能再吐 principalId，走回抓不到最新的老路。 | 加导航护栏（§4.3）或把 `principal_id` 加回 rooms.json。 |
 | **token 打废** | 同一 token 连续命中约 4 次后被风控打废。代码已做主动重预热 + 整轮 `result=2` 被动自愈两层兜底。 | 无需人工，但若整轮全 `result=2` 持续，多半是 cookie 过期（见上）。 |
+| **新访客风控（did 每次重置）** | 快手 visitor JS 给每个全新 context 生成新 `did`；匿名云 IP 下每次像「新访客」→ 风控权重高、易 gated。 | **已修**：首次预热捕获 `did` 并落盘 `kuaishou_guest_visitor.json`（随状态提交），后续 context/运行注入同一 `did`（`kuaishou_feed.py` `_apply_visitor_cookies`/`_capture_visitor_cookies`）。跨运行保留同一设备身份，逐步积累信誉。 |
+| **预热慢（networkidle 超时）** | 旧版 `wait_until="networkidle"` 在快手 SPA 永不 idle，必等满 45s 超时降级，单轮 ~54s。 | **已修**：改 `domcontentloaded` + `_wait_visitor_cookies()` 轮询 cookie，~1.1s 确认 `did`+风控 token 种下。 |
 | **CI 推送冲突** | CI/web 会改 `rooms.json`（state 提交 / web 增删房间），本地推送常被挡，需 `git pull --rebase` 解决（曾撞 Nizi981116 块冲突，已手动合并保留 web 新增的 `00512x`）。 | 推送前先 `git pull --rebase origin master`，冲突时保留 web 端新增条目。 |
 | **`cookie_used` 恒为 `false`（观测陷阱）** | `fetch_new_posts` 硬编码 `cookie_used=False`（`kuaishou.py:570-573`），不看 `last_ladder`。CI 里两个快手账号都会显示 `cookie_used=false`，容易误判成"cookie 没加载 / 通道坏了"。 | **别用 `cookie_used` 判断 cookie 状态**；以 `latest_post_id` / `last_success` 为准（§4.2）。真要观测 cookie 效果，需改代码让 `last_ladder` 反映 `KuaishouFeedSession` 实际用的凭证等级（见 §5）。 |
 
@@ -137,6 +149,8 @@
 | `config/kuaishou_cookie.txt` | **登录态 cookie（公开！）**，CI 读取突破风控。过期需更新。 |
 | `check_new_posts.py` → `load_kuaishou_cookie()` | cookie 加载，优先级：env > `BLIVE_CONFIG` > 仓库文件（line ~162-178）。 |
 | `backend/adapters/kuaishou_feed.py` → `KuaishouFeedSession.fetch()` | 浏览器导航 `live.kuaishou.com/profile/{pid}` 拦截作品接口。**pid 用快手号能抓最新，用 principalId 抓不到。** |
+| `backend/adapters/kuaishou_feed.py` → `_apply_visitor_cookies`/`_capture_visitor_cookies`/`_wait_visitor_cookies` | 无 cookie 游客身份：预热后抓 `did` 等身份 cookie、跨 context/运行复用稳定 `did`（降新访客风控）；`_warmup` 改 `domcontentloaded`+轮询取代 45s networkidle。 |
+| `kuaishou_guest_visitor.json`（仓库根） | 稳定游客身份缓存（`did`+设备/配置类 cookie），被 CI 随状态文件提交，跨运行保留同一 `did`。调试可 `reset_guest_visitor_cache()`。 |
 | `backend/adapters/kuaishou_feed_core.py` | 纯逻辑：`parse_profile_public` / `sort_by_time` / `pick_latest` / `decode_media_meta`（CDN URL 反解发布时间）。 |
 | `backend/adapters/kuaishou_identity.py` | 身份解析器：云 IP 下纯用户名无法解 `principal_id`（已实证，见模块文档）。 |
 | `backend/adapters/kuaishou.py` → `resolve_kuaishou_identity()` / `fetch_new_posts()` | 编排：解析 → 取 `pid or rid` → feed。 |
