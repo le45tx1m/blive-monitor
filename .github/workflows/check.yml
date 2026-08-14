@@ -168,6 +168,15 @@ jobs:
           for f in $STATE_FILES; do
             [ -f "$TMPD/$f" ] && cp "$TMPD/$f" .
           done
+          # kuaishou_guest_visitor.json 特殊处理：游客 did 需跨运行稳定复用，绝不能回退成 null。
+          # 上面的通用恢复会盲目把 TMPD 版本拷回；若本轮是并发失败轮（只拿到种子 null），会把已提交的
+          # 好 did 覆盖成 null，导致跨运行复用失效。这里仅当 TMPD 含有效 did（"web_" 开头）才采用，
+          # 否则回退到已提交版本（保留历史好 did）。
+          if [ -f "$TMPD/kuaishou_guest_visitor.json" ] && grep -q '"did"[[:space:]]*:[[:space:]]*"web_' "$TMPD/kuaishou_guest_visitor.json" 2>/dev/null; then
+            cp "$TMPD/kuaishou_guest_visitor.json" kuaishou_guest_visitor.json
+          else
+            git show origin/master:kuaishou_guest_visitor.json > kuaishou_guest_visitor.json 2>/dev/null || true
+          fi
           [ -d "$TMPD/covers" ] && mkdir -p assets/covers && cp -r "$TMPD/covers/"* assets/covers/ 2>/dev/null || true
           rm -rf "$TMPD"
           # 状态文件被 .gitignore 忽略，用 -f 强制纳入版本控制；notify_dedup.json 为去重账本，同样需持久化
