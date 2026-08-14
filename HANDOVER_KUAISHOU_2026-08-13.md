@@ -21,6 +21,11 @@
 > - **实测**：沙箱环境两「轮」（全新 context）warmup 均 1.1s、`result=1`、且 `did` 跨轮完全一致（`DID_REUSE_OK`）。产线 gated 率是否下降需下一轮 CI 实跑验证。
 > - **跨运行持久化**：`kuaishou_guest_visitor.json` 已加入 CI 的 `STATE_FILES`/`PERSIST_FILES`（与 `state.json` 同级，根目录），能扛过 `git reset --hard origin/master` 被提交，从而跨运行保留同一 `did`。
 > - **调试/起号**：`reset_guest_visitor_cache()` 可清空缓存，下轮重新养一个全新 `did`。
+>
+> ## 🔄 2026-08-14（续2）更新：产线验证闭环（已实跑确认）
+> - **根因确认**：首版 `235659fd` 首轮即拿到真实 `did`（`993f5b46`=`web_38ee…`），但次轮 `1ae1ad05` 回退 `null`，此后 4 轮（`19a4f1ef` 仅加 CI 防回退）仍卡 `null`——印证原捕获点缺口：`_capture_visitor_cookies` 只在 `_warmup` 成功分支触发，海外出口下 `did` 常在 `profile` 导航才由 visitor JS 种下、`_warmup` 窗口内看不到 → `planted=False` → 漏抓。
+> - **修复**：`5f02695f` 在 `_cycle` 结束（page 关闭后）无条件对 context 全量 cookie 兜底捕获 `did`；配合 `19a4f1ef` 的 `web_` 前缀保护，好 `did` 不被并发失败轮回退、且每轮成功 `fetch` 自愈重捕。
+> - **产线实测（Azure 海外出口）✅**：`5f02695f` 后首轮 `bc01ded7` 落盘 `did=web_d6d698fea12a0722d654539cc323b3f5`；下一轮 `5c7e40b0` 的 `did` **与上一轮完全一致**——跨运行稳定复用。5 个快手账号 `gated_count` 连续 5 轮稳定在 `1`，未累积上涨。捕获的 cookie 集合为纯身份类（`kpf/clientid/did/ktrace-context/kpn/kwpsecproductname`），不含 `kwfv1/kwssectoken/kwscode` 受限风控 token——符合设计。首要验收点（产线 gated 率）已通过。
 
 ---
 
