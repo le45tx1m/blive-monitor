@@ -6,11 +6,19 @@
 
 ---
 
+> ## 🔄 2026-08-14 更新：快手默认即为「无 cookie 版本」
+>
+> - **快手新作品监控默认不再需要任何 cookie**。原 `config/kuaishou_cookie.txt`（一份提交在**公开仓库**的登录态 cookie，既暴露凭证又易 stale）已删除；`KuaishouAdapter._session` 现在默认以**空 cookie（匿名）**启动，完全依赖浏览器预热种新鲜风控 token 的免登录通道。
+> - cookie 变为**可选覆盖**：仅当个别账号匿名仍被挡时，才通过环境变量 `KUAISHOU_COOKIE` 或 `BLIVE_CONFIG.kuaishou_cookie` 显式注入（不再有「提交 cookie 到仓库」的通道）。
+> - 因此下文所有「覆盖/提交 `config/kuaishou_cookie.txt`」「cookie 过期需轮换」的运维指引**已废弃**，请勿再照做。
+
+---
+
 ## 0. 一句话现状
 
 - 快手新作监控已能抓到作品（不再 `result=2` 卡死抓不到）。Nizi981116 之前"抓不到最新一条"的根因是**导航用了 `principal_id` 而非快手号**，已通过改为裸 `id` / 快手号导航修复，现与肥阿肥 同路径。
-- 登录态 cookie 已提交进公开仓库（`config/kuaishou_cookie.txt`）并由 `load_kuaishou_cookie()` 读入、传给 `KuaishouFeedSession`；但 `fetch_new_posts` 会**硬编码** `cookie_used=False` / `credential_level=anonymous`（`kuaishou.py:570-573`），所以 `post_tracking.json` 里 `cookie_used` 恒为 `false`——这是**观测字段的硬编码**，不代表 cookie 没加载（见 §2.1 与 §4.2）。
-- 最大运维负担：**cookie 会过期**，需定期重新抓一份更新。
+- **快手默认无 cookie（匿名通道）**：`KuaishouAdapter._session` 默认以空 cookie 启动，`fetch_new_posts` 如实记录 `cookie_used=False` / `credential_level=anonymous`（`kuaishou.py`）。历史上曾把登录态 cookie 提交进公开仓库（`config/kuaishou_cookie.txt`，2026-08-14 已删除），现已不依赖任何 cookie 即可抓取。
+- 最大运维负担（原 cookie 过期轮换）**已消除**——匿名通道由浏览器每次预热种新鲜 token，无需人工维护 cookie。
 
 ---
 
@@ -18,7 +26,7 @@
 
 | commit | 内容 |
 |---|---|
-| `9545f20e` | 新增 `config/kuaishou_cookie.txt`（完整快手登录态 cookie），并给 `load_kuaishou_cookie()` 加第 3 优先级：读仓库文件。**免去手动设 `KUAISHOU_COOKIE` Secret。** |
+| `9545f20e` | （已废弃）曾新增 `config/kuaishou_cookie.txt`（完整快手登录态 cookie）并给 `load_kuaishou_cookie()` 加第 3 优先级读仓库文件。**该文件于 2026-08-14 删除，快手回归默认无 cookie。** |
 | `d1d578a3` → rebase 后 `9545f20e` | 同上（rebase 到 CI 的 state 提交之上）。 |
 | `2249b3d3` | `rooms.json` 中 Nizi981116 去掉 `principal_id`/`share_url`，改为裸 `id` 形态，与肥阿肥 同路径。rebase 时合并了 web 端新增的抖音账号 `00512x`。 |
 
@@ -80,11 +88,16 @@
 
 ## 4. 运维手册（runbook）
 
-### 4.1 刷新过期 cookie（最高频操作）
+### 4.1 登录态 cookie（已废弃 —— 快手默认无 cookie）
 
-1. 借其它 agent 工具，从用户 iPhone Safari（已登录快手网页版）抓完整登录态 cookie（需含 `kuaishou.s` / `passToken` / `kuaishou.web.api_st` / `kuaishou.web.api_ph`）。
-2. 覆盖 `config/kuaishou_cookie.txt`（纯 cookie 串，一行，无注释），或本地 `cp` 已抓文件。
-3. `git add config/kuaishou_cookie.txt && git commit -m "chore(kuaishou): 轮换登录 cookie" && git pull --rebase origin master && git push origin master`。
+> ⚠️ 本小节原为「提交登录态 cookie 到公开仓库」的运维步骤，**已于 2026-08-14 废弃**。
+> 快手新作品监控默认走浏览器匿名通道，不需要任何 cookie；下方步骤请勿再执行。
+> 仅当个别账号匿名仍被挡时，才通过环境变量 `KUAISHOU_COOKIE` 或 `BLIVE_CONFIG.kuaishou_cookie`
+> 选择性注入 cookie（不进仓库、不公开）。
+
+~~1. 借其它 agent 工具，从用户 iPhone Safari（已登录快手网页版）抓完整登录态 cookie。~~
+~~2. 覆盖 `config/kuaishou_cookie.txt`（纯 cookie 串，一行，无注释）。~~
+~~3. `git add config/kuaishou_cookie.txt && git commit ... && git push`。~~
 
 ### 4.2 验证 cookie / 路径是否生效
 
@@ -94,7 +107,7 @@
   - `last_success` 有值（当前实测 `2026-08-13 03:33`）、`gated_count` 不再卡死。
   - 当前 `kuaishou_Nizi981116.latest_post_id = 3xi6qc9eg8w5vvg`、`latest_published_at = 2020-01-23`。
 - ⚠️ **残留核对点**：Nizi981116 当前 `latest_published_at=2020-01-23`，若该账号近年其实有更新、却仍停在 2020，说明导航可能仍没拿到"真正最新"（残留风险见 §2.2），需结合账号实际作品列表人工核对。
-- 本地抽测 `load_kuaishou_cookie()` 文件回退：无 `KUAISHOU_COOKIE`/`BLIVE_CONFIG` 时应读到 1561 字节、含 `kuaishou.s`。
+- 本地抽测 `load_kuaishou_cookie()`：默认应返回空串（无 `KUAISHOU_COOKIE`/`BLIVE_CONFIG` 时即为匿名）；仅在显式设置环境变量或 `BLIVE_CONFIG.kuaishou_cookie` 时才非空。
 
 ### 4.3 （可选）加"导航优先用快手号"护栏
 

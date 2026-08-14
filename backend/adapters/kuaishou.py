@@ -512,10 +512,22 @@ class KuaishouAdapter(PlatformAdapter):
         复用是刚需不是优化：冷启动首个账号要重新导航 4~5 次才等到 ``result=1``，
         而同一 context 热起来后下一个账号第 1 次导航即命中。每账号各开一次
         浏览器等于每个都付一遍冷启动代价，还更容易撞风控。
+
+        **默认匿名（不需要 cookie 的快手版本）**：不注入任何登录态/风控 cookie，
+        完全依赖浏览器预热（访问 ``www.kuaishou.com``）自行种下 ``kwfv1``/
+        ``kwssectoken``/``kwscode`` 等新鲜风控 token，再拦截页面自身发出的带签名
+        ``live_api/profile/public`` 响应。这正是与 RSSHub 同思路的免登录路径——
+        ``fetch_new_posts`` 也如实记录 ``cookie_used=False`` / ``credential_level=ANONYMOUS``。
+
+        仅在 ``credentials.cookie`` 被显式提供时才注入（用于突破个别匿名仍被挡的账号，
+        属可选增强而非必需项）；``credentials.cookie`` 为空时再回退到
+        ``load_kuaishou_cookie()``（环境变量 / BLIVE_CONFIG 的可选覆盖）。
         """
         if self._feed_session is None:
+            # 默认空 → 匿名；显式提供才注入。绝不默认加载已提交的仓库 cookie 文件。
+            # load_kuaishou_cookie 走 check_new_posts（懒加载以避免循环导入）。
             from check_new_posts import load_kuaishou_cookie
-            cookie = load_kuaishou_cookie()
+            cookie = self.cookie or load_kuaishou_cookie()
             self._feed_session = ks_feed.KuaishouFeedSession(
                 context, user_agent=_KUAISHOU_UA, kuaishou_cookie=cookie
             )

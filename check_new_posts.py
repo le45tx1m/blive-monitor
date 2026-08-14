@@ -160,18 +160,21 @@ def load_douyin_cookie() -> str:
 
 
 def load_kuaishou_cookie() -> str:
-    """读取快手登录 Cookie（可选）。
+    """读取快手 Cookie（可选覆盖，非必需）。
 
-    优先级（从高到低）：
+    快手新作监控**默认不需要任何 cookie**：走浏览器匿名通道
+    （``live_api/profile/public`` + 浏览器预热种新鲜风控 token），由
+    ``KuaishouAdapter._session`` 默认以空 cookie 启动。本函数仅在**显式需要**
+    突破个别匿名仍被挡的账号时才提供 cookie，来源（从高到低）：
+
       1. 环境变量 KUAISHOU_COOKIE
       2. BLIVE_CONFIG 里的 kuaishou_cookie 字段
-      3. 仓库文件 config/kuaishou_cookie.txt（纯 Cookie 串；CI 提交进仓库，免手动设 Secret）
-    没有则返回空串——此时快手走免 Cookie 匿名通道（live_api/profile/public + 预热种
-    token），与抖音的 DOUYIN_COOKIE 同理。配置后交由 KuaishouFeedSession 注入其隔离
-    context，用于突破匿名被挡的风控（如 Nizi981116 这类卡 gated 的账号）。
 
-    注：第 3 路是把 cookie 作为仓库文件提交，免去在 GitHub Secrets 手动设置的环节；
-    因仓库为公开 GitHub Pages，cookie 会出现在公开 git 历史，登录态过期后需重新生成并提交。
+    没有则返回空串 —— 此时快手走免 Cookie 匿名通道（与抖音 DOUYIN_COOKIE 同理，
+    但快手默认即为匿名，无需任何登录态）。
+
+    注：历史上曾把登录态 cookie 作为 ``config/kuaishou_cookie.txt`` 提交进公开仓库，
+    既暴露凭证又易 stale；现已废弃该文件通道，快手默认即为无 cookie 版本。
     """
     env = os.environ.get("KUAISHOU_COOKIE", "").strip()
     if env:
@@ -184,14 +187,6 @@ def load_kuaishou_cookie() -> str:
     cookie = (cfg.get("kuaishou_cookie") or "").strip()
     if cookie:
         return cookie
-    # 兜底：仓库内提交的纯 Cookie 文件（免手动设 Secret 的通道）。
-    cookie_file = os.path.join(REPO_DIR, "config", "kuaishou_cookie.txt")
-    try:
-        if os.path.isfile(cookie_file):
-            with open(cookie_file, "r", encoding="utf-8") as _fh:
-                return _fh.read().strip()
-    except Exception:
-        pass
     return ""
 
 
@@ -850,7 +845,8 @@ def handle_kuaishou_posts(entry: Dict[str, Any], tracking: Dict[str, Dict[str, A
         posts = adapter.fetch_new_posts(pid or rid, baseline=t, context=context)
     except AdapterGated as g:
         append_event(rid, name, "kuaishou", "cookie_warn",
-                     detail=f"快手接口被风控（{g.detail}），可在 BLIVE_CONFIG.platforms.kuaishou.credentials 配置 cookie 突破",
+                     detail=f"快手匿名通道被风控（{g.detail}）。默认无需 cookie；"
+                            f"若个别账号持续被挡，可在 BLIVE_CONFIG.platforms.kuaishou.credentials.cookie 选择性注入 cookie 增强",
                      now=bjnow())
         tracking[key] = t
         return True, True
