@@ -17,7 +17,7 @@
 > - **问题**：即便无 cookie 匿名通道能通（`result=1`），产线（GitHub Actions 海外 Azure IP）仍频繁被风控（gated / `result=2` / `400002`）。根因之一是快手 visitor JS 给**每个全新浏览器上下文**都生成新 `did`（游客/设备 ID `web_<hex>`）——匿名云 IP 下每次都像「第一次来的新访客」→ 风控权重更高、更易被挡。
 > - **修复（无 cookie 前提下）**：改 `backend/adapters/kuaishou_feed.py` 的 `KuaishouFeedSession`：
 >   1. **预热不再等 `networkidle`**：快手 SPA 永不 idle，旧版 `wait_until="networkidle"` 必等满 45s 超时才降级 `domcontentloaded`，单轮 ~54s。改为 `domcontentloaded` + `_wait_visitor_cookies()` 轮询 `context.cookies()`，直到 `did` 与 `kwfv1/kwssectoken/kwscode` 全套种下（实测 ~1.1s）。
->   2. **稳定游客 `did` 捕获 + 复用**：首次成功预热后 `_capture_visitor_cookies()` 抓出 `did` 等「设备/配置类」身份 cookie（**不含** `kwfv1/kwssectoken/kwscode` 等受限风控 token），落盘 `kuaishou_guest_visitor.json` 并随状态文件被 CI 提交；之后每个新 context（含跨 CI 运行）经 `_apply_visitor_cookies()` 注入**同一 did**，让快手认作「同一游客」逐步积累信誉。
+>   2. **稳定游客 `did` 捕获 + 复用**：`_capture_visitor_cookies()` 在**预热成功时**与**每轮 `_cycle` 结束**都抓 `did` 等「设备/配置类」身份 cookie（**不含** `kwfv1/kwssectoken/kwscode` 等受限风控 token）——后者兜底覆盖「did 仅在 profile 导航才种下、warmup 页看不到」的海外出口场景；落盘 `kuaishou_guest_visitor.json` 并随状态文件被 CI 提交；之后每个新 context（含跨 CI 运行）经 `_apply_visitor_cookies()` 注入**同一 did**，让快手认作「同一游客」逐步积累信誉。
 > - **实测**：沙箱环境两「轮」（全新 context）warmup 均 1.1s、`result=1`、且 `did` 跨轮完全一致（`DID_REUSE_OK`）。产线 gated 率是否下降需下一轮 CI 实跑验证。
 > - **跨运行持久化**：`kuaishou_guest_visitor.json` 已加入 CI 的 `STATE_FILES`/`PERSIST_FILES`（与 `state.json` 同级，根目录），能扛过 `git reset --hard origin/master` 被提交，从而跨运行保留同一 `did`。
 > - **调试/起号**：`reset_guest_visitor_cache()` 可清空缓存，下轮重新养一个全新 `did`。

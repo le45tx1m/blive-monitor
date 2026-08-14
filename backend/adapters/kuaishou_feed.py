@@ -504,6 +504,15 @@ class KuaishouFeedSession:
             except Exception:  # noqa: BLE001
                 pass
 
+        # 兜底抓取游客身份（did 等）：profile 导航同样会触发 visitor JS 种下 did，
+        # 而 _warmup 的判定只看 warmup 页的 cookie——若 did 是在 profile 页才种下的
+        # （海外出口常见），_warmup 会判 planted=False 导致漏抓。这里从整轮结束后的
+        # context 全量 cookie 再抓一次，确保无论 did 在哪个阶段种下都能被捕获复用。
+        try:
+            self._capture_visitor_cookies(ctx)
+        except Exception:  # noqa: BLE001
+            pass
+
         if best:
             return best, seen
         last = seen[-1] if seen else None

@@ -588,6 +588,76 @@ def test_warmup_plants_with_did_and_antibot():
     kf.reset_guest_visitor_cache()
 
 
+def test_cycle_captures_did_planted_only_on_profile_nav():
+    """生产场景：did 仅在 profile 导航后才种下（warmup 页看不到），
+    _cycle 结束时应从 context 全量 cookie 兜底捕获 did，而非漏掉。"""
+    kf.reset_guest_visitor_cache()
+
+    class _Ctx:
+        def __init__(self):
+            self._profile_visited = False
+
+        def new_page(self):
+            return _Page(self)
+
+        def cookies(self):
+            base = [{"name": n, "domain": ".kuaishou.com", "path": "/"} for n in core.ANTIBOT_COOKIES]
+            if self._profile_visited:
+                base.append({"name": "did", "value": "web_profile9", "domain": ".kuaishou.com", "path": "/"})
+            return base
+
+        def add_cookies(self, cs):
+            pass
+
+        def close(self):
+            pass
+
+    class _Page:
+        def __init__(self, ctx):
+            self.ctx = ctx
+            self._cb = None
+
+        def on(self, event, cb):
+            if event == "response":
+                self._cb = cb
+
+        def goto(self, url, **kw):
+            if core.PROFILE_URL_TMPL.split("{")[0] in url:
+                self.ctx._profile_visited = True
+
+        def wait_for_timeout(self, ms):
+            pass
+
+        def wait_for_response(self, pred, timeout=9000):
+            resp = type("R", (), {"url": core.PROFILE_PUBLIC_PATH + "?x=1",
+                                  "body": lambda: b'{"result":1,"list":[{"id":"3xabc","photoId":"3xabc"}]}'})()
+            if self._cb:
+                self._cb(resp)
+            return resp
+
+        @property
+        def context(self):
+            return self.ctx
+
+        def cookies(self):
+            return self.ctx.cookies()
+
+        def close(self):
+            pass
+
+        def title(self):
+            return "t"
+
+    ctx = _Ctx()
+    sess = kf.KuaishouFeedSession(ctx, user_agent="")
+    sess.VISITOR_WAIT_MS = 50  # 让 warmup 的轮询快速超时（warmup 页无 did）
+    r = sess.fetch("pidX")
+    assert "items" in r, "fetch 应至少返回结构化结果"
+    # warmup 阶段看不到 did（planted=False），但 profile 导航种下后应在整轮结束被兜底捕获
+    assert kf._GUEST_DID_CACHE == "web_profile9", "profile 导航种下的 did 应被兜底捕获"
+    kf.reset_guest_visitor_cache()
+
+
 def test_kuaishou_cookie_injected_to_session_context():
     """配置了 kuaishou_cookie 时，应注入到会话自建的隔离 context（domain=.kuaishou.com）。"""
     src = _FakeSrc(10)
@@ -609,7 +679,13 @@ def test_kuaishou_cookie_injected_to_session_context():
 
 
 def test_kuaishou_cookie_empty_no_inject():
-    """未配置 cookie 时不应注入任何东西（保持免 Cookie 匿名通道）。"""
+    """未配置登录 cookie 且游客缓存为空时，不应注入任何东西（保持免 Cookie 匿名通道）。
+
+    注意：游客身份 cookie（did 等）会在「已缓存稳定 did」时由 _apply_visitor_cookies
+    注入以复用同一访客——那是匿名通道的预期行为（见 test_apply_visitor_cookies_injects_cache）。
+    本测试先把游客缓存清空，验证「无登录 cookie + 无缓存」下的纯净匿名通道不注入任何东西。
+    """
+    kf.reset_guest_visitor_cache()  # 游客缓存置空 → 匿名通道不注入任何 cookie
     src = _FakeSrc(10)
     real_new = src.browser.new_context
 
@@ -621,6 +697,7 @@ def test_kuaishou_cookie_empty_no_inject():
     sess = kf.KuaishouFeedSession(src, user_agent="", kuaishou_cookie="")
     ctx = sess._ensure_ctx()
     assert getattr(ctx, "injected", []) == []
+    kf.reset_guest_visitor_cache()
 
 
 def test_parse_cookie_string_dedup_keeps_last():
