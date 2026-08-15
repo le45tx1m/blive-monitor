@@ -1033,6 +1033,7 @@ def main() -> None:
         # 一次预热（visitor JS 种 did+风控 token）后全轮复用，避免每账号各开
         # context、各打一次 www.kuaishou.com 预热——后者从同一出口 IP 短时间内
         # 连发 5 次预热 + 70 次 profile 导航，极易触发快手 IP 级风控。
+        from backend.adapters.kuaishou import KuaishouAdapter
         _ks_creds = (cfg_all.get("platforms") or {}).get("kuaishou") or {}
         _ks_creds = _ks_creds.get("credentials") or {}
         ks_shared_adapter = KuaishouAdapter(credentials=_ks_creds or None)
