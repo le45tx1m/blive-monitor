@@ -17,7 +17,7 @@ jobs:
       - name: Explicit kuaishou API test
         run: |
           python3 << 'PYEOF'
-          import json
+          import json, time
           from patchright.sync_api import sync_playwright
 
           PID = "3xrgxqkqp829xz6"
@@ -40,16 +40,28 @@ jobs:
                           print(f"[LIVE_API] error: {e}")
               p.on("response", on_resp)
 
-              print("Warming up www.kuaishou.com...")
-              p.goto("https://www.kuaishou.com", wait_until="domcontentloaded", timeout=30000)
-              p.wait_for_timeout(5000)
+              # 直接访问 live profile（live 子域自己会种 cookie）
+              print(f"Navigating directly to live profile {PID}...")
+              try:
+                  p.goto(f"https://live.kuaishou.com/profile/{PID}", wait_until="domcontentloaded", timeout=60000)
+                  p.wait_for_timeout(15000)
+              except Exception as e:
+                  print(f"First nav error: {e}")
+
               cookies = {c["name"]: c["value"][:20] for c in ctx.cookies()}
               antibot = [k for k in ("kwfv1","kwssectoken","kwscode") if k in cookies]
-              print(f"After warmup: antibot cookies = {antibot}")
+              print(f"Antibot cookies: {antibot}")
 
-              print(f"Navigating to live profile {PID}...")
-              p.goto(f"https://live.kuaishou.com/profile/{PID}", wait_until="domcontentloaded", timeout=30000)
-              p.wait_for_timeout(10000)
+              # 如果没拿到 live_api 响应，再试 www 预热
+              if not result_data:
+                  print("No live_api response yet, trying www warmup...")
+                  try:
+                      p.goto("https://www.kuaishou.com", wait_until="domcontentloaded", timeout=60000)
+                      p.wait_for_timeout(8000)
+                      p.goto(f"https://live.kuaishou.com/profile/{PID}", wait_until="domcontentloaded", timeout=60000)
+                      p.wait_for_timeout(15000)
+                  except Exception as e:
+                      print(f"Warmup error: {e}")
 
               if result_data:
                   d = result_data[-1]
@@ -60,10 +72,10 @@ jobs:
                   print(f"feeds/list count: {len(feeds)}")
                   for f in feeds[:5]:
                       photo = f.get("photo", {})
-                      print(f"  id={photo.get('id')} time={photo.get('timestamp')} caption={str(photo.get('caption',''))[:50]}")
+                      print(f"  id={photo.get('id')} time={photo.get('timestamp')} caption={str(photo.get('caption',''))[:60]}")
                   if not feeds:
-                      print(f"keys in data: {list(data.keys())}")
-                      print(f"full data (truncated): {json.dumps(data, ensure_ascii=False)[:500]}")
+                      print(f"keys: {list(data.keys())}")
+                      print(f"data: {json.dumps(data, ensure_ascii=False)[:600]}")
               else:
                   print("\nNO live_api response captured!")
                   print(f"Final URL: {p.url}")
