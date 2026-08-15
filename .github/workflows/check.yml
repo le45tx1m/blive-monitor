@@ -30,7 +30,9 @@ permissions:
 
 jobs:
   check:
-    runs-on: ubuntu-latest
+    # macOS runner：GitHub 自有 IP（13.105.x.x），不被快手风控；
+    # Ubuntu/Azure IP 自 2026-08-14 起被快手硬封（live_api 恒返回 result=2）。
+    runs-on: macos-latest
     timeout-minutes: 30
     # 作品监控总开关：设为 "true" 启用；列表（post_rooms.json）为空时整段跳过，不浪费资源
     env:
@@ -41,7 +43,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       # 计算本次运行的「15 分钟窗口」分钟，仅取一次，供「新作品检测」与「封面转存」共用。
       # 关键：新作品检测含 13 个账号的无头浏览器抓取，耗时约 4~5 分钟，若两步骤各自实时取
@@ -74,7 +76,7 @@ jobs:
         if: ${{ steps.postlist.outputs.enabled == 'true' }}
         uses: actions/cache@v4
         with:
-          path: ~/.cache/ms-playwright
+          path: ~/Library/Caches/ms-playwright
           key: patchright-1.61.2
 
       # 安装 patchright + Chromium（优先 patchright 隐身抗风控；playwright 作为兜底一并安装）
@@ -83,7 +85,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          patchright install --with-deps chromium
+          patchright install chromium
 
       # 运行直播检测
       # GITHUB_TOKEN 供 notify_dedup.sync_from_remote 在推送前拉取远端最新去重账本
@@ -203,7 +205,15 @@ jobs:
             # 仅当超过 30 天未保活时才更新 .keepalive 时间戳（轻量保活，不刷屏）
             NEED_KEEPALIVE=false
             if [ -f .keepalive ]; then
-              LAST=$(date -d "$(cat .keepalive)" +%s 2>/dev/null || echo 0)
+              LAST=$(python3 -c "
+          from datetime import datetime, timezone
+          import sys
+          try:
+              dt = datetime.fromisoformat(sys.argv[1].replace('Z','+00:00'))
+              print(int(dt.timestamp()))
+          except Exception:
+              print(0)
+          " "$(cat .keepalive)" 2>/dev/null || echo 0)
               NOW=$(date -u +%s)
               if [ "$LAST" != "0" ] && [ $((NOW - LAST)) -gt 2592000 ]; then NEED_KEEPALIVE=true; fi
             else
@@ -285,10 +295,17 @@ jobs:
         run: |
           VER="$(git rev-parse --short HEAD)"
           BUILD="$(date -u +'%Y-%m-%d %H:%M UTC')"
-          for f in _site/monitor.html _site/index.html; do
-            [ -f "$f" ] || continue
-            sed -i "s|__APP_VERSION__|${VER} · ${BUILD}|g; s|__APP_CACHE_BUST__|${VER}|g" "$f"
-          done
+          python3 -c "
+          import sys
+          ver, build = sys.argv[1], sys.argv[2]
+          for f in ['_site/monitor.html', '_site/index.html']:
+              try:
+                  s = open(f).read()
+                  s = s.replace('__APP_VERSION__', f'{ver} · {build}').replace('__APP_CACHE_BUST__', ver)
+                  open(f, 'w').write(s)
+              except FileNotFoundError:
+                  pass
+          " "$VER" "$BUILD"
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
@@ -302,7 +319,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       - name: Install test deps
         run: |
