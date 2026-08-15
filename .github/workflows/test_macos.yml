@@ -18,7 +18,7 @@ jobs:
         run: |
           python3 << 'PYEOF'
           import json
-          from playwright.sync_api import sync_playwright
+          from patchright.sync_api import sync_playwright
 
           PID = "3xrgxqkqp829xz6"
           with sync_playwright() as pw:
