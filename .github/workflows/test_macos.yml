@@ -17,9 +17,13 @@ jobs:
       - name: Run kuaishou feed check
         env:
           ENABLE_POST_CHECK: "true"
-          FORCE_POST_CHECK: "true"
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BLIVE_CONFIG: ${{ secrets.BLIVE_CONFIG }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "=== IP: $(curl -s --max-time 10 https://ifconfig.me) ==="
-          python check_new_posts.py 2>&1 | tail -60
+          echo "=== IP ==="
+          curl -s --max-time 10 https://ifconfig.me
+          echo ""
+          echo "=== post_rooms count ==="
+          python3 -c "import json; d=json.load(open('post_rooms.json')); print(len(d), 'accounts'); [print(' ', x) for x in d]"
+          echo "=== Run check_new_posts.py ==="
+          python3 check_new_posts.py 2>&1 | tail -60
