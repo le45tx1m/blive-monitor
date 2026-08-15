@@ -6,6 +6,12 @@ on:
   schedule:
     - cron: "*/5 * * * *"
   workflow_dispatch:
+    inputs:
+      force_post_check:
+        description: "强制运行新作品检测（跳过15分钟窗口闸门）"
+        required: false
+        default: false
+        type: boolean
   push:
     paths:
       - rooms.json
@@ -49,7 +55,7 @@ jobs:
       # CI 自身对 post_rooms.json 的 sec_uid/昵称回写提交带 [skip ci]，不会触发本分支，故无循环。
       - name: Decide force post-check
         run: |
-          if [ "${{ github.event_name }}" = "push" ]; then
+          if [ "${{ github.event_name }}" = "push" ] || [ "${{ github.event.inputs.force_post_check }}" = "true" ]; then
             echo "FORCE_POST_CHECK=true" >> "$GITHUB_ENV"
           else
             echo "FORCE_POST_CHECK=false" >> "$GITHUB_ENV"
