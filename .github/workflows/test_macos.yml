@@ -6,22 +6,32 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Test Kuaishou API access
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install deps
         run: |
-          echo "=== IP info ==="
-          curl -s --max-time 10 https://ifconfig.me || echo "ifconfig failed"
+          python -m pip install --upgrade pip
+          pip install patchright
+          python -m patchright install chromium
+      - name: Run kuaishou feed check
+        env:
+          FORCE_POST_CHECK: "true"
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BLIVE_CONFIG: ${{ secrets.BLIVE_CONFIG }}
+        run: |
+          echo "=== IP ==="
+          curl -s --max-time 10 https://ifconfig.me
           echo ""
-          echo "=== Test live_api (no cookies, just connectivity) ==="
-          curl -s -o /dev/null -w "HTTP %{http_code}, time %{time_total}s\n" --max-time 15 \
-            -H "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36" \
-            "https://live.kuaishou.com/live_api/profile/public?principalId=3xrgxqkqp829xz6&privacy=public&count=5"
-          echo ""
-          echo "=== Test www.kuaishou.com ==="
-          curl -s -o /dev/null -w "HTTP %{http_code}, time %{time_total}s\n" --max-time 15 \
-            -H "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36" \
-            "https://www.kuaishou.com/"
-          echo ""
-          echo "=== Test live.kuaishou.com profile page ==="
-          curl -s --max-time 15 \
-            -H "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36" \
-            "https://live.kuaishou.com/profile/3xrgxqkqp829xz6" | head -c 500
+          echo "=== Run check_new_posts.py ==="
+          python check_new_posts.py 2>&1 | grep -i "kuaishou\|result\|feed\|post\|风控\|新作\|error\|gated\|blocked" | head -40
+      - name: Check state files
+        run: |
+          echo "=== post_rooms.json kuaishou entries ==="
+          python -c "
+          import json
+          d = json.load(open('post_rooms.json'))
+          for k,v in d.items():
+              if 'kuaishou' in k.lower() or '3xrgx' in str(v) or 'Sandy' in str(v):
+                  print(f'{k}: {json.dumps(v, ensure_ascii=False)[:200]}')
+          " 2>/dev/null || echo "no post_rooms.json"
