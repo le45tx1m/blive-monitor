@@ -429,18 +429,28 @@ class KuaishouFeedSession:
                     break
                 continue
             names = {c.get("name") for c in page.context.cookies()}
-            planted = ("did" in names) and bool(names & set(ANTIBOT_COOKIES))
+            ab = sorted(names & set(ANTIBOT_COOKIES))
+            planted = ("did" in names) and bool(ab)
+            logger.info("[kuaishou] 主站预热第 %d/%d 次: did=%s antibot=%s",
+                        attempt, self.MAX_WARMUP_RETRY, "did" in names, ab)
             if planted:
                 break
         if planted:
             # 抓出游客身份（did 等）进缓存，后续 context/运行复用同一访客
             self._capture_visitor_cookies(page.context)
         self._warmed = planted
-        if not planted:
+        _ab_final = sorted({c.get("name") for c in page.context.cookies()}
+                           & set(ANTIBOT_COOKIES))
+        if planted:
+            logger.info("[kuaishou] 主站预热成功: antibot=%s（缺=%s）",
+                        _ab_final, sorted(set(ANTIBOT_COOKIES) - set(_ab_final))
+                        or "无")
+        else:
             logger.warning(
                 "[kuaishou] 主站预热未种下游客身份（profile 接口将恒 result=2）"
-                " last_err=%s cookies=%s",
+                " last_err=%s cookies=%s antibot=%s",
                 last_err, sorted({c.get("name") for c in page.context.cookies()}),
+                _ab_final,
             )
         return planted
 
@@ -470,10 +480,19 @@ class KuaishouFeedSession:
             seen.append(parsed.get("result"))
             if parsed.get("ok") and not best:
                 best = parsed
+            elif parsed.get("result") in (2, 400002):
+                _ab = sorted({c.get("name") for c in page.context.cookies()}
+                             & set(ANTIBOT_COOKIES))
+                logger.info("[kuaishou] %s profile result=%s (#%d) antibot=%s",
+                            pid, parsed.get("result"), len(seen), _ab)
 
         try:
             page.on("response", on_response)
-            self._warmup(page)
+            _warm_ok = self._warmup(page)
+            _ab_now = sorted({c.get("name") for c in page.context.cookies()}
+                             & set(ANTIBOT_COOKIES))
+            logger.info("[kuaishou] %s warmup done: ok=%s antibot=%s",
+                        pid, _warm_ok, _ab_now)
             url = PROFILE_URL_TMPL.format(pid=pid)
             for i in range(self.MAX_NAV):
                 try:
