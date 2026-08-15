@@ -14,11 +14,15 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           python -m patchright install chromium
-      - name: Explicit kuaishou API test
+      - name: Test KuaishouFeedSession on macOS
+        env:
+          BLIVE_CONFIG: ${{ secrets.BLIVE_CONFIG }}
         run: |
           python3 << 'PYEOF'
-          import json, time
+          import json, logging
+          logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s %(message)s")
           from patchright.sync_api import sync_playwright
+          from backend.adapters.kuaishou_feed import KuaishouFeedSession
 
           PID = "3xrgxqkqp829xz6"
           with sync_playwright() as pw:
@@ -27,58 +31,16 @@ jobs:
                   user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
               cache = json.load(open("kuaishou_guest_visitor.json"))
               ctx.add_cookies(cache["cookies"])
-              p = ctx.new_page()
 
-              result_data = []
-              def on_resp(resp):
-                  if "live_api/profile/public" in resp.url:
-                      try:
-                          body = resp.body().decode("utf-8","replace")
-                          result_data.append(json.loads(body))
-                          print(f"[LIVE_API] {resp.status}")
-                      except Exception as e:
-                          print(f"[LIVE_API] error: {e}")
-              p.on("response", on_resp)
-
-              # 直接访问 live profile（live 子域自己会种 cookie）
-              print(f"Navigating directly to live profile {PID}...")
-              try:
-                  p.goto(f"https://live.kuaishou.com/profile/{PID}", wait_until="domcontentloaded", timeout=60000)
-                  p.wait_for_timeout(15000)
-              except Exception as e:
-                  print(f"First nav error: {e}")
-
-              cookies = {c["name"]: c["value"][:20] for c in ctx.cookies()}
-              antibot = [k for k in ("kwfv1","kwssectoken","kwscode") if k in cookies]
-              print(f"Antibot cookies: {antibot}")
-
-              # 如果没拿到 live_api 响应，再试 www 预热
-              if not result_data:
-                  print("No live_api response yet, trying www warmup...")
-                  try:
-                      p.goto("https://www.kuaishou.com", wait_until="domcontentloaded", timeout=60000)
-                      p.wait_for_timeout(8000)
-                      p.goto(f"https://live.kuaishou.com/profile/{PID}", wait_until="domcontentloaded", timeout=60000)
-                      p.wait_for_timeout(15000)
-                  except Exception as e:
-                      print(f"Warmup error: {e}")
-
-              if result_data:
-                  d = result_data[-1]
-                  data = d.get("data", {})
-                  result = data.get("result")
-                  feeds = data.get("feeds") or data.get("list") or []
-                  print(f"\n=== RESULT: result={result} ===")
-                  print(f"feeds/list count: {len(feeds)}")
-                  for f in feeds[:5]:
-                      photo = f.get("photo", {})
-                      print(f"  id={photo.get('id')} time={photo.get('timestamp')} caption={str(photo.get('caption',''))[:60]}")
-                  if not feeds:
-                      print(f"keys: {list(data.keys())}")
-                      print(f"data: {json.dumps(data, ensure_ascii=False)[:600]}")
-              else:
-                  print("\nNO live_api response captured!")
-                  print(f"Final URL: {p.url}")
-
+              session = KuaishouFeedSession(ctx, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+              print(f"\n{'='*60}")
+              print(f"Fetching posts for {PID}...")
+              posts = session.fetch(PID)
+              print(f"{'='*60}")
+              print(f"RESULT: got {len(posts)} posts")
+              for p in posts[:5]:
+                  print(f"  id={p.get('photo_id') or p.get('id')} time={p.get('timestamp') or p.get('published_at')} caption={str(p.get('caption',''))[:60]}")
+              if not posts:
+                  print("No posts returned - checking if IP blocked...")
               browser.close()
           PYEOF
