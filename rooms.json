@@ -114,5 +114,10 @@
     "platform": "kuaishou",
     "id": "ii050824",
     "name": "ii050824"
+  },
+  {
+    "platform": "douyin",
+    "id": "hanyitongshiwoya",
+    "name": "hanyitongshiwoya"
   }
 ]
