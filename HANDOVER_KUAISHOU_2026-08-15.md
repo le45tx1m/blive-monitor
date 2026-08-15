@@ -7,6 +7,46 @@
 
 ---
 
+## ✅ 0a. 根因定位与修复（2026-08-15 22:10 GMT+8 更新）
+
+### 根因：H2 成立——Azure 出口 IP 被快手硬风控（非 token 层问题）
+
+**实证链（非猜测）：**
+
+1. **CI 加诊断日志后**（commit `af8fcb6`）在 run 31886138960 抓到铁证：
+   - `www.kuaishou.com` 预热在 Azure 上 3×10s 轮询 `antibot=[]`（页面 domcontentloaded 了但 visitor JS 不种 `kwfv1/kwssectoken/kwscode`）；
+   - 但随后导航 `live.kuaishou.com/profile/...` 时，profile 页**自己种下了全套 3 个 token**（#1 后有 kwscode/kwssectoken，#2 后 kwfv1 也到齐）；
+   - **全套 token 都在的情况下，#2~#7 持续 `result=2`**；第二轮重预热（token 全套）后再 7 次仍全 `result=2`。
+2. **本地对照实验**（非 Azure IP，vanilla playwright，同一 did `web_d6d698…`）：warmup 1s 种全套 token，**首次导航即 `result=1`** 拿到作品列表。
+3. 同一沙箱 IP 经约 30 分钟反复测试后也被封（开始 `result=2`），证明快手对"短时间内重复 profile 请求"的 IP 级封禁很快触发。
+4. 通道 08-12 还能用、08-14 23:19 起持续挂，且代码无相关回归（`5f02695f` 只加了 did 兜底捕获，提交时通道仍 result=1），指向快手侧 08-14 收紧了数据中心 IP 风控。
+
+**结论：token 层（H1）不是根因——token 能种齐，但种齐后 Azure IP 仍被硬挡。**
+
+### 已部署修复（commits `b05cfe36` / `6937029e` / `b6fa9fff2`，CI 全绿）
+
+| 改动 | 文件 | 效果 |
+|---|---|---|
+| **跨账号共享 session** | `check_new_posts.py` | 所有快手账号共用一个 `KuaishouAdapter`/`KuaishouFeedSession`，只预热一次（原来每账号各建 context、各打 3 次 www 预热 + 14 次导航，5 账号 = 85 请求，加剧 IP 风控）。后续账号直接复用热 context。 |
+| **live 子域预热兜底** | `kuaishou_feed.py` | www 主站种不下 token 时改访 `https://live.kuaishou.com/`（Azure 上实测仍能种全套 token），不再白烧 30s 后裸奔。 |
+| **要求全套 3 个 token** | `kuaishou_feed.py` | `_wait_visitor_cookies` 从"任意一个 antibot cookie 即返回"改为要求 `kwfv1+kwssectoken+kwscode` 全到齐（原来 kwfv1 晚 0.5~1s 到时会误判预热成功）。 |
+| **IP 硬风控快速失败** | `kuaishou_feed.py` | 全套 token 在却连续 5 次 result=2 → 判定 IP 被硬风控，提前退出导航并**跳过无意义的重预热重试**（原来 14 连挂，现在 5 次即停，日志明确建议配 `BROWSER_PROXY`）。 |
+| **workflow_dispatch 加 force 输入** | `check.yml` | 可随时 `gh workflow run check.yml -f force_post_check=true` 强制跑新作品检测，不必等 15 分钟窗口。 |
+
+**CI 验证**（run 31888833312）：check 4m56s ✅、test 8m7s ✅（727 passed）、deploy ✅。5 个快手账号从 ~4 分钟降到 ~1 分钟，每账号只打 5 次导航即识别 IP 封锁并停止。
+
+### 🔴 剩余事项：需要代理才能真正恢复数据抓取
+
+代码层面已做到最优（token 种齐、请求量降到最低、失败快速且有明确诊断），但 **Azure 数据中心 IP 被硬挡这一事实无法靠代码绕过**。要让快手新作品监控真正恢复 `result=1`，需要：
+
+- **配置 `BROWSER_PROXY` Secret**（大陆/住宅出口代理），格式 `http://user:pass@host:port` 或 `socks5://...`。代码已支持（`check_new_posts.py` 的 `load_browser_proxy()` → `browser.launch(proxy=...)`，快手 session 复用同一 browser 实例自动走代理）。
+- 或换非数据中心出口的 self-hosted runner。
+- 配好代理后，用 `gh workflow run check.yml -f force_post_check=true` 触发一轮，日志里应看到 `profile result=1` 且不再出现"疑似 IP 硬风控"。
+
+> 注意：配代理后 `IP_BLOCK_THRESHOLD`（kuaishou_feed.py 类属性，当前 5）可保留——它只在"全套 token + 连续 5 次 2"时触发，正常好 IP 下首次或第 2 次导航即 result=1，不会误触。
+
+---
+
 ## 0. 一句话现状
 
 快手的 **`did` 跨运行稳定复用已修好且未回归**（身份 cookie 持续复用，gated 不再累积）。但 **kuaishou 作品接口（新作品监控）从 08-14 23:19 起持续 `~20h` 被风控 `result=2`（预热未通过）**，单轮重试 14 次全挂。这是本次交接的**核心未决任务**。
@@ -118,11 +158,11 @@ gh run watch --repo racheko-lab/blive-monitor
 
 ## 7. 完成标准（Definition of Done）
 
-- [ ] 定位 `result=2（预热未通过）` 根因（H1~H4 中哪一个），有 CI 日志/代码实证，不是猜测。
-- [ ] 修复后，线上"通知健康"面板 kuaishou 账号**不再持续 `result=2`**（允许偶发、但应"重试下一轮即可"自愈，而非 14 连挂）。
-- [ ] 不破坏既有 `did` 跨运行复用（缓存仍稳定非 null）。
-- [ ] 保持匿名无 cookie 设计；若引入代理出口增强，走 `BLIVE_CONFIG.browser_proxy` Secret，不提交凭证。
-- [ ] 单测通过（`pytest tests/test_kuaishou_feed.py`），必要时补测试覆盖新行为。
-- [ ] 交付一份简短结论（根因 + 修复 + 验证），更新本交接文档或另写。
+- [x] 定位 `result=2（预热未通过）` 根因：**H2（Azure 出口 IP 硬风控）**，有 CI 日志 + 本地对照实证（见 §0a）。
+- [~] 代码侧已修复（快速失败 + 降请求量 + 兜底预热），但 **Azure IP 仍被硬挡，需配 `BROWSER_PROXY` 代理才能真正恢复 result=1**（见 §0a 剩余事项）。
+- [x] 不破坏既有 `did` 跨运行复用（缓存仍稳定 `web_d6d698…`，非 null）。
+- [x] 保持匿名无 cookie 设计；代理走 `BROWSER_PROXY` / `BLIVE_CONFIG.browser_proxy` Secret，不提交凭证。
+- [x] 单测通过（727 passed，含 `tests/test_kuaishou_feed.py` + `test_kuaishou_wired.py`）。
+- [x] 结论已写入本文件 §0a。
 
 > 注：上一个 agent 的更早交接见仓库内 `HANDOVER_KUAISHOU_2026-08-13.md`（含 Nizi981116 地域问题、双 adapter 架构等历史上下文），本文件只覆盖 08-15 的现状与未决任务。
