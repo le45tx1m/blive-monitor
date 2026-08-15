@@ -3,7 +3,10 @@ on:
   workflow_dispatch:
 jobs:
   test:
-    runs-on: macos-latest
+    strategy:
+      matrix:
+        os: [macos-13, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -14,7 +17,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           patchright install chromium
-      - name: Test Kuaishou on macOS
+      - name: Test Kuaishou on ${{ matrix.os }}
         env:
           BLIVE_CONFIG: ${{ secrets.BLIVE_CONFIG }}
         run: |
@@ -44,10 +47,8 @@ jobs:
               result = session.fetch(PID)
               print(f"\n{'='*60}")
               print(f"ok={result.get('ok')} result={result.get('result')} items={len(result.get('items',[]))}")
-              for item in result.get("items", [])[:5]:
+              for item in result.get("items", [])[:3]:
                   photo = item.get("photo", item) if isinstance(item, dict) else {}
-                  print(f"  id={photo.get('id')} time={photo.get('timestamp')} caption={str(photo.get('caption',''))[:60]}")
-              if result.get("living"):
-                  print(f"  living={result['living']}")
+                  print(f"  id={photo.get('id')} caption={str(photo.get('caption',''))[:60]}")
               browser.close()
           PYEOF
