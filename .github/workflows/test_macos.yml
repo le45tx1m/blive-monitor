@@ -15,14 +15,9 @@ jobs:
           pip install -r requirements.txt
           python -m patchright install chromium
       - name: Explicit kuaishou API test
-        env:
-          BLIVE_CONFIG: ${{ secrets.BLIVE_CONFIG }}
         run: |
           python3 << 'PYEOF'
-          import json, sys
-          sys.path.insert(0, ".")
-          from backend.adapters._browser import launch_browser
-          from backend.adapters.kuaishou_feed import KuaishouFeedSession
+          import json
           from playwright.sync_api import sync_playwright
 
           PID = "3xrgxqkqp829xz6"
@@ -40,7 +35,7 @@ jobs:
                       try:
                           body = resp.body().decode("utf-8","replace")
                           result_data.append(json.loads(body))
-                          print(f"[LIVE_API] {resp.status} {resp.url[:120]}")
+                          print(f"[LIVE_API] {resp.status}")
                       except Exception as e:
                           print(f"[LIVE_API] error: {e}")
               p.on("response", on_resp)
@@ -52,7 +47,7 @@ jobs:
               antibot = [k for k in ("kwfv1","kwssectoken","kwscode") if k in cookies]
               print(f"After warmup: antibot cookies = {antibot}")
 
-              print(f"\nNavigating to live profile {PID}...")
+              print(f"Navigating to live profile {PID}...")
               p.goto(f"https://live.kuaishou.com/profile/{PID}", wait_until="domcontentloaded", timeout=30000)
               p.wait_for_timeout(10000)
 
