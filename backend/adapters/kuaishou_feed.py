@@ -611,7 +611,7 @@ class KuaishouFeedSession:
             return parsed
 
         only_blocked = seen and all(s in (2, 400002) for s in seen)
-        if only_blocked:
+        if only_blocked and not self._ip_block_suspected:
             logger.info("[kuaishou] %s 首轮全 result=2/400002，强制重预热重试", pid)
             self._warmed = False
             parsed2, seen2 = self._cycle(ctx, pid)

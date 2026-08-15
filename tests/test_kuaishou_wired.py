@@ -187,7 +187,8 @@ def test_new_posts_routes_kuaishou(tmp_path, monkeypatch, fake_playwright):
     calls = []
     monkeypatch.setattr(
         cnp, "handle_kuaishou_posts",
-        lambda entry, tracking, cfg_all, silence_cfg, now_str, context=None: (
+        lambda entry, tracking, cfg_all, silence_cfg, now_str, context=None,
+               shared_adapter=None: (
             calls.append(entry) or (False, False)
         ),
     )
