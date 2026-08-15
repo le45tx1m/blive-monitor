@@ -14,16 +14,64 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           python -m patchright install chromium
-      - name: Run kuaishou feed check
+      - name: Explicit kuaishou API test
         env:
-          ENABLE_POST_CHECK: "true"
           BLIVE_CONFIG: ${{ secrets.BLIVE_CONFIG }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "=== IP ==="
-          curl -s --max-time 10 https://ifconfig.me
-          echo ""
-          echo "=== post_rooms count ==="
-          python3 -c "import json; d=json.load(open('post_rooms.json')); print(len(d), 'accounts'); [print(' ', x) for x in d]"
-          echo "=== Run check_new_posts.py ==="
-          python3 check_new_posts.py 2>&1 | tail -60
+          python3 << 'PYEOF'
+          import json, sys
+          sys.path.insert(0, ".")
+          from backend.adapters._browser import launch_browser
+          from backend.adapters.kuaishou_feed import KuaishouFeedSession
+          from playwright.sync_api import sync_playwright
+
+          PID = "3xrgxqkqp829xz6"
+          with sync_playwright() as pw:
+              browser = pw.chromium.launch(headless=True, args=["--no-sandbox","--disable-dev-shm-usage"])
+              ctx = browser.new_context(viewport={"width":1366,"height":900}, locale="zh-CN",
+                  user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+              cache = json.load(open("kuaishou_guest_visitor.json"))
+              ctx.add_cookies(cache["cookies"])
+              p = ctx.new_page()
+
+              result_data = []
+              def on_resp(resp):
+                  if "live_api/profile/public" in resp.url:
+                      try:
+                          body = resp.body().decode("utf-8","replace")
+                          result_data.append(json.loads(body))
+                          print(f"[LIVE_API] {resp.status} {resp.url[:120]}")
+                      except Exception as e:
+                          print(f"[LIVE_API] error: {e}")
+              p.on("response", on_resp)
+
+              print("Warming up www.kuaishou.com...")
+              p.goto("https://www.kuaishou.com", wait_until="domcontentloaded", timeout=30000)
+              p.wait_for_timeout(5000)
+              cookies = {c["name"]: c["value"][:20] for c in ctx.cookies()}
+              antibot = [k for k in ("kwfv1","kwssectoken","kwscode") if k in cookies]
+              print(f"After warmup: antibot cookies = {antibot}")
+
+              print(f"\nNavigating to live profile {PID}...")
+              p.goto(f"https://live.kuaishou.com/profile/{PID}", wait_until="domcontentloaded", timeout=30000)
+              p.wait_for_timeout(10000)
+
+              if result_data:
+                  d = result_data[-1]
+                  data = d.get("data", {})
+                  result = data.get("result")
+                  feeds = data.get("feeds") or data.get("list") or []
+                  print(f"\n=== RESULT: result={result} ===")
+                  print(f"feeds/list count: {len(feeds)}")
+                  for f in feeds[:5]:
+                      photo = f.get("photo", {})
+                      print(f"  id={photo.get('id')} time={photo.get('timestamp')} caption={str(photo.get('caption',''))[:50]}")
+                  if not feeds:
+                      print(f"keys in data: {list(data.keys())}")
+                      print(f"full data (truncated): {json.dumps(data, ensure_ascii=False)[:500]}")
+              else:
+                  print("\nNO live_api response captured!")
+                  print(f"Final URL: {p.url}")
+
+              browser.close()
+          PYEOF
