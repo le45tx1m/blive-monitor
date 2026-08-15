@@ -12,26 +12,14 @@ jobs:
       - name: Install deps
         run: |
           python -m pip install --upgrade pip
-          pip install patchright
+          pip install -r requirements.txt
           python -m patchright install chromium
       - name: Run kuaishou feed check
         env:
+          ENABLE_POST_CHECK: "true"
           FORCE_POST_CHECK: "true"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BLIVE_CONFIG: ${{ secrets.BLIVE_CONFIG }}
         run: |
-          echo "=== IP ==="
-          curl -s --max-time 10 https://ifconfig.me
-          echo ""
-          echo "=== Run check_new_posts.py ==="
-          python check_new_posts.py 2>&1 | grep -i "kuaishou\|result\|feed\|post\|风控\|新作\|error\|gated\|blocked" | head -40
-      - name: Check state files
-        run: |
-          echo "=== post_rooms.json kuaishou entries ==="
-          python -c "
-          import json
-          d = json.load(open('post_rooms.json'))
-          for k,v in d.items():
-              if 'kuaishou' in k.lower() or '3xrgx' in str(v) or 'Sandy' in str(v):
-                  print(f'{k}: {json.dumps(v, ensure_ascii=False)[:200]}')
-          " 2>/dev/null || echo "no post_rooms.json"
+          echo "=== IP: $(curl -s --max-time 10 https://ifconfig.me) ==="
+          python check_new_posts.py 2>&1 | tail -60
