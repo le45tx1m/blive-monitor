@@ -259,6 +259,13 @@ class KuaishouFeedSession:
     VISITOR_POLL_MS = 400
     #: 预热最多重试几次（token 没种下就重导航主站，直到拿到或耗尽次数）
     MAX_WARMUP_RETRY = 3
+    #: ``www.kuaishou.com`` 种不下 token 时的兜底预热地址（live 子域）。
+    #: 2026-08 CI 实测：Azure 出口下 www 主站 domcontentloaded 后 visitor JS 不种
+    #: kwfv1/kwssectoken/kwscode（3×10s 轮询全空），但 live.kuaishou.com 仍能种下。
+    LIVE_WARMUP_URL = "https://live.kuaishou.com/"
+    #: 全套风控 token 都在、却连续这么多次 result=2 → 判定出口 IP 被硬风控，
+    #: 快速失败不再空转（token 已齐，重预热/重导航都救不回，换代理才有用）。
+    IP_BLOCK_THRESHOLD = 5
     #: 同一 token 连续成功抓取多少次后主动重预热（打废自愈，实测配额 ~4）。
     #: 设为 0 可关闭主动重预热，仅保留「整轮全 result=2 强制重预热」的被动兜底。
     MAX_USES_PER_TOKEN = 4
@@ -270,6 +277,8 @@ class KuaishouFeedSession:
         self._ctx = None
         self._warmed = False
         self._uses = 0
+        # 本轮疑似出口 IP 被硬风控（全套 token 在但持续 result=2），供 fetch 跳过无意义重预热
+        self._ip_block_suspected = False
         # 可选：登录 Cookie（KUAISHOU_COOKIE），注入自建隔离 context 以突破匿名风控。
         # 空串 = 走免 Cookie 匿名通道（live_api/profile/public + 预热种 token）。
         self._kuaishou_cookie = kuaishou_cookie or ""
@@ -362,9 +371,10 @@ class KuaishouFeedSession:
         ``document.cookie`` 更全），直到 ``did`` 与 ``ANTIBOT_COOKIES`` 都出现或超时。
         """
         deadline = time.monotonic() + self.VISITOR_WAIT_MS / 1000.0
+        _need = set(ANTIBOT_COOKIES)
         while time.monotonic() < deadline:
             names = {c.get("name") for c in page.context.cookies()}
-            if "did" in names and (names & set(ANTIBOT_COOKIES)):
+            if "did" in names and _need.issubset(names):
                 return True
             page.wait_for_timeout(self.VISITOR_POLL_MS)
         return False
@@ -407,47 +417,58 @@ class KuaishouFeedSession:
         self._uses = 0  # 新预热 = token 配额重新计起
         planted = False
         last_err = ""
-        for attempt in range(1, self.MAX_WARMUP_RETRY + 1):
+
+        def _ab_set():
+            return {c.get("name") for c in page.context.cookies()} & set(ANTIBOT_COOKIES)
+
+        def _try_goto(url, label, attempt, max_attempts):
+            """导航到指定预热页并等全套 token；返回是否种下。"""
+            nonlocal last_err
             try:
-                page.goto(WARMUP_URL, wait_until="domcontentloaded",
+                page.goto(url, wait_until="domcontentloaded",
                           timeout=self.NAV_TIMEOUT_MS)
-                # 显式等到 visitor JS 真正种下 did + 风控 token（不再白等 networkidle 45s）
                 self._wait_visitor_cookies(page)
             except Exception as e:  # noqa: BLE001
                 last_err = str(e)
-                logger.warning("[kuaishou] 主站预热第 %d/%d 次失败: %s",
-                               attempt, self.MAX_WARMUP_RETRY, e)
-                # 主站打不开也别空耗重试：注入的登录 Cookie 里若已带风控 token，
-                # 直接按已预热继续（2026-08 CI 实测海外出口 www.kuaishou.com 频繁
-                # ERR_TIMED_OUT，3 次重试白烧 3+ 分钟，而带着注入 token 直接导航
-                # profile 页仍有机会拿到 result=1）。
-                names = {c.get("name") for c in page.context.cookies()}
-                if names & set(ANTIBOT_COOKIES):
-                    logger.info("[kuaishou] 主站不可达，但上下文已带风控 Cookie"
-                                "（登录 Cookie 注入），按已预热继续")
-                    planted = True
-                    break
-                continue
-            names = {c.get("name") for c in page.context.cookies()}
-            ab = sorted(names & set(ANTIBOT_COOKIES))
-            planted = ("did" in names) and bool(ab)
-            logger.info("[kuaishou] 主站预热第 %d/%d 次: did=%s antibot=%s",
-                        attempt, self.MAX_WARMUP_RETRY, "did" in names, ab)
-            if planted:
+                logger.warning("[kuaishou] %s预热第 %d/%d 次失败: %s",
+                               label, attempt, max_attempts, e)
+                # 主站打不开但上下文已带风控 Cookie（登录 Cookie 注入）→ 按已预热继续
+                if _ab_set() == set(ANTIBOT_COOKIES):
+                    logger.info("[kuaishou] %s不可达，但上下文已带全套风控 Cookie"
+                                "（登录 Cookie 注入），按已预热继续", label)
+                    return True
+                return False
+            ab = sorted(_ab_set())
+            ok = ("did" in {c.get("name") for c in page.context.cookies()}
+                  and len(ab) == len(ANTIBOT_COOKIES))
+            logger.info("[kuaishou] %s预热第 %d/%d 次: antibot=%s%s",
+                        label, attempt, max_attempts, ab, " ✅" if ok else "")
+            return ok
+
+        # 第一阶段：www 主站（好 IP 下 ~1s 即种全套）
+        for attempt in range(1, self.MAX_WARMUP_RETRY + 1):
+            if _try_goto(WARMUP_URL, "主站", attempt, self.MAX_WARMUP_RETRY):
+                planted = True
                 break
+
+        # 第二阶段兜底：www 主站种不下 token 时（Azure 出口实测 www 域 visitor JS
+        # 不种 kwfv1/kwssectoken/kwscode），改访 live 子域根页——同一会话上下文，
+        # live.kuaishou.com 仍能种下全套风控 token，避免直接白跑 30s 后裸奔 profile。
+        if not planted:
+            logger.info("[kuaishou] 主站预热未种下全套 token，兜底尝试 live 子域: %s",
+                        self.LIVE_WARMUP_URL)
+            if _try_goto(self.LIVE_WARMUP_URL, "live子域", 1, 1):
+                planted = True
+
         if planted:
-            # 抓出游客身份（did 等）进缓存，后续 context/运行复用同一访客
             self._capture_visitor_cookies(page.context)
         self._warmed = planted
-        _ab_final = sorted({c.get("name") for c in page.context.cookies()}
-                           & set(ANTIBOT_COOKIES))
+        _ab_final = sorted(_ab_set())
         if planted:
-            logger.info("[kuaishou] 主站预热成功: antibot=%s（缺=%s）",
-                        _ab_final, sorted(set(ANTIBOT_COOKIES) - set(_ab_final))
-                        or "无")
+            logger.info("[kuaishou] 预热成功: antibot=%s", _ab_final)
         else:
             logger.warning(
-                "[kuaishou] 主站预热未种下游客身份（profile 接口将恒 result=2）"
+                "[kuaishou] 预热未种下全套风控 token（profile 接口将 result=2）"
                 " last_err=%s cookies=%s antibot=%s",
                 last_err, sorted({c.get("name") for c in page.context.cookies()}),
                 _ab_final,
@@ -481,10 +502,20 @@ class KuaishouFeedSession:
             if parsed.get("ok") and not best:
                 best = parsed
             elif parsed.get("result") in (2, 400002):
-                _ab = sorted({c.get("name") for c in page.context.cookies()}
-                             & set(ANTIBOT_COOKIES))
-                logger.info("[kuaishou] %s profile result=%s (#%d) antibot=%s",
-                            pid, parsed.get("result"), len(seen), _ab)
+                _ab = {c.get("name") for c in page.context.cookies()} & set(ANTIBOT_COOKIES)
+                _full = len(_ab) == len(ANTIBOT_COOKIES)
+                logger.info("[kuaishou] %s profile result=%s (#%d) antibot=%s%s",
+                            pid, parsed.get("result"), len(seen), sorted(_ab),
+                            "  [全套token在-疑似IP风控]" if _full else "")
+                if _full:
+                    page._ks_blocked_streak = getattr(page, "_ks_blocked_streak", 0) + 1
+                    if page._ks_blocked_streak >= self.IP_BLOCK_THRESHOLD:
+                        self._ip_block_suspected = True
+                        logger.warning(
+                            "[kuaishou] %s 全套风控 token 存在但连续 %d 次 result=%s，"
+                            "疑似出口 IP 被快手硬风控（重预热无效，建议配置 BROWSER_PROXY"
+                            " 走大陆/住宅代理）",
+                            pid, page._ks_blocked_streak, parsed.get("result"))
 
         try:
             page.on("response", on_response)
@@ -510,6 +541,9 @@ class KuaishouFeedSession:
                 except Exception:  # noqa: BLE001 —— 等不到就靠下面的退避再导航
                     pass
                 if best:
+                    break
+                # 全套 token 在却持续被挡 -> IP 硬风控，剩余导航同样结果，提前退出
+                if getattr(page, "_ks_blocked_streak", 0) >= self.IP_BLOCK_THRESHOLD:
                     break
                 # result=2 是「预热还不够」/被风控卡住，退避后重新导航让页面重算签名
                 page.wait_for_timeout(1200)
@@ -561,6 +595,8 @@ class KuaishouFeedSession:
             return {"ok": False, "result": None, "items": [], "living": None,
                     "author_name": "", "author_id": "", "detail": "缺 principalId"}
 
+        # 每个账号独立判定 IP 风控（重置后由本轮 _cycle 重新判定）
+        self._ip_block_suspected = False
         ctx = self._ensure_ctx()
         parsed, seen = self._cycle(ctx, pid)
         if parsed.get("ok"):
@@ -588,6 +624,8 @@ class KuaishouFeedSession:
                 parsed2["seen"] = seen
                 return parsed2
             parsed = parsed2
+        if only_blocked and self._ip_block_suspected:
+            logger.warning("[kuaishou] %s 疑似 IP 硬风控，跳过重预热重试（token 已齐，重试无效）", pid)
 
         parsed["nav_count"] = len(seen)
         parsed["seen"] = seen

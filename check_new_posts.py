@@ -785,7 +785,8 @@ def order_rooms_baseline_first(post_rooms: List[Dict[str, Any]],
 
 def handle_kuaishou_posts(entry: Dict[str, Any], tracking: Dict[str, Dict[str, Any]],
                           cfg_all: Dict[str, Any], silence_cfg: Dict[str, Any],
-                          now_str: str, context: Any = None):
+                          now_str: str, context: Any = None,
+                          shared_adapter: Any = None):
     """快手新作检测（走 live_api/profile/public，需浏览器上下文）。
 
     复用 KuaishouAdapter.fetch_new_posts（传入 caller 提供的 context）：
@@ -838,7 +839,10 @@ def handle_kuaishou_posts(entry: Dict[str, Any], tracking: Dict[str, Dict[str, A
 
     creds = (cfg_all.get("platforms") or {}).get("kuaishou") or {}
     creds = creds.get("credentials") or {}
-    adapter = KuaishouAdapter(credentials=creds or None)
+    if shared_adapter is not None:
+        adapter = shared_adapter
+    else:
+        adapter = KuaishouAdapter(credentials=creds or None)
 
     try:
         # 用 principalId（或回退用户名）作 graphql userId
@@ -1025,6 +1029,14 @@ def main() -> None:
         # 关键：注入登录 Cookie 可突破作品接口风控（可选，未配置则优雅降级）
         apply_douyin_cookie(context, cookie)
 
+        # 快手所有账号共享一个 KuaishouAdapter / KuaishouFeedSession：
+        # 一次预热（visitor JS 种 did+风控 token）后全轮复用，避免每账号各开
+        # context、各打一次 www.kuaishou.com 预热——后者从同一出口 IP 短时间内
+        # 连发 5 次预热 + 70 次 profile 导航，极易触发快手 IP 级风控。
+        _ks_creds = (cfg_all.get("platforms") or {}).get("kuaishou") or {}
+        _ks_creds = _ks_creds.get("credentials") or {}
+        ks_shared_adapter = KuaishouAdapter(credentials=_ks_creds or None)
+
         post_rooms_dirty = False
         for entry in post_rooms:
             rid = entry.get("id", "")
@@ -1047,7 +1059,8 @@ def main() -> None:
                 # 导致 fetch_new_posts 因 context is None 恒 AdapterGated。
                 try:
                     _chg, _gated = handle_kuaishou_posts(
-                        entry, tracking, cfg_all, silence_cfg, now_str, context=context)
+                        entry, tracking, cfg_all, silence_cfg, now_str, context=context,
+                        shared_adapter=ks_shared_adapter)
                 except Exception as exc:
                     logger.error("  [%s] 快手新作检测异常: %s", name, exc)
                     _chg, _gated = True, False
@@ -1288,6 +1301,11 @@ def main() -> None:
             tracking[key] = t
             changed = True
 
+        # 关闭快手共享 session（其自建的隔离 context）
+        try:
+            ks_shared_adapter.close()
+        except Exception:
+            pass
         context.close()
         browser.close()
 
