@@ -50,7 +50,16 @@ jobs:
       # UTC 分钟，「封面转存」会跨到下一个非 15 倍数分钟而被闸门跳过（实测长期漏跑）。
       # 共用同一 WIN_MIN 可保证二者在同一窗口内同时触发。放在最前，避免被前置步骤耗时拖到下一分钟。
       - name: Compute 15-min window
-        run: echo "WIN_MIN=$(date -u +%-M)" >> "$GITHUB_ENV"
+        run: |
+          # macOS runner 启动比 Ubuntu 慢 1-2 分钟，到本步骤时可能已跨过 15 分钟边界。
+          # 放宽为「边界后 3 分钟内」均算窗口内（0-2/15-17/30-32/45-47），
+          # 避免 macOS 上作品检测被漏跑。
+          WINDOW=$(python3 -c "
+          from datetime import datetime, timezone
+          m = datetime.now(timezone.utc).minute
+          print('true' if m % 15 <= 2 else 'false')
+          ")
+          echo "IN_POST_WINDOW=$WINDOW" >> "$GITHUB_ENV"
 
       # 用户在前端增删账号会直接提交 post_rooms.json（push 事件）。此时不受 15 分钟闸门限制，
       # 立即抓取新账号并转存封面，免去「添加后还要等下一个 15 倍数分钟」的等待。
@@ -115,12 +124,9 @@ jobs:
         run: |
           # 新作品检测降频：仅当 UTC 分钟为 15 的倍数时运行（即每 15 分钟一次）；
           # 但若本次由 post_rooms.json 的 push 触发（用户增删账号），则立即抓取不受限。
-          if [ "${FORCE_POST_CHECK}" != "true" ]; then
-            MIN=${WIN_MIN}
-            if [ $((MIN % 15)) -ne 0 ]; then
-              echo "非新作品检测窗口（每 15 分钟一次，当前 UTC 分钟 $MIN），跳过"
-              exit 0
-            fi
+          if [ "${FORCE_POST_CHECK}" != "true" ] && [ "${IN_POST_WINDOW}" != "true" ]; then
+            echo "非新作品检测窗口（每 15 分钟一次），跳过"
+            exit 0
           fi
           python3 check_new_posts.py
 
@@ -129,12 +135,9 @@ jobs:
       - name: Transcode covers
         if: ${{ steps.postlist.outputs.enabled == 'true' }}
         run: |
-          if [ "${FORCE_POST_CHECK}" != "true" ]; then
-            MIN=${WIN_MIN}
-            if [ $((MIN % 15)) -ne 0 ]; then
-              echo "非新作品检测窗口（每 15 分钟一次，当前 UTC 分钟 $MIN），跳过封面转存"
-              exit 0
-            fi
+          if [ "${FORCE_POST_CHECK}" != "true" ] && [ "${IN_POST_WINDOW}" != "true" ]; then
+            echo "非新作品检测窗口（每 15 分钟一次），跳过封面转存"
+            exit 0
           fi
           python3 transcode_covers.py --owner racheko-lab --repo blive-monitor --branch master --covers-dir assets/covers
 
