@@ -13,14 +13,22 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          python -m patchright install chromium
-      - name: Test KuaishouFeedSession on macOS
+          patchright install chromium
+      - name: Test Kuaishou on macOS
         env:
           BLIVE_CONFIG: ${{ secrets.BLIVE_CONFIG }}
         run: |
           python3 << 'PYEOF'
-          import json, logging
+          import json, logging, urllib.request
           logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s %(message)s")
+
+          # 打印出口 IP
+          try:
+              ip = urllib.request.urlopen("https://api.ipify.org", timeout=10).read().decode()
+              print(f"=== EXIT IP: {ip} ===")
+          except Exception as e:
+              print(f"IP check failed: {e}")
+
           from patchright.sync_api import sync_playwright
           from backend.adapters.kuaishou_feed import KuaishouFeedSession
 
@@ -33,14 +41,13 @@ jobs:
               ctx.add_cookies(cache["cookies"])
 
               session = KuaishouFeedSession(ctx, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+              result = session.fetch(PID)
               print(f"\n{'='*60}")
-              print(f"Fetching posts for {PID}...")
-              posts = session.fetch(PID)
-              print(f"{'='*60}")
-              print(f"RESULT: got {len(posts)} posts")
-              for p in posts[:5]:
-                  print(f"  id={p.get('photo_id') or p.get('id')} time={p.get('timestamp') or p.get('published_at')} caption={str(p.get('caption',''))[:60]}")
-              if not posts:
-                  print("No posts returned - checking if IP blocked...")
+              print(f"ok={result.get('ok')} result={result.get('result')} items={len(result.get('items',[]))}")
+              for item in result.get("items", [])[:5]:
+                  photo = item.get("photo", item) if isinstance(item, dict) else {}
+                  print(f"  id={photo.get('id')} time={photo.get('timestamp')} caption={str(photo.get('caption',''))[:60]}")
+              if result.get("living"):
+                  print(f"  living={result['living']}")
               browser.close()
           PYEOF
