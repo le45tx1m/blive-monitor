@@ -2,8 +2,8 @@ name: Test SSR Posts
 on:
   workflow_dispatch:
 jobs:
-  macos-test:
-    runs-on: macos-latest
+  test:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -12,40 +12,108 @@ jobs:
       - name: Install deps
         run: |
           python -m pip install --upgrade pip -q
-          pip install -r requirements.txt -q
-          patchright install chromium
-      - name: macOS IP + kuaishou test
-        env:
-          BLIVE_CONFIG: ${{ secrets.BLIVE_CONFIG }}
+          pip install patchright -q
+          patchright install --with-deps chromium
+      - name: Param modification test
         run: |
           python3 << 'PYEOF'
-          import json, logging, urllib.request, time
-          logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
-
-          ip = urllib.request.urlopen("https://api.ipify.org", timeout=10).read().decode()
-          print(f"=== macOS runner IP: {ip} ===")
-
-          if "13.105.117." in ip:
-              print("Still on blocked 117.x range, testing anyway after 24h cooldown...")
-
+          import json, time, socket, struct, random, subprocess, re
           from patchright.sync_api import sync_playwright
-          from backend.adapters.kuaishou_feed import KuaishouFeedSession
 
           PID = "3xrgxqkqp829xz6"
+          UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+
+          def dns(name, srv='223.5.5.5'):
+              txid=random.randint(0,65535)
+              h=struct.pack('>HHHHHH',txid,0x0100,1,0,0,0)
+              q=b''.join(bytes([len(p)])+p.encode() for p in name.split('.'))+b'\x00'+struct.pack('>HH',1,1)
+              s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM);s.settimeout(5)
+              s.sendto(h+q,(srv,53));d=s.recv(512);s.close()
+              i=12
+              while d[i]!=0:i+=d[i]+1
+              i+=5;anc=struct.unpack('>H',d[6:8])[0];ips=[]
+              for _ in range(anc):
+                  if d[i]&0xC0==0xC0:i+=2
+                  else:
+                      while d[i]!=0:i+=d[i]+1
+                      i+=1
+                  rt,rc,ttl,rl=struct.unpack('>HHIH',d[i:i+10]);i+=10
+                  if rt==1 and rl==4:ips.append('.'.join(str(b) for b in d[i:i+4]))
+                  i+=rl
+              return ips
+
+          for domain in ['live.kuaishou.com', 'www.kuaishou.com']:
+              ips = dns(domain)
+              ip = next((x for x in ips if x.startswith('103.102.202.')), ips[0])
+              subprocess.run(['sudo', 'bash', '-c', f'echo "{ip} {domain}" >> /etc/hosts'], check=True)
+              print(f"{domain} -> {ip}")
+
           with sync_playwright() as pw:
-              browser = pw.chromium.launch(headless=True)
-              ctx = browser.new_context(viewport={"width":1366,"height":900}, locale="zh-CN",
-                  user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+              browser = pw.chromium.launch(headless=True, args=["--no-sandbox","--disable-dev-shm-usage"])
+              ctx = browser.new_context(viewport={"width":1366,"height":900}, locale="zh-CN", user_agent=UA)
               try:
                   cache = json.load(open("kuaishou_guest_visitor.json"))
                   ctx.add_cookies(cache["cookies"])
               except: pass
 
-              session = KuaishouFeedSession(ctx, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-              result = session.fetch(PID)
-              print(f"\nok={result.get('ok')} result={result.get('result')} items={len(result.get('items',[]))}")
-              for item in result.get("items", [])[:10]:
-                  print(f"  photo_id={item.get('photo_id')} ts={item.get('timestamp')} author={item.get('author_name')}")
-              print(f"seen: {result.get('seen')}")
+              page = ctx.new_page()
+
+              # 用 route 拦截并修改 API 请求
+              def handle_route(route, request):
+                  url = request.url
+                  if "live_api/profile/public" in url:
+                      # 尝试1: 移除 hasMore 参数
+                      new_url = url.replace("&hasMore=true", "").replace("hasMore=true&", "")
+                      print(f"  [ROUTE] Original URL params: {url.split('?')[1][:200]}")
+                      print(f"  [ROUTE] Modified URL params: {new_url.split('?')[1][:200]}")
+                      route.continue_(url=new_url)
+                  else:
+                      route.continue_()
+
+              page.route("**/live_api/profile/public*", handle_route)
+
+              api_results = []
+              def on_resp(resp):
+                  if "live_api/profile/public" in resp.url:
+                      try:
+                          d = json.loads(resp.body().decode("utf-8","replace"))
+                          data = d.get("data", {})
+                          lst = data.get("list", [])
+                          print(f"  API: result={data.get('result')}, list={len(lst)}, pcursor={data.get('pcursor')}")
+                          for item in lst[:5]:
+                              poster = item.get("poster", "")
+                              dm = re.search(r'/(\d{4}/\d{2}/\d{2})/', poster)
+                              print(f"    id={item.get('id')} date={dm.group(1) if dm else '?'}")
+                          api_results.append(data)
+                      except: pass
+              page.on("response", on_resp)
+
+              # 预热
+              print("Warming up www...")
+              try:
+                  page.goto("https://www.kuaishou.com/", wait_until="domcontentloaded", timeout=20000)
+                  page.wait_for_timeout(8000)
+              except Exception as e:
+                  print(f"Warmup: {e}")
+              cookies = {c["name"] for c in ctx.cookies()}
+              ab = cookies & {"kwfv1","kwssectoken","kwscode"}
+              print(f"Antibot: {sorted(ab)}, did={'did' in cookies}")
+
+              # 访问 profile
+              print(f"\nNavigating to profile/{PID}...")
+              page.goto(f"https://live.kuaishou.com/profile/{PID}", wait_until="domcontentloaded", timeout=30000)
+              page.wait_for_timeout(15000)
+
+              if not api_results or api_results[-1].get("result") != 1:
+                  # 如果修改 hasMore 不行，试 count=1
+                  print("\n--- Trying count=1 ---")
+                  page.unroute("**/live_api/profile/public*")
+                  def handle_route2(route, request):
+                      url = request.url.replace("count=12", "count=1").replace("&hasMore=true", "")
+                      route.continue_(url=url)
+                  page.route("**/live_api/profile/public*", handle_route2)
+                  page.goto(f"https://live.kuaishou.com/profile/{PID}", wait_until="domcontentloaded", timeout=20000)
+                  page.wait_for_timeout(10000)
+
               browser.close()
           PYEOF
