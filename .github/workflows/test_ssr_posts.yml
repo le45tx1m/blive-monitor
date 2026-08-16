@@ -4,6 +4,9 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        ip_suffix: ["57", "69", "119", "177"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -14,57 +17,19 @@ jobs:
           python -m pip install --upgrade pip -q
           pip install patchright -q
           patchright install --with-deps chromium
-      - name: Asian DNS + param tests
+      - name: Test IP 103.102.202.${{ matrix.ip_suffix }}
         run: |
+          echo "103.102.202.${{ matrix.ip_suffix }} live.kuaishou.com" | sudo tee -a /etc/hosts
+          # www 也用中国 CDN
+          echo "103.102.202.106 www.kuaishou.com" | sudo tee -a /etc/hosts
+          curl -s -o /dev/null -w "live -> %{remote_ip} (%{time_total}s)\n" https://live.kuaishou.com/
+
           python3 << 'PYEOF'
-          import json, time, socket, struct, random, subprocess
+          import json, time
           from patchright.sync_api import sync_playwright
 
           PID = "3xrgxqkqp829xz6"
           UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-
-          def dns(name, srv):
-              txid=random.randint(0,65535)
-              h=struct.pack('>HHHHHH',txid,0x0100,1,0,0,0)
-              q=b''.join(bytes([len(p)])+p.encode() for p in name.split('.'))+b'\x00'+struct.pack('>HH',1,1)
-              s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM);s.settimeout(5)
-              s.sendto(h+q,(srv,53));d=s.recv(512);s.close()
-              i=12
-              while d[i]!=0:i+=d[i]+1
-              i+=5;anc=struct.unpack('>H',d[6:8])[0];ips=[]
-              for _ in range(anc):
-                  if d[i]&0xC0==0xC0:i+=2
-                  else:
-                      while d[i]!=0:i+=d[i]+1
-                      i+=1
-                  rt,rc,ttl,rl=struct.unpack('>HHIH',d[i:i+10]);i+=10
-                  if rt==1 and rl==4:ips.append('.'.join(str(b) for b in d[i:i+4]))
-                  i+=rl
-              return ips
-
-          # 试多个亚洲 DNS
-          dns_servers = [
-              ("AliDNS", "223.5.5.5"),
-              ("DNSPod", "119.29.29.29"),
-              ("Google", "8.8.8.8"),
-              ("Cloudflare", "1.1.1.1"),
-              ("Japan", "202.238.95.244"),
-              ("Taiwan", "168.95.1.1"),
-              ("HongKong", "203.80.96.10"),
-          ]
-          for name, srv in dns_servers:
-              try:
-                  ips = dns("live.kuaishou.com", srv)
-                  print(f"{name} ({srv}): {ips}")
-              except Exception as e:
-                  print(f"{name} ({srv}): ERROR {e}")
-
-          # 用中国 CDN 映射
-          for domain in ['live.kuaishou.com', 'www.kuaishou.com']:
-              ips = dns(domain, "223.5.5.5")
-              ip = next((x for x in ips if x.startswith('103.102.202.')), ips[0])
-              subprocess.run(['sudo', 'bash', '-c', f'echo "{ip} {domain}" >> /etc/hosts'], check=True)
-              print(f"{domain} -> {ip}")
 
           with sync_playwright() as pw:
               browser = pw.chromium.launch(headless=True, args=["--no-sandbox","--disable-dev-shm-usage"])
@@ -75,56 +40,39 @@ jobs:
               except: pass
 
               page = ctx.new_page()
+              api_results = []
+              def on_resp(resp):
+                  if "live_api/profile/public" in resp.url:
+                      try:
+                          d = json.loads(resp.body().decode("utf-8","replace"))
+                          data = d.get("data", {})
+                          lst = data.get("list", [])
+                          print(f"  API: result={data.get('result')}, list={len(lst)}, pcursor={data.get('pcursor')}")
+                          if lst:
+                              # 从 poster URL 提取日期
+                              poster = lst[0].get("poster", "")
+                              print(f"  first poster: {poster[:100]}")
+                          api_results.append(data)
+                      except: pass
+              page.on("response", on_resp)
 
               # 预热
-              print("\nWarming up www...")
+              print("Warming up...")
               try:
-                  page.goto("https://www.kuaishou.com/", wait_until="domcontentloaded", timeout=20000)
+                  page.goto("https://www.kuaishou.com/", wait_until="domcontentloaded", timeout=15000)
+                  page.wait_for_timeout(6000)
+              except: pass
+
+              # 多次导航测试
+              for nav in range(3):
+                  print(f"\nNavigation {nav+1}:")
+                  page.goto(f"https://live.kuaishou.com/profile/{PID}", wait_until="domcontentloaded", timeout=20000)
                   page.wait_for_timeout(8000)
-              except Exception as e:
-                  print(f"Warmup error: {e}")
-              cookies = {c["name"] for c in ctx.cookies()}
-              ab = cookies & {"kwfv1","kwssectoken","kwscode"}
-              print(f"Antibot: {sorted(ab)}, did={'did' in cookies}")
 
-              # 先访问 profile 页让它算签名
-              print("\nLoading profile page...")
-              page.goto(f"https://live.kuaishou.com/profile/{PID}", wait_until="domcontentloaded", timeout=30000)
-              page.wait_for_timeout(8000)
-
-              # 直接用 fetch 试不同参数
-              print("\n=== Direct fetch tests ===")
-              tests = [
-                  ("count=12 no hasMore", f"https://live.kuaishou.com/live_api/profile/public?principalId={PID}&count=12&privacy=public&caver=2"),
-                  ("count=24", f"https://live.kuaishou.com/live_api/profile/public?principalId={PID}&count=24&privacy=public&caver=2"),
-                  ("count=12 with pcursor", f"https://live.kuaishou.com/live_api/profile/public?principalId={PID}&count=12&pcursor=&privacy=public&caver=2"),
-              ]
-
-              for label, url in tests:
-                  try:
-                      result = page.evaluate("""async (url) => {
-                          const resp = await fetch(url, {credentials: 'include'});
-                          const data = await resp.json();
-                          const d = data.data || {};
-                          return {result: d.result, count: (d.list||[]).length, pcursor: d.pcursor,
-                                  first_id: d.list && d.list[0] ? d.list[0].id : null};
-                      }""", url)
-                      print(f"  {label}: result={result['result']}, count={result['count']}, pcursor={result['pcursor']}, first={result['first_id']}")
-                  except Exception as e:
-                      print(f"  {label}: ERROR {e}")
-
-              # 试带 en-US Accept-Language
-              print("\n=== With en-US headers ===")
-              result = page.evaluate("""async (pid) => {
-                  const resp = await fetch(`https://live.kuaishou.com/live_api/profile/public?principalId=${pid}&count=12&privacy=public&caver=2`, {
-                      credentials: 'include',
-                      headers: {'Accept-Language': 'en-US,en;q=0.9'}
-                  });
-                  const data = await resp.json();
-                  const d = data.data || {};
-                  return {result: d.result, count: (d.list||[]).length, pcursor: d.pcursor};
-              }""", PID)
-              print(f"  en-US: result={result['result']}, count={result['count']}, pcursor={result['pcursor']}")
+              # 汇总
+              print(f"\n=== SUMMARY ===")
+              for i, r in enumerate(api_results):
+                  print(f"  Call {i+1}: result={r.get('result')}, list={len(r.get('list',[]))}, pcursor={r.get('pcursor')}")
 
               browser.close()
           PYEOF
