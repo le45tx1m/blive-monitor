@@ -5,11 +5,55 @@ jobs:
   test:
     runs-on: macos-latest
     strategy:
+      fail-fast: false
       matrix:
-        id: [1, 2, 3, 4, 5, 6, 7, 8]
+        id: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     steps:
       - uses: actions/checkout@v4
-      - name: Check IP
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install deps
         run: |
-          curl -s https://api.ipify.org && echo ""
-          curl -s https://ipinfo.io/json 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print(f'IP: {d.get(\"ip\")}, City: {d.get(\"city\")}, Region: {d.get(\"region\")}, Country: {d.get(\"country\")}, Org: {d.get(\"org\")}')" 2>/dev/null || echo "ipinfo failed"
+          python -m pip install --upgrade pip -q
+          pip install -r requirements.txt -q
+          patchright install chromium
+      - name: Test kuaishou
+        env:
+          BLIVE_CONFIG: ${{ secrets.BLIVE_CONFIG }}
+        run: |
+          python3 << 'PYEOF'
+          import json, logging, urllib.request, sys
+          logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+
+          ip = urllib.request.urlopen("https://api.ipify.org", timeout=10).read().decode()
+          print(f"=== Runner IP: {ip} ===")
+
+          # 117.x 段被封，跳过
+          if "13.105.117." in ip:
+              print("On blocked 117.x range, skipping")
+              sys.exit(0)
+
+          print(f"*** NON-BLOCKED RANGE! Testing kuaishou immediately! ***")
+
+          from patchright.sync_api import sync_playwright
+          from backend.adapters.kuaishou_feed import KuaishouFeedSession
+
+          PID = "3xrgxqkqp829xz6"
+          with sync_playwright() as pw:
+              browser = pw.chromium.launch(headless=True)
+              ctx = browser.new_context(viewport={"width":1366,"height":900}, locale="zh-CN",
+                  user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+              try:
+                  cache = json.load(open("kuaishou_guest_visitor.json"))
+                  ctx.add_cookies(cache["cookies"])
+              except: pass
+
+              session = KuaishouFeedSession(ctx, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+              result = session.fetch(PID)
+              print(f"\nok={result.get('ok')} result={result.get('result')} items={len(result.get('items',[]))}")
+              for item in result.get("items", [])[:12]:
+                  print(f"  photo_id={item.get('photo_id')} ts={item.get('timestamp')} author={item.get('author_name')} is_image={item.get('is_image')}")
+              print(f"seen: {result.get('seen')}")
+              browser.close()
+          PYEOF
