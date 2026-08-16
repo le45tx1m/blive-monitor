@@ -12,13 +12,10 @@ jobs:
       - name: Install deps
         run: |
           python -m pip install --upgrade pip -q
-          pip install -r requirements.txt -q
+          pip install patchright -q
           patchright install --with-deps chromium
-      - name: Full session test with Chinese CDN
-        env:
-          BLIVE_CONFIG: ${{ secrets.BLIVE_CONFIG }}
+      - name: Intercept API URLs
         run: |
-          # 写中国 CDN IP 到 hosts
           python3 << 'PYINIT'
           import socket, struct, random, subprocess
           def dns(name, srv='223.5.5.5'):
@@ -42,46 +39,70 @@ jobs:
           for domain in ['live.kuaishou.com', 'www.kuaishou.com']:
               ips = dns(domain)
               ip = next((x for x in ips if x.startswith('103.102.202.')), ips[0])
-              print(f"{domain} -> {ip} (all: {ips})")
               subprocess.run(['sudo', 'bash', '-c', f'echo "{ip} {domain}" >> /etc/hosts'], check=True)
-          print("Hosts written")
+              print(f"{domain} -> {ip}")
           PYINIT
 
           python3 << 'PYEOF'
-          import json, logging, urllib.request
-          logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
-
-          ip = urllib.request.urlopen("https://api.ipify.org", timeout=10).read().decode()
-          print(f"Runner exit IP: {ip}")
-
+          import json, time
           from patchright.sync_api import sync_playwright
-          from backend.adapters.kuaishou_feed import KuaishouFeedSession
 
-          accounts = [
-              ("3xrgxqkqp829xz6", "Sandy88888"),
-          ]
+          PID = "3xrgxqkqp829xz6"
+          UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
           with sync_playwright() as pw:
               browser = pw.chromium.launch(headless=True, args=["--no-sandbox","--disable-dev-shm-usage"])
-              ctx = browser.new_context(viewport={"width":1366,"height":900}, locale="zh-CN",
-                  user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+              ctx = browser.new_context(viewport={"width":1366,"height":900}, locale="zh-CN", user_agent=UA)
               try:
                   cache = json.load(open("kuaishou_guest_visitor.json"))
                   ctx.add_cookies(cache["cookies"])
               except: pass
 
-              session = KuaishouFeedSession(ctx, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+              page = ctx.new_page()
 
-              for pid, name in accounts:
-                  print(f"\n{'='*60}")
-                  print(f"Testing {name} (pid={pid})")
-                  result = session.fetch(pid)
-                  print(f"ok={result.get('ok')} result={result.get('result')} items={len(result.get('items',[]))}")
-                  print(f"living={result.get('living')}")
-                  items = result.get("items", [])
-                  for i, item in enumerate(items[:10]):
-                      print(f"  [{i}] photo_id={item.get('photo_id')} ts={item.get('timestamp')} author={item.get('author_name')} is_image={item.get('is_image')}")
-                  print(f"seen: {result.get('seen')}")
+              # 拦截所有 live_api 请求
+              def on_resp(resp):
+                  url = resp.url
+                  if "live_api" in url or "graphql" in url or "rest/" in url:
+                      try:
+                          body = resp.body().decode("utf-8","replace")
+                          print(f"\n=== API RESPONSE ===")
+                          print(f"URL: {url}")
+                          print(f"Status: {resp.status}")
+                          try:
+                              d = json.loads(body)
+                              data = d.get("data", d)
+                              print(f"result: {data.get('result')}")
+                              lst = data.get("list", [])
+                              print(f"list count: {len(lst)}")
+                              # 打印所有顶层 key
+                              print(f"data keys: {list(data.keys())}")
+                              # 检查 pcursor / paging
+                              for k in ['pcursor', 'page', 'hasMore', 'next', 'total']:
+                                  if k in data:
+                                      print(f"  {k}: {data[k]}")
+                              if lst:
+                                  print(f"list[0] id: {lst[0].get('id')}")
+                                  print(f"list[0] timestamp from poster: ...")
+                          except:
+                              print(f"Body: {body[:500]}")
+                      except: pass
+              page.on("response", on_resp)
+
+              # 预热
+              print("Warming up www...")
+              page.goto("https://www.kuaishou.com/", wait_until="domcontentloaded", timeout=20000)
+              page.wait_for_timeout(5000)
+
+              # 访问 profile
+              print(f"\nNavigating to profile/{PID}...")
+              page.goto(f"https://live.kuaishou.com/profile/{PID}", wait_until="domcontentloaded", timeout=30000)
+              page.wait_for_timeout(15000)
+
+              # 也试试滚动页面加载更多
+              print("\nScrolling down...")
+              page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+              page.wait_for_timeout(5000)
 
               browser.close()
           PYEOF
