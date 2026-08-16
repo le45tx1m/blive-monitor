@@ -495,6 +495,7 @@ class KuaishouFeedSession:
             _ip = _ur.urlopen("https://api.ipify.org", timeout=5).read().decode().strip()
             if any(_ip.startswith(p) for p in self.BLOCKED_IP_PREFIXES):
                 logger.warning("[kuaishou] %s 出口 IP %s 在已知封锁段，跳过本轮", pid, _ip)
+                self._ip_block_suspected = True
                 return {"ok": False, "result": 2, "items": [], "living": None,
                         "author_name": "", "author_id": "",
                         "detail": f"出口 IP {_ip} 在封锁段"}, [2]
