@@ -9,7 +9,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Test SSR profile page for posts
+      - name: Deep SSR analysis
         run: |
           python3 << 'PYEOF'
           import urllib.request, json, re, sys
@@ -17,73 +17,95 @@ jobs:
           PID = "3xrgxqkqp829xz6"
           UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
-          # 1. 检查出口 IP
           ip = urllib.request.urlopen("https://api.ipify.org", timeout=10).read().decode()
           print(f"=== EXIT IP: {ip} ===")
 
-          # 2. 抓取 profile SSR 页面
+          # 抓取 profile SSR 页面
           url = f"https://live.kuaishou.com/profile/{PID}"
           req = urllib.request.Request(url, headers={"User-Agent": UA, "Referer": "https://live.kuaishou.com/"})
+          html = urllib.request.urlopen(req, timeout=15).read().decode("utf-8", "replace")
+          print(f"Profile page: {len(html)} bytes")
+
+          # 更健壮的 __INITIAL_STATE__ 提取：找到 script 标签内容，用括号匹配
+          idx = html.find("window.__INITIAL_STATE__")
+          if idx < 0:
+              print("__INITIAL_STATE__ not found!")
+              sys.exit(1)
+          
+          # 找到 JSON 开始的 {
+          start = html.index("{", idx)
+          # 用括号计数找到匹配的 }
+          depth = 0
+          end = start
+          in_str = False
+          escape = False
+          for i in range(start, len(html)):
+              c = html[i]
+              if escape:
+                  escape = False
+                  continue
+              if c == "\\":
+                  escape = True
+                  continue
+              if c == '"':
+                  in_str = not in_str
+                  continue
+              if in_str:
+                  continue
+              if c == "{":
+                  depth += 1
+              elif c == "}":
+                  depth -= 1
+                  if depth == 0:
+                      end = i + 1
+                      break
+          
+          raw = html[start:end]
+          print(f"__INITIAL_STATE__ raw length: {len(raw)}")
+          
           try:
-              html = urllib.request.urlopen(req, timeout=15).read().decode("utf-8", "replace")
-              print(f"Profile page: {len(html)} bytes, status OK")
-          except Exception as e:
-              print(f"Profile page error: {e}")
+              state = json.loads(raw)
+          except json.JSONDecodeError as e:
+              print(f"JSON parse error: {e}")
+              # 尝试找到问题位置
+              print(f"Around error: ...{raw[max(0,e.pos-100):e.pos+100]}...")
               sys.exit(1)
 
-          # 3. 提取 __INITIAL_STATE__
-          m = re.search(r'window\.__INITIAL_STATE__\s*=\s*(\{.*?\});?\s*</script>', html, re.DOTALL)
-          if not m:
-              m = re.search(r'window\.__INITIAL_STATE__\s*=\s*(\{.*?\})\s*;?\s*\n', html, re.DOTALL)
-          if not m:
-              # 尝试其他模式
-              m = re.search(r'__INITIAL_STATE__\s*[=:]\s*(\{.+\})', html[:50000])
-          
-          if m:
-              try:
-                  state = json.loads(m.group(1))
-                  print(f"\n__INITIAL_STATE__ keys: {list(state.keys())}")
-                  for k, v in state.items():
-                      if isinstance(v, dict):
-                          print(f"  {k}: dict keys={list(v.keys())[:15]}")
-                      elif isinstance(v, list):
-                          print(f"  {k}: list len={len(v)}")
-                      else:
-                          print(f"  {k}: {type(v).__name__} = {str(v)[:80]}")
-                  
-                  # 深度搜索包含作品/feed/photo/list 的字段
-                  def find_posts(obj, path="", depth=0):
-                      if depth > 4: return
-                      if isinstance(obj, dict):
-                          for k, v in obj.items():
-                              kl = k.lower()
-                              if any(w in kl for w in ["photo", "feed", "post", "video", "work", "list", "count"]):
-                                      if isinstance(v, list) and len(v) > 0:
-                                          print(f"\n  FOUND LIST at {path}.{k}: len={len(v)}")
-                                          if isinstance(v[0], dict):
-                                              print(f"    first item keys: {list(v[0].keys())[:15]}")
-                                              # 打印第一个作品的 id/caption
-                                              for idk in ["id", "photoId", "photo_id", "timestamp", "caption", "time"]:
-                                                  if idk in v[0]:
-                                                      print(f"    {idk}: {str(v[0][idk])[:80]}")
-                              find_posts(v, f"{path}.{k}", depth+1)
-                      elif isinstance(obj, list) and len(obj) > 0 and isinstance(obj[0], dict):
-                          find_posts(obj[0], f"{path}[0]", depth+1)
-                  
-                  find_posts(state)
-              except json.JSONDecodeError as e:
-                  print(f"JSON parse error: {e}")
-                  print(f"First 500 chars of match: {m.group(1)[:500]}")
-          else:
-              print("__INITIAL_STATE__ NOT FOUND in profile page")
-              # 看看页面里有什么
-              print(f"Page title: {re.search(r'<title>(.*?)</title>', html).group(1) if re.search(r'<title>(.*?)</title>', html) else 'N/A'}")
-              # 检查是否被重定向到验证码
-              if "captcha" in html.lower():
-                  print("Page contains CAPTCHA redirect!")
-              # 打印所有 script 标签的 src
-              scripts = re.findall(r'<script[^>]*src=["\']([^"\']+)["\']', html)
-              print(f"Script srcs: {scripts[:10]}")
-              # 打印页面前 2000 字符
-              print(f"\nPage start:\n{html[:2000]}")
+          print(f"\nTop-level keys: {list(state.keys())}")
+
+          # 递归搜索所有包含作品数据的字段
+          def search(obj, path="", depth=0):
+              if depth > 6: return
+              if isinstance(obj, dict):
+                  for k, v in obj.items():
+                      p = f"{path}.{k}" if path else k
+                      if isinstance(v, list) and len(v) > 0:
+                          if isinstance(v[0], dict):
+                              # 检查是否像作品（有 id/photoId/caption/timestamp 等字段）
+                              first_keys = set(v[0].keys())
+                              post_indicators = {"id", "photoId", "photo_id", "caption", "timestamp", "coverUrl", "photoUrl", "duration", "likeCount"}
+                              if first_keys & post_indicators:
+                                  print(f"\n*** FOUND POST-LIKE LIST at {p}: {len(v)} items ***")
+                                  print(f"    Keys: {list(v[0].keys())[:20]}")
+                                  item = v[0]
+                                  for ik in ["id", "photoId", "caption", "timestamp", "coverUrl", "photoUrl", "duration", "likeCount", "viewCount", "time"]:
+                                      if ik in item:
+                                          print(f"    {ik}: {str(item[ik])[:100]}")
+                      search(v, p, depth+1)
+              elif isinstance(obj, list):
+                  for i, v in enumerate(obj[:3]):
+                      search(v, f"{path}[{i}]", depth+1)
+
+          search(state)
+
+          # 特别检查常见的快手 SSR 字段
+          for key in ["profile", "user", "liveroom", "feed", "photo", "list", "works", "videos", "timeline", "pcProfile"]:
+              if key in state:
+                  v = state[key]
+                  if isinstance(v, dict):
+                      print(f"\n{key} sub-keys: {list(v.keys())[:20]}")
+                  elif isinstance(v, list):
+                      print(f"\n{key}: list of {len(v)}")
+                  else:
+                      print(f"\n{key}: {str(v)[:200]}")
           PYEOF
