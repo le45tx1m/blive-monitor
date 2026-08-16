@@ -18,61 +18,67 @@ jobs:
         env:
           BLIVE_CONFIG: ${{ secrets.BLIVE_CONFIG }}
         run: |
-          python3 << 'PYEOF'
-          import json, logging, subprocess, socket, struct, random, urllib.request
-          logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
-
-          # 1. 用中国 DNS 解析
-          def dns_query(name, server="223.5.5.5"):
-              txid = random.randint(0, 65535)
-              header = struct.pack(">HHHHHH", txid, 0x0100, 1, 0, 0, 0)
-              question = b"".join(bytes([len(p)]) + p.encode() for p in name.split(".")) + b"\x00"
-              question += struct.pack(">HH", 1, 1)
-              sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-              sock.settimeout(5)
-              sock.sendto(header + question, (server, 53))
-              data = sock.recv(512)
-              sock.close()
-              idx = 12
-              while data[idx] != 0: idx += data[idx] + 1
-              idx += 5
-              ancount = struct.unpack(">H", data[6:8])[0]
-              ips = []
-              for _ in range(ancount):
-                  if data[idx] & 0xC0 == 0xC0: idx += 2
+          # 先在 shell 里写 /etc/hosts（需要 sudo）
+          LIVE_IP=$(python3 -c "
+          import socket, struct, random
+          def dns(name, srv='223.5.5.5'):
+              txid=random.randint(0,65535)
+              h=struct.pack('>HHHHHH',txid,0x0100,1,0,0,0)
+              q=b''.join(bytes([len(p)])+p.encode() for p in name.split('.'))+b'\x00'+struct.pack('>HH',1,1)
+              s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM);s.settimeout(5)
+              s.sendto(h+q,(srv,53));d=s.recv(512);s.close()
+              i=12
+              while d[i]!=0:i+=d[i]+1
+              i+=5;anc=struct.unpack('>H',d[6:8])[0];ips=[]
+              for _ in range(anc):
+                  if d[i]&0xC0==0xC0:i+=2
                   else:
-                      while data[idx] != 0: idx += data[idx] + 1
-                      idx += 1
-                  rtype, rclass, ttl, rdlen = struct.unpack(">HHIH", data[idx:idx+10])
-                  idx += 10
-                  if rtype == 1 and rdlen == 4:
-                      ips.append(".".join(str(b) for b in data[idx:idx+4]))
-                  idx += rdlen
+                      while d[i]!=0:i+=d[i]+1
+                      i+=1
+                  rt,rc,ttl,rl=struct.unpack('>HHIH',d[i:i+10]);i+=10
+                  if rt==1 and rl==4:ips.append('.'.join(str(b) for b in d[i:i+4]))
+                  i+=rl
               return ips
+          print(dns('live.kuaishou.com')[0])
+          ")
+          WWW_IP=$(python3 -c "
+          import socket, struct, random
+          def dns(name, srv='223.5.5.5'):
+              txid=random.randint(0,65535)
+              h=struct.pack('>HHHHHH',txid,0x0100,1,0,0,0)
+              q=b''.join(bytes([len(p)])+p.encode() for p in name.split('.'))+b'\x00'+struct.pack('>HH',1,1)
+              s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM);s.settimeout(5)
+              s.sendto(h+q,(srv,53));d=s.recv(512);s.close()
+              i=12
+              while d[i]!=0:i+=d[i]+1
+              i+=5;anc=struct.unpack('>H',d[6:8])[0];ips=[]
+              for _ in range(anc):
+                  if d[i]&0xC0==0xC0:i+=2
+                  else:
+                      while d[i]!=0:i+=d[i]+1
+                      i+=1
+                  rt,rc,ttl,rl=struct.unpack('>HHIH',d[i:i+10]);i+=10
+                  if rt==1 and rl==4:ips.append('.'.join(str(b) for b in d[i:i+4]))
+                  i+=rl
+              return ips
+          print(dns('www.kuaishou.com')[0])
+          ")
+          echo "live.kuaishou.com -> $LIVE_IP"
+          echo "www.kuaishou.com -> $WWW_IP"
+          echo "$LIVE_IP live.kuaishou.com" | sudo tee -a /etc/hosts
+          echo "$WWW_IP www.kuaishou.com" | sudo tee -a /etc/hosts
+          echo "--- /etc/hosts tail ---"
+          tail -5 /etc/hosts
+          echo "--- curl verify ---"
+          curl -s -o /dev/null -w "live.kuaishou.com -> %{remote_ip}\n" https://live.kuaishou.com/
+          curl -s -o /dev/null -w "www.kuaishou.com -> %{remote_ip}\n" https://www.kuaishou.com/
 
-          live_ips = dns_query("live.kuaishou.com")
-          www_ips = dns_query("www.kuaishou.com")
-          print(f"live.kuaishou.com CN IPs: {live_ips}")
-          print(f"www.kuaishou.com CN IPs: {www_ips}")
-
-          # 2. 写入 /etc/hosts
-          live_ip = live_ips[0]
-          www_ip = www_ips[0]
-          with open("/etc/hosts", "a") as f:
-              f.write(f"\n{live_ip} live.kuaishou.com\n")
-              f.write(f"{www_ip} www.kuaishou.com\n")
-          print(f"Added to /etc/hosts: live.kuaishou.com -> {live_ip}, www.kuaishou.com -> {www_ip}")
-
-          # 3. 验证 DNS 生效
-          import subprocess
-          result = subprocess.run(["curl", "-s", "-o", "/dev/null", "-w", "%{remote_ip}", "https://live.kuaishou.com/"], capture_output=True, text=True, timeout=10)
-          print(f"curl live.kuaishou.com -> {result.stdout}")
-
-          # 4. 检查本地出口 IP
+          python3 << 'PYEOF'
+          import json, logging, urllib.request
+          logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
           ip = urllib.request.urlopen("https://api.ipify.org", timeout=10).read().decode()
           print(f"Runner exit IP: {ip}")
 
-          # 5. 用浏览器测试
           from patchright.sync_api import sync_playwright
           from backend.adapters.kuaishou_feed import KuaishouFeedSession
 
@@ -88,7 +94,8 @@ jobs:
 
               session = KuaishouFeedSession(ctx, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
               result = session.fetch(PID)
-              print(f"\nok={result.get('ok')} result={result.get('result')} items={len(result.get('items',[]))}")
+              print(f"\n=== RESULT ===")
+              print(f"ok={result.get('ok')} result={result.get('result')} items={len(result.get('items',[]))}")
               for item in result.get("items", [])[:5]:
                   photo = item.get("photo", item) if isinstance(item, dict) else {}
                   print(f"  id={photo.get('id')} caption={str(photo.get('caption',''))[:60]}")
