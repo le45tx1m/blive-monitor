@@ -14,14 +14,19 @@ jobs:
           python -m pip install --upgrade pip -q
           pip install patchright -q
           patchright install --with-deps chromium
-      - name: Chinese geo + CDN test
+      - name: XFF Chinese IP test
         run: |
+          # 等 5 分钟冷却
+          echo "Waiting 300s for CDN cooldown..."
+          sleep 300
+          
           python3 << 'PYEOF'
           import json, time, socket, struct, random, subprocess, re
           from patchright.sync_api import sync_playwright
 
           PID = "3xrgxqkqp829xz6"
           UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+          CN_IP = "114.114.114.114"  # 江苏南京电信
 
           def dns(name, srv='223.5.5.5'):
               txid=random.randint(0,65535)
@@ -50,22 +55,30 @@ jobs:
 
           with sync_playwright() as pw:
               browser = pw.chromium.launch(headless=True, args=["--no-sandbox","--disable-dev-shm-usage"])
-              # 关键：设置中国时区和地理位置
               ctx = browser.new_context(
                   viewport={"width":1366,"height":900},
                   locale="zh-CN",
                   timezone_id="Asia/Shanghai",
-                  geolocation={"latitude": 34.2658, "longitude": 108.9541},  # 西安
+                  geolocation={"latitude": 34.2658, "longitude": 108.9541},
                   permissions=["geolocation"],
                   user_agent=UA,
-                  extra_http_headers={"Accept-Language": "zh-CN,zh;q=0.9"}
+                  extra_http_headers={
+                      "Accept-Language": "zh-CN,zh;q=0.9",
+                      "X-Forwarded-For": CN_IP,
+                      "X-Real-IP": CN_IP,
+                  }
               )
-              try:
-                  cache = json.load(open("kuaishou_guest_visitor.json"))
-                  ctx.add_cookies(cache["cookies"])
-              except: pass
-
+              # 全新身份，不加载缓存 DID
               page = ctx.new_page()
+
+              # 用 route 给所有请求加 XFF
+              def add_xff(route, request):
+                  headers = request.headers.copy()
+                  headers["X-Forwarded-For"] = CN_IP
+                  headers["X-Real-IP"] = CN_IP
+                  route.continue_(headers=headers)
+              page.route("**/*", add_xff)
+
               api_results = []
               def on_resp(resp):
                   if "live_api/profile/public" in resp.url:
@@ -85,7 +98,7 @@ jobs:
               page.on("response", on_resp)
 
               # 预热
-              print("Warming up www (Chinese geo)...")
+              print("Warming up www with XFF...")
               try:
                   page.goto("https://www.kuaishou.com/", wait_until="domcontentloaded", timeout=20000)
                   page.wait_for_timeout(10000)
@@ -93,19 +106,14 @@ jobs:
                   print(f"Warmup: {e}")
               cookies = {c["name"] for c in ctx.cookies()}
               ab = cookies & {"kwfv1","kwssectoken","kwscode"}
-              print(f"Antibot: {sorted(ab)}, did={'did' in cookies}")
+              new_did = next((c["value"] for c in ctx.cookies() if c["name"]=="did"), None)
+              print(f"New DID: {new_did}")
+              print(f"Antibot: {sorted(ab)}")
 
               # 访问 profile
               print(f"\nNavigating to profile/{PID}...")
               page.goto(f"https://live.kuaishou.com/profile/{PID}", wait_until="domcontentloaded", timeout=30000)
               page.wait_for_timeout(15000)
-
-              # 如果 result=1 但只有 1 条，试滚动
-              if api_results and api_results[-1].get("result") == 1 and len(api_results[-1].get("list",[])) <= 1:
-                  print("\nScrolling to load more...")
-                  for _ in range(3):
-                      page.evaluate("window.scrollBy(0, 1000)")
-                      page.wait_for_timeout(3000)
 
               browser.close()
           PYEOF
