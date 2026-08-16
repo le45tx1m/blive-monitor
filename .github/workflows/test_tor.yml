@@ -1,0 +1,81 @@
+name: Test Tor Kuaishou Access
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Tor and deps
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq tor
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          patchright install --with-deps chromium
+      - name: Start Tor
+        run: |
+          tor --SocksPort 9050 --ExitNodes "" --Log "notice stdout" &
+          echo "Waiting for Tor to bootstrap..."
+          for i in $(seq 1 30); do
+            if curl -s --socks5-hostname 127.0.0.1:9050 https://api.ipify.org 2>/dev/null; then
+              echo " - Tor ready"
+              break
+            fi
+            sleep 2
+          done
+      - name: Test Kuaishou via Tor
+        env:
+          BLIVE_CONFIG: ${{ secrets.BLIVE_CONFIG }}
+        run: |
+          python3 << 'PYEOF'
+          import json, logging, subprocess, time
+          logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+
+          from patchright.sync_api import sync_playwright
+          from backend.adapters.kuaishou_feed import KuaishouFeedSession
+
+          PID = "3xrgxqkqp829xz6"
+
+          for attempt in range(3):
+              print(f"\n{'='*60}")
+              print(f"Attempt {attempt+1}/3")
+              # 获取当前 Tor 出口 IP
+              try:
+                  import urllib.request
+                  proxy = urllib.request.ProxyHandler({"https": "socks5h://127.0.0.1:9050"})
+                  opener = urllib.request.build_opener(proxy)
+                  ip = opener.open("https://api.ipify.org", timeout=15).read().decode()
+                  print(f"Tor exit IP: {ip}")
+              except Exception as e:
+                  print(f"IP check failed: {e}")
+
+              with sync_playwright() as pw:
+                  browser = pw.chromium.launch(
+                      headless=True,
+                      proxy={"server": "socks5://127.0.0.1:9050"},
+                      args=["--no-sandbox","--disable-dev-shm-usage"])
+                  ctx = browser.new_context(viewport={"width":1366,"height":900}, locale="zh-CN",
+                      user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                  cache = json.load(open("kuaishou_guest_visitor.json"))
+                  ctx.add_cookies(cache["cookies"])
+
+                  session = KuaishouFeedSession(ctx, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                  result = session.fetch(PID)
+                  print(f"ok={result.get('ok')} result={result.get('result')} items={len(result.get('items',[]))}")
+                  for item in result.get("items", [])[:3]:
+                      photo = item.get("photo", item) if isinstance(item, dict) else {}
+                      print(f"  id={photo.get('id')} caption={str(photo.get('caption',''))[:60]}")
+                  browser.close()
+
+              if result.get("ok"):
+                  print("\n=== SUCCESS! ===")
+                  break
+
+              # 请求新的 Tor 出口节点
+              print("Requesting new Tor exit node...")
+              subprocess.run(["killall", "-HUP", "tor"], capture_output=True)
+              time.sleep(10)
+          PYEOF
