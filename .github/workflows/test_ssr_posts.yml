@@ -9,112 +9,132 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Sitemap + Baiduspider + cache
+      - name: Chinese DNS + direct IP test
         run: |
           python3 << 'PYEOF'
-          import urllib.request, json, re
+          import socket, ssl, urllib.request, json, struct, time
 
           PID = "3xrgxqkqp829xz6"
-          NUM_ID = "2117550"
-          BAIDU_UA = "Mozilla/5.0 (compatible; Baiduspider/2.0; +http://www.baidu.com/search/spider.html)"
-          GOOGLE_UA = "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
-          NORMAL_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+          UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
-          def fetch(url, ua=NORMAL_UA, headers=None):
-              hdr = {"User-Agent": ua}
-              if headers: hdr.update(headers)
-              req = urllib.request.Request(url, headers=hdr)
+          # 1. 用中国 DNS 解析 live.kuaishou.com
+          def dns_query(name, server="223.5.5.5", port=53):
+              """简单 DNS A 记录查询"""
+              import random
+              txid = random.randint(0, 65535)
+              # Header: ID, flags, qdcount, ancount, nscount, arcount
+              header = struct.pack(">HHHHHH", txid, 0x0100, 1, 0, 0, 0)
+              # Question: name + type A + class IN
+              question = b"".join(bytes([len(p)]) + p.encode() for p in name.split(".")) + b"\x00"
+              question += struct.pack(">HH", 1, 1)  # Type A, Class IN
+              packet = header + question
+              sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+              sock.settimeout(5)
+              sock.sendto(packet, (server, port))
+              data, _ = sock.recv(512)
+              sock.close()
+              # Parse answer
+              # Skip header (12) and question
+              idx = 12
+              while data[idx] != 0:
+                  idx += data[idx] + 1
+              idx += 5  # null byte + type + class
+              # Parse answers
+              ancount = struct.unpack(">H", data[6:8])[0]
+              ips = []
+              for _ in range(ancount):
+                  # Name (could be pointer)
+                  if data[idx] & 0xC0 == 0xC0:
+                      idx += 2
+                  else:
+                      while data[idx] != 0:
+                          idx += data[idx] + 1
+                      idx += 1
+                  rtype, rclass, ttl, rdlen = struct.unpack(">HHIH", data[idx:idx+10])
+                  idx += 10
+                  if rtype == 1 and rdlen == 4:  # A record
+                      ip = ".".join(str(b) for b in data[idx:idx+4])
+                      ips.append(ip)
+                  idx += rdlen
+              return ips
+
+          for dns_name, dns_server in [("AliDNS", "223.5.5.5"), ("DNSPod", "119.29.29.29"), ("114DNS", "114.114.114.114")]:
               try:
-                  r = urllib.request.urlopen(req, timeout=10)
-                  return r.status, r.read().decode("utf-8", "replace")
+                  ips = dns_query("live.kuaishou.com", dns_server)
+                  print(f"{dns_name} ({dns_server}): {ips}")
               except Exception as e:
-                  return None, str(e)
+                  print(f"{dns_name} error: {e}")
 
-          # 1. Sitemap 内容
-          print("=== www.kuaishou.com/sitemap.xml ===")
-          s, b = fetch("https://www.kuaishou.com/sitemap.xml")
-          print(b[:1500] if s else b)
-
-          # 2. robots.txt 完整内容
-          print("\n=== live.kuaishou.com/robots.txt ===")
-          s, b = fetch("https://live.kuaishou.com/robots.txt")
-          print(b if s else b)
-
-          # 3. 用 Baiduspider UA 访问 profile SSR
-          print("\n=== Baiduspider UA profile SSR ===")
-          s, b = fetch(f"https://live.kuaishou.com/profile/{PID}", BAIDU_UA)
-          print(f"Status: {s}, length: {len(b) if s else 'N/A'}")
-          if s:
-              # 提取 __INITIAL_STATE__
-              idx = b.find("window.__INITIAL_STATE__")
-              if idx >= 0:
-                  start = b.index("{", idx)
-                  depth, end, in_str, esc = 0, start, False, False
-                  for i in range(start, min(start+200000, len(b))):
-                      c = b[i]
-                      if esc: esc=False; continue
-                      if c=="\\": esc=True; continue
-                      if c=='"': in_str=not in_str; continue
-                      if in_str: continue
-                      if c=="{": depth+=1
-                      elif c=="}":
-                          depth-=1
-                          if depth==0: end=i+1; break
-                  state = json.loads(b[start:end])
-                  pub = state.get("profile", {}).get("publicData", {})
-                  print(f"publicData.list: {len(pub.get('list',[]))} items")
-                  aib = state.get("authorInfoById", {})
-                  for k,v in aib.items():
-                      if isinstance(v, dict):
-                          ui = v.get("userInfo", {})
-                          print(f"authorInfoById.{k}.userInfo.name: {ui.get('name')}")
-                          print(f"authorInfoById.{k}.userInfo.originUserId: {ui.get('originUserId')}")
-
-          # 4. 用 Googlebot UA
-          print("\n=== Googlebot UA profile SSR ===")
-          s, b = fetch(f"https://live.kuaishou.com/profile/{PID}", GOOGLE_UA)
-          print(f"Status: {s}, length: {len(b) if s else 'N/A'}")
-          if s and len(b) > 1000:
-              idx = b.find("window.__INITIAL_STATE__")
-              if idx >= 0:
-                  start = b.index("{", idx)
-                  depth, end, in_str, esc = 0, start, False, False
-                  for i in range(start, min(start+200000, len(b))):
-                      c = b[i]
-                      if esc: esc=False; continue
-                      if c=="\\": esc=True; continue
-                      if c=='"': in_str=not in_str; continue
-                      if in_str: continue
-                      if c=="{": depth+=1
-                      elif c=="}":
-                          depth-=1
-                          if depth==0: end=i+1; break
-                  state = json.loads(b[start:end])
-                  pub = state.get("profile", {}).get("publicData", {})
-                  print(f"publicData.list: {len(pub.get('list',[]))} items")
-
-          # 5. Baiduspider 访问 live_api
-          print("\n=== Baiduspider UA live_api ===")
-          s, b = fetch(f"https://live.kuaishou.com/live_api/profile/public?principalId={PID}&count=12&privacy=public", BAIDU_UA, {"Referer": "https://live.kuaishou.com/"})
-          if s:
+          # 也解析 www.kuaishou.com
+          for dns_name, dns_server in [("AliDNS", "223.5.5.5")]:
               try:
-                  d = json.loads(b)
-                  data = d.get("data", {})
-                  print(f"result={data.get('result')}, list={len(data.get('list',[]))}")
-              except:
-                  print(f"Non-JSON: {b[:200]}")
-          else:
-              print(f"Error: {b}")
+                  ips = dns_query("www.kuaishou.com", dns_server)
+                  print(f"www.kuaishou.com via {dns_name}: {ips}")
+              except Exception as e:
+                  print(f"www DNS error: {e}")
 
-          # 6. 百度快照/缓存
-          print("\n=== Baidu cache search ===")
-          s, b = fetch(f"https://www.baidu.com/s?wd=site%3Alive.kuaishou.com+{PID}", NORMAL_UA)
-          if s:
-              # 找百度快照链接
-              snapshots = re.findall(r'cache\.baidu\.com[^"\']+', b)
-              print(f"Found {len(snapshots)} Baidu cache links")
-              for snap in snapshots[:3]:
-                  print(f"  {snap[:150]}")
-          else:
-              print(f"Baidu search error: {b}")
+          # 2. 用中国 DNS 拿到的 IP 直连 live_api
+          print("\n=== Direct IP connection test ===")
+          try:
+              cn_ips = dns_query("live.kuaishou.com", "223.5.5.5")
+          except:
+              cn_ips = []
+
+          for ip in cn_ips[:3]:
+              print(f"\n--- Trying IP: {ip} ---")
+              try:
+                  # 创建 SSL 上下文，连接到中国 IP 但 SNI 是 live.kuaishou.com
+                  ctx = ssl.create_default_context()
+                  ctx.check_hostname = False
+                  ctx.verify_mode = ssl.CERT_NONE
+                  
+                  sock = socket.create_connection((ip, 443), timeout=10)
+                  ssock = ctx.wrap_socket(sock, server_hostname="live.kuaishou.com")
+                  
+                  # 发送 HTTP 请求
+                  url_path = f"/live_api/profile/public?principalId={PID}&count=12&privacy=public"
+                  req = (
+                      f"GET {url_path} HTTP/1.1\r\n"
+                      f"Host: live.kuaishou.com\r\n"
+                      f"User-Agent: {UA}\r\n"
+                      f"Referer: https://live.kuaishou.com/\r\n"
+                      f"Accept: application/json\r\n"
+                      f"Connection: close\r\n"
+                      f"\r\n"
+                  )
+                  ssock.sendall(req.encode())
+                  
+                  response = b""
+                  while True:
+                      try:
+                          chunk = ssock.recv(4096)
+                          if not chunk:
+                              break
+                          response += chunk
+                      except:
+                          break
+                  ssock.close()
+                  
+                  resp_text = response.decode("utf-8", "replace")
+                  # 分离 header 和 body
+                  if "\r\n\r\n" in resp_text:
+                      headers, body = resp_text.split("\r\n\r\n", 1)
+                      status_line = headers.split("\r\n")[0]
+                      print(f"  Status: {status_line}")
+                      try:
+                          d = json.loads(body)
+                          data = d.get("data", d)
+                          result = data.get("result")
+                          lst = data.get("list", [])
+                          print(f"  result={result}, list={len(lst)} {'✅' if result==1 else ''}")
+                          if lst:
+                              for item in lst[:3]:
+                                  photo = item.get("photo", {})
+                                  print(f"    id={photo.get('id')} caption={str(photo.get('caption',''))[:60]}")
+                      except:
+                          print(f"  Body: {body[:200]}")
+                  else:
+                      print(f"  Response: {resp_text[:200]}")
+              except Exception as e:
+                  print(f"  Error: {e}")
           PYEOF
