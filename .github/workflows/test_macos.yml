@@ -14,7 +14,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           patchright install chromium
-      - name: Test www GraphQL on macOS
+      - name: Detailed live_api test
         env:
           BLIVE_CONFIG: ${{ secrets.BLIVE_CONFIG }}
         run: |
@@ -39,18 +39,29 @@ jobs:
               ctx.add_cookies(cache["cookies"])
               p = ctx.new_page()
 
-              # 拦截所有 GraphQL 和 API 请求
-              graphql_responses = []
+              full_response = [None]
               def on_resp(resp):
-                  url = resp.url
-                  if "graphql" in url or ("kuaishou.com" in url and ("profile" in url or "feed" in url or "photo" in url)):
+                  if "live_api/profile/public" in resp.url:
                       try:
                           body = resp.body().decode("utf-8","replace")
-                          graphql_responses.append({"url": url[:150], "status": resp.status, "body": body[:500]})
-                      except: pass
+                          full_response[0] = body
+                          data = json.loads(body)
+                          d = data.get("data", {})
+                          print(f"\n=== LIVE_API {resp.status} ===")
+                          print(f"result: {d.get('result')}")
+                          print(f"keys: {list(d.keys())}")
+                          lst = d.get("list", [])
+                          print(f"list count: {len(lst)}")
+                          for item in lst[:5]:
+                              photo = item.get("photo", {})
+                              print(f"  id={photo.get('id')} caption={str(photo.get('caption',''))[:60]}")
+                          live = d.get("live", {})
+                          print(f"living: {live.get('author',{}).get('living')}")
+                      except Exception as e:
+                          print(f"parse error: {e}")
               p.on("response", on_resp)
 
-              # 先预热
+              # 预热
               print("Warming up www.kuaishou.com...")
               try:
                   p.goto("https://www.kuaishou.com", wait_until="domcontentloaded", timeout=60000)
@@ -62,41 +73,21 @@ jobs:
               antibot = [k for k in ("kwfv1","kwssectoken","kwscode") if k in cookies]
               print(f"Antibot cookies: {antibot}")
 
-              # 导航到 www 用户主页
-              print(f"\nNavigating to www.kuaishou.com/u/{PID}...")
-              # 快手 www 的用户主页 URL 格式
-              for url in [f"https://www.kuaishou.com/u/{PID}", f"https://www.kuaishou.com/profile/{PID}"]:
-                  try:
-                      p.goto(url, wait_until="domcontentloaded", timeout=30000)
-                      p.wait_for_timeout(10000)
-                      print(f"  Navigated to {url}, final URL: {p.url}")
-                      if graphql_responses:
-                          break
-                  except Exception as e:
-                      print(f"  Error navigating to {url}: {e}")
+              # 直接导航到 live profile
+              print(f"\nNavigating to live profile {PID}...")
+              try:
+                  p.goto(f"https://live.kuaishou.com/profile/{PID}", wait_until="domcontentloaded", timeout=30000)
+                  p.wait_for_timeout(15000)
+              except Exception as e:
+                  print(f"Nav error: {e}")
 
-              print(f"\n=== Captured {len(graphql_responses)} API responses ===")
-              for r in graphql_responses[:10]:
-                  print(f"\n  [{r['status']}] {r['url']}")
-                  print(f"  {r['body'][:300]}")
-
-              # 也试试 live_api
-              print("\n=== Also testing live_api ===")
-              live_responses = [r for r in graphql_responses if "live_api" in r["url"]]
-              if not live_responses:
-                  # 手动导航到 live profile
-                  def on_live(resp):
-                      if "live_api/profile/public" in resp.url:
-                          try:
-                              body = resp.body().decode("utf-8","replace")
-                              print(f"  live_api: {resp.status} {body[:300]}")
-                          except: pass
-                  p.on("response", on_live)
-                  try:
-                      p.goto(f"https://live.kuaishou.com/profile/{PID}", wait_until="domcontentloaded", timeout=30000)
-                      p.wait_for_timeout(10000)
-                  except Exception as e:
-                      print(f"  live nav error: {e}")
+              if full_response[0]:
+                  print(f"\nFull response length: {len(full_response[0])}")
+                  # 打印前 1000 字符
+                  print(f"Full response (first 1000): {full_response[0][:1000]}")
+              else:
+                  print("\nNo live_api response captured!")
+                  print(f"Final URL: {p.url}")
 
               browser.close()
           PYEOF
