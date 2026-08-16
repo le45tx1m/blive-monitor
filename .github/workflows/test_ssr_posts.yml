@@ -9,113 +9,103 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: IPv6 + other approaches
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip -q
+          pip install patchright -q
+          patchright install --with-deps chromium
+      - name: Chinese geo + CDN test
         run: |
           python3 << 'PYEOF'
-          import socket, urllib.request, json, ssl, struct, random
+          import json, time, socket, struct, random, subprocess, re
+          from patchright.sync_api import sync_playwright
 
-          UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
           PID = "3xrgxqkqp829xz6"
+          UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
-          # 1. DNS AAAA 记录 (IPv6)
-          print("=== IPv6 DNS resolution ===")
-          def dns_aaaa(name, server="223.5.5.5"):
-              txid = random.randint(0, 65535)
-              header = struct.pack(">HHHHHH", txid, 0x0100, 1, 0, 0, 0)
-              question = b"".join(bytes([len(p)]) + p.encode() for p in name.split(".")) + b"\x00"
-              question += struct.pack(">HH", 28, 1)  # Type AAAA=28, Class IN=1
-              sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-              sock.settimeout(5)
-              sock.sendto(header + question, (server, 53))
-              try:
-                  data = sock.recv(512)
-              except:
-                  return []
-              sock.close()
-              idx = 12
-              while data[idx] != 0: idx += data[idx] + 1
-              idx += 5
-              ancount = struct.unpack(">H", data[6:8])[0]
-              ips = []
-              for _ in range(ancount):
-                  if data[idx] & 0xC0 == 0xC0: idx += 2
+          def dns(name, srv='223.5.5.5'):
+              txid=random.randint(0,65535)
+              h=struct.pack('>HHHHHH',txid,0x0100,1,0,0,0)
+              q=b''.join(bytes([len(p)])+p.encode() for p in name.split('.'))+b'\x00'+struct.pack('>HH',1,1)
+              s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM);s.settimeout(5)
+              s.sendto(h+q,(srv,53));d=s.recv(512);s.close()
+              i=12
+              while d[i]!=0:i+=d[i]+1
+              i+=5;anc=struct.unpack('>H',d[6:8])[0];ips=[]
+              for _ in range(anc):
+                  if d[i]&0xC0==0xC0:i+=2
                   else:
-                      while data[idx] != 0: idx += data[idx] + 1
-                      idx += 1
-                  rtype, rclass, ttl, rdlen = struct.unpack(">HHIH", data[idx:idx+10])
-                  idx += 10
-                  if rtype == 28 and rdlen == 16:  # AAAA
-                      ip = socket.inet_ntop(socket.AF_INET6, data[idx:idx+16])
-                      ips.append(ip)
-                  idx += rdlen
+                      while d[i]!=0:i+=d[i]+1
+                      i+=1
+                  rt,rc,ttl,rl=struct.unpack('>HHIH',d[i:i+10]);i+=10
+                  if rt==1 and rl==4:ips.append('.'.join(str(b) for b in d[i:i+4]))
+                  i+=rl
               return ips
 
-          for name in ["live.kuaishou.com", "www.kuaishou.com"]:
-              for srv_name, srv in [("AliDNS", "223.5.5.5"), ("Google", "8.8.8.8")]:
-                  try:
-                      ips = dns_aaaa(name, srv)
-                      print(f"  {name} via {srv_name}: {ips}")
-                  except Exception as e:
-                      print(f"  {name} via {srv_name}: ERROR {e}")
+          for domain in ['live.kuaishou.com', 'www.kuaishou.com']:
+              ips = dns(domain)
+              ip = next((x for x in ips if x.startswith('103.102.202.')), ips[0])
+              subprocess.run(['sudo', 'bash', '-c', f'echo "{ip} {domain}" >> /etc/hosts'], check=True)
+              print(f"{domain} -> {ip}")
 
-          # 2. 检查 runner 是否有 IPv6
-          print("\n=== Runner IPv6 capability ===")
-          try:
-              s = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
-              s.settimeout(5)
-              s.connect(("ipv6.google.com", 443))
-              print(f"  IPv6 works! Local: {s.getsockname()}")
-              s.close()
-          except Exception as e:
-              print(f"  IPv6 not available: {e}")
-
-          # 3. 尝试通过 IPv6 访问快手
-          print("\n=== Kuaishou via IPv6 ===")
-          for name in ["live.kuaishou.com", "www.kuaishou.com"]:
+          with sync_playwright() as pw:
+              browser = pw.chromium.launch(headless=True, args=["--no-sandbox","--disable-dev-shm-usage"])
+              # 关键：设置中国时区和地理位置
+              ctx = browser.new_context(
+                  viewport={"width":1366,"height":900},
+                  locale="zh-CN",
+                  timezone_id="Asia/Shanghai",
+                  geolocation={"latitude": 34.2658, "longitude": 108.9541},  # 西安
+                  permissions=["geolocation"],
+                  user_agent=UA,
+                  extra_http_headers={"Accept-Language": "zh-CN,zh;q=0.9"}
+              )
               try:
-                  infos = socket.getaddrinfo(name, 443, socket.AF_INET6)
-                  for info in infos[:2]:
-                      addr = info[4][0]
-                      print(f"  {name} -> {addr}")
+                  cache = json.load(open("kuaishou_guest_visitor.json"))
+                  ctx.add_cookies(cache["cookies"])
+              except: pass
+
+              page = ctx.new_page()
+              api_results = []
+              def on_resp(resp):
+                  if "live_api/profile/public" in resp.url:
                       try:
-                          req = urllib.request.Request(f"https://{name}/", headers={"User-Agent": UA})
-                          r = urllib.request.urlopen(req, timeout=10)
-                          print(f"    HTTP {r.status} ({len(r.read())} bytes)")
-                      except Exception as e:
-                          print(f"    Error: {str(e)[:100]}")
+                          d = json.loads(resp.body().decode("utf-8","replace"))
+                          data = d.get("data", {})
+                          lst = data.get("list", [])
+                          items_info = []
+                          for item in lst[:8]:
+                              poster = item.get("poster", "")
+                              dm = re.search(r'/(\d{4}/\d{2}/\d{2})/', poster)
+                              items_info.append(f"{item.get('id')}({dm.group(1) if dm else '?'})")
+                          print(f"  API: result={data.get('result')}, list={len(lst)}, pcursor={data.get('pcursor')}")
+                          print(f"  items: {items_info}")
+                          api_results.append(data)
+                      except: pass
+              page.on("response", on_resp)
+
+              # 预热
+              print("Warming up www (Chinese geo)...")
+              try:
+                  page.goto("https://www.kuaishou.com/", wait_until="domcontentloaded", timeout=20000)
+                  page.wait_for_timeout(10000)
               except Exception as e:
-                  print(f"  {name}: getaddrinfo error: {e}")
+                  print(f"Warmup: {e}")
+              cookies = {c["name"] for c in ctx.cookies()}
+              ab = cookies & {"kwfv1","kwssectoken","kwscode"}
+              print(f"Antibot: {sorted(ab)}, did={'did' in cookies}")
 
-          # 4. 尝试 Wayback Machine
-          print("\n=== Wayback Machine ===")
-          try:
-              url = f"https://web.archive.org/web/2026/https://live.kuaishou.com/profile/{PID}"
-              req = urllib.request.Request(url, headers={"User-Agent": UA})
-              r = urllib.request.urlopen(req, timeout=15)
-              body = r.read().decode("utf-8", "replace")
-              print(f"  Status: {r.status}, URL: {r.url}")
-              print(f"  Length: {len(body)}")
-              # 检查是否有作品数据
-              if "photo" in body.lower() or "作品" in body:
-                  import re
-                  photos = re.findall(r'3x[a-z0-9]{10,}', body)
-                  print(f"  Found photo IDs: {list(set(photos))[:5]}")
-          except Exception as e:
-              print(f"  Error: {str(e)[:150]}")
+              # 访问 profile
+              print(f"\nNavigating to profile/{PID}...")
+              page.goto(f"https://live.kuaishou.com/profile/{PID}", wait_until="domcontentloaded", timeout=30000)
+              page.wait_for_timeout(15000)
 
-          # 5. 尝试 Bing 搜索
-          print("\n=== Bing search ===")
-          try:
-              url = f"https://www.bing.com/search?q=site%3Alive.kuaishou.com+{PID}"
-              req = urllib.request.Request(url, headers={"User-Agent": UA})
-              r = urllib.request.urlopen(req, timeout=10)
-              body = r.read().decode("utf-8", "replace")
-              import re
-              # 找搜索结果中的链接
-              links = re.findall(r'https://live\.kuaishou\.com/short-video/[a-z0-9]+', body)
-              print(f"  Found {len(links)} video links")
-              for l in list(set(links))[:5]:
-                  print(f"    {l}")
-          except Exception as e:
-              print(f"  Error: {str(e)[:100]}")
+              # 如果 result=1 但只有 1 条，试滚动
+              if api_results and api_results[-1].get("result") == 1 and len(api_results[-1].get("list",[])) <= 1:
+                  print("\nScrolling to load more...")
+                  for _ in range(3):
+                      page.evaluate("window.scrollBy(0, 1000)")
+                      page.wait_for_timeout(3000)
+
+              browser.close()
           PYEOF
