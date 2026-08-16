@@ -3,10 +3,7 @@ on:
   workflow_dispatch:
 jobs:
   test:
-    strategy:
-      matrix:
-        os: [macos-13, macos-latest]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -16,14 +13,14 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          patchright install chromium
-      - name: Test Kuaishou on ${{ matrix.os }}
+          patchright install --with-deps chromium
+      - name: Test GraphQL from browser context
         env:
           BLIVE_CONFIG: ${{ secrets.BLIVE_CONFIG }}
         run: |
           python3 << 'PYEOF'
           import json, logging, urllib.request
-          logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s %(message)s")
+          logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
           # 打印出口 IP
           try:
@@ -33,7 +30,6 @@ jobs:
               print(f"IP check failed: {e}")
 
           from patchright.sync_api import sync_playwright
-          from backend.adapters.kuaishou_feed import KuaishouFeedSession
 
           PID = "3xrgxqkqp829xz6"
           with sync_playwright() as pw:
@@ -42,13 +38,86 @@ jobs:
                   user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
               cache = json.load(open("kuaishou_guest_visitor.json"))
               ctx.add_cookies(cache["cookies"])
+              p = ctx.new_page()
 
-              session = KuaishouFeedSession(ctx, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-              result = session.fetch(PID)
-              print(f"\n{'='*60}")
-              print(f"ok={result.get('ok')} result={result.get('result')} items={len(result.get('items',[]))}")
-              for item in result.get("items", [])[:3]:
-                  photo = item.get("photo", item) if isinstance(item, dict) else {}
-                  print(f"  id={photo.get('id')} caption={str(photo.get('caption',''))[:60]}")
+              # 先预热 www
+              print("Warming up www.kuaishou.com...")
+              try:
+                  p.goto("https://www.kuaishou.com", wait_until="domcontentloaded", timeout=30000)
+                  p.wait_for_timeout(5000)
+              except Exception as e:
+                  print(f"Warmup: {e}")
+
+              cookies = {c["name"]: c["value"][:30] for c in ctx.cookies()}
+              antibot = [k for k in ("kwfv1","kwssectoken","kwscode") if k in cookies]
+              print(f"Antibot cookies: {antibot}")
+
+              # 测试 1: 在浏览器上下文里调 GraphQL
+              print("\n=== Test 1: GraphQL visionProfilePhotoList ===")
+              gql_result = p.evaluate("""async (pid) => {
+                  const resp = await fetch("https://www.kuaishou.com/graphql", {
+                      method: "POST",
+                      headers: {
+                          "content-type": "application/json",
+                          "Accept": "*/*",
+                          "Origin": "https://www.kuaishou.com",
+                          "Referer": "https://www.kuaishou.com/",
+                      },
+                      body: JSON.stringify({
+                          operationName: "visionProfilePhotoList",
+                          variables: { userId: pid, pcursor: "", count: 12, webPageArea: "xxxxx" },
+                          query: "query visionProfilePhotoList($pcursor: String, $userId: String, $count: Int, $webPageArea: String) { visionProfilePhotoList(pcursor: $pcursor, userId: $userId, count: $count, webPageArea: $webPageArea) { result llsCount photoList { photo { id caption timestamp coverUrl { url } } } } }"
+                      }),
+                      credentials: "include"
+                  });
+                  const text = await resp.text();
+                  return { status: resp.status, body: text.substring(0, 500) };
+              }""", PID)
+              print(f"Status: {gql_result['status']}")
+              print(f"Body: {gql_result['body']}")
+
+              # 测试 2: 直接导航到 live profile，拦截 live_api
+              print("\n=== Test 2: live_api via page navigation ===")
+              api_responses = []
+              def on_resp(resp):
+                  if "live_api/profile/public" in resp.url:
+                      try:
+                          body = resp.body().decode("utf-8","replace")
+                          api_responses.append({"status": resp.status, "body": body[:300]})
+                      except: pass
+              p.on("response", on_resp)
+              try:
+                  p.goto(f"https://live.kuaishou.com/profile/{PID}", wait_until="domcontentloaded", timeout=30000)
+                  p.wait_for_timeout(10000)
+              except Exception as e:
+                  print(f"Nav error: {e}")
+              for r in api_responses:
+                  print(f"  live_api: {r['status']} {r['body'][:200]}")
+              if not api_responses:
+                  print("  No live_api response captured")
+
+              # 测试 3: 试试 m.kuaishou.com 移动端
+              print("\n=== Test 3: m.kuaishou.com profile ===")
+              try:
+                  p2 = ctx.new_page()
+                  m_responses = []
+                  def on_m_resp(resp):
+                      if "graphql" in resp.url or "rest" in resp.url or "profile" in resp.url:
+                          try:
+                              body = resp.body().decode("utf-8","replace")
+                              m_responses.append({"url": resp.url[:100], "status": resp.status, "body": body[:300]})
+                          except: pass
+                  p2.on("response", on_m_resp)
+                  p2.goto(f"https://m.kuaishou.com/profile/{PID}", wait_until="domcontentloaded", timeout=30000)
+                  p2.wait_for_timeout(8000)
+                  for r in m_responses[:5]:
+                      print(f"  {r['status']} {r['url']}")
+                      print(f"    {r['body'][:200]}")
+                  if not m_responses:
+                      print("  No API responses from m.kuaishou.com")
+                  p2.close()
+              except Exception as e:
+                  print(f"m.kuaishou error: {e}")
+
               browser.close()
           PYEOF
