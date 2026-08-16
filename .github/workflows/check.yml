@@ -63,7 +63,8 @@ jobs:
           from datetime import datetime
           import sys
           t = datetime.fromisoformat(sys.argv[1].replace('Z','+00:00'))
-          print('true' if t.minute % 15 <= 8 else 'false')
+          # 快手作品检查降频：每 4 小时一次（UTC 0/4/8/12/16/20 点的 0-8 分内）
+          print('true' if (t.hour % 4 == 0 and t.minute <= 8) else 'false')
           " "$CREATED_AT")
           echo "IN_POST_WINDOW=$WINDOW" >> "$GITHUB_ENV"
 
@@ -112,7 +113,7 @@ jobs:
         run: python3 check_status.py
 
       # 新作品监控（无头浏览器抓取用户主页，绕过抖音反爬；列表来自独立的 post_rooms.json）
-      # 降频：每 15 分钟一次（UTC 分钟为 15 的倍数时运行），与开播检测的 5 分钟解耦，
+      # 降频：每 4 小时一次（UTC 0/4/8/12/16/20 点），与开播检测解耦，
       # 降低抖音 API 限流 / 风控压力。用「分钟取模」闸门而非 schedule 判断，
       # 这样无论触发来自 GitHub 原生 schedule 还是外部 cron-job.org 的 workflow_dispatch 都生效。
       - name: Check new posts
@@ -128,10 +129,10 @@ jobs:
           ENABLE_POST_CHECK: "true"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # 新作品检测降频：仅当 UTC 分钟为 15 的倍数时运行（即每 15 分钟一次）；
+          # 新作品检测降频：仅每 4 小时运行一次（UTC 0/4/8/12/16/20 点的 0-8 分内）；
           # 但若本次由 post_rooms.json 的 push 触发（用户增删账号），则立即抓取不受限。
           if [ "${FORCE_POST_CHECK}" != "true" ] && [ "${IN_POST_WINDOW}" != "true" ]; then
-            echo "非新作品检测窗口（每 15 分钟一次），跳过"
+            echo "非新作品检测窗口（每 4 小时一次），跳过"
             exit 0
           fi
           python3 check_new_posts.py
@@ -142,7 +143,7 @@ jobs:
         if: ${{ steps.postlist.outputs.enabled == 'true' }}
         run: |
           if [ "${FORCE_POST_CHECK}" != "true" ] && [ "${IN_POST_WINDOW}" != "true" ]; then
-            echo "非新作品检测窗口（每 15 分钟一次），跳过封面转存"
+            echo "非新作品检测窗口（每 4 小时一次），跳过封面转存"
             exit 0
           fi
           python3 transcode_covers.py --owner racheko-lab --repo blive-monitor --branch master --covers-dir assets/covers

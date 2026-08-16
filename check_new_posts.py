@@ -1039,6 +1039,7 @@ def main() -> None:
         ks_shared_adapter = KuaishouAdapter(credentials=_ks_creds or None)
 
         post_rooms_dirty = False
+        _ks_account_count = 0  # 快手账号计数器（账号间延迟用）
         for entry in post_rooms:
             rid = entry.get("id", "")
             name = entry.get("name", rid) or rid
@@ -1058,6 +1059,10 @@ def main() -> None:
                 # KuaishouFeedSession 会用 context.browser.new_context() 自建隔离 context，
                 # 避免与抖音 UA/cookie 串味。此前错误地放在浏览器启动前、且不传 context，
                 # 导致 fetch_new_posts 因 context is None 恒 AdapterGated。
+                if _ks_account_count > 0:
+                    logger.info("  [kuaishou] 账号间冷却 %d 秒（降低 IP 频控风险）...", 12)
+                    time.sleep(12)
+                _ks_account_count += 1
                 try:
                     _chg, _gated = handle_kuaishou_posts(
                         entry, tracking, cfg_all, silence_cfg, now_str, context=context,

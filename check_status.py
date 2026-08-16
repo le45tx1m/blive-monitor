@@ -928,7 +928,26 @@ def main() -> None:
             elif platform == "douyin":
                 result = fetch_douyin(rid)
             elif platform == "kuaishou":
-                result = fetch_kuaishou(rid, cfg_all)
+                # 降频：快手直播状态每 30 分钟才实际请求一次（UTC 分钟 0-4 / 30-34），
+                # 其余 run 沿用上一次已知状态，避免云 IP 高频请求触发风控封锁。
+                from datetime import datetime as _dt
+                _utc_min = _dt.utcnow().minute
+                if _utc_min <= 4 or 30 <= _utc_min <= 34:
+                    result = fetch_kuaishou(rid, cfg_all)
+                else:
+                    _prev_ks = prev_status_full.get(key, {})
+                    if _prev_ks:
+                        logger.info("  [%s] 快手直播检查降频窗口外，沿用上次状态: %s", name, _prev_ks.get("status"))
+                        result = {
+                            "status": _prev_ks.get("status", "unknown"),
+                            "title": _prev_ks.get("title", ""),
+                            "online": _prev_ks.get("online", 0),
+                            "area": _prev_ks.get("area", ""),
+                            "nickname": _prev_ks.get("nickname", ""),
+                            "time": now_str,
+                        }
+                    else:
+                        result = fetch_kuaishou(rid, cfg_all)
             else:
                 logger.warning("[%s] 未知平台，跳过检测: %s", name, platform)
                 result = {"status": "offline", "title": "", "online": 0, "time": now_str}

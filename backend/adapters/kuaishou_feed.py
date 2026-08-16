@@ -245,8 +245,8 @@ class KuaishouFeedSession:
     由适配器决定记 gated 还是跳过。
     """
 
-    #: 单账号最多重新导航几次（冷启动实测 4~5 次，留些余量）
-    MAX_NAV = 7
+    #: 单账号最多重新导航几次（低频模式：云 IP 下重试只会加速封禁，最多 2 次）
+    MAX_NAV = 2
     #: 每次导航后等响应的秒数（仅作兜底退避用，主等待已改为精确等接口响应）
     WAIT_SEC = 7
     #: 导航超时（毫秒）
@@ -257,18 +257,19 @@ class KuaishouFeedSession:
     VISITOR_WAIT_MS = 10000
     #: 轮询间隔（毫秒）
     VISITOR_POLL_MS = 400
-    #: 预热最多重试几次（token 没种下就重导航主站，直到拿到或耗尽次数）
-    MAX_WARMUP_RETRY = 3
+    #: 预热最多重试几次（低频模式：1 次即可，多余重试只加速封禁）
+    MAX_WARMUP_RETRY = 1
     #: ``www.kuaishou.com`` 种不下 token 时的兜底预热地址（live 子域）。
     #: 2026-08 CI 实测：Azure 出口下 www 主站 domcontentloaded 后 visitor JS 不种
     #: kwfv1/kwssectoken/kwscode（3×10s 轮询全空），但 live.kuaishou.com 仍能种下。
     LIVE_WARMUP_URL = "https://live.kuaishou.com/"
     #: 全套风控 token 都在、却连续这么多次 result=2 → 判定出口 IP 被硬风控，
-    #: 快速失败不再空转（token 已齐，重预热/重导航都救不回，换代理才有用）。
-    IP_BLOCK_THRESHOLD = 5
-    #: 同一 token 连续成功抓取多少次后主动重预热（打废自愈，实测配额 ~4）。
-    #: 设为 0 可关闭主动重预热，仅保留「整轮全 result=2 强制重预热」的被动兜底。
-    MAX_USES_PER_TOKEN = 4
+    #: 快速失败不再空转（低频模式：2 次即判定，避免多余请求加速封禁）。
+    IP_BLOCK_THRESHOLD = 2
+    #: 同一 token 连续成功抓取多少次后主动重预热（低频模式：3 次后刷新，降低单 IP 请求密度）。
+    MAX_USES_PER_TOKEN = 3
+    #: 账号间延迟秒数（降低单 IP 请求密度，避免触发频控）
+    INTER_ACCOUNT_DELAY_SEC = 12
 
     def __init__(self, browser_context: Any, user_agent: str = "",
                  kuaishou_cookie: str = "") -> None:
