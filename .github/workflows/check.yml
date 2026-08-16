@@ -50,12 +50,14 @@ jobs:
       # UTC 分钟，「封面转存」会跨到下一个非 15 倍数分钟而被闸门跳过（实测长期漏跑）。
       # 共用同一 WIN_MIN 可保证二者在同一窗口内同时触发。放在最前，避免被前置步骤耗时拖到下一分钟。
       - name: Compute 15-min window
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # 用 workflow run 的创建时间（而非当前步骤时间）计算窗口，
           # 避免 macOS runner 启动慢 5-6 分钟导致跨过 15 分钟边界。
-          # 边界后 8 分钟内均算窗口内（0-8/15-23/30-38/45-53），
-          # 覆盖 runner 排队+启动耗时。
-          CREATED_AT=$(gh api repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID} --jq '.created_at')
+          CREATED_AT=$(curl -sS -H "Authorization: Bearer $GITHUB_TOKEN" \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+            | python3 -c "import sys,json;print(json.load(sys.stdin)['created_at'])")
           echo "Run created at: $CREATED_AT"
           WINDOW=$(python3 -c "
           from datetime import datetime
