@@ -12,93 +12,107 @@ jobs:
       - name: Install deps
         run: |
           python -m pip install --upgrade pip -q
-          pip install -r requirements.txt -q
+          pip install patchright -q
           patchright install --with-deps chromium
-      - name: Chinese CDN IP + browser test
-        env:
-          BLIVE_CONFIG: ${{ secrets.BLIVE_CONFIG }}
+      - name: Chinese CDN live-only test
         run: |
-          # 先在 shell 里写 /etc/hosts（需要 sudo）
+          # 只映射 live.kuaishou.com
           LIVE_IP=$(python3 -c "
-          import socket, struct, random
-          def dns(name, srv='223.5.5.5'):
-              txid=random.randint(0,65535)
-              h=struct.pack('>HHHHHH',txid,0x0100,1,0,0,0)
-              q=b''.join(bytes([len(p)])+p.encode() for p in name.split('.'))+b'\x00'+struct.pack('>HH',1,1)
-              s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM);s.settimeout(5)
-              s.sendto(h+q,(srv,53));d=s.recv(512);s.close()
-              i=12
-              while d[i]!=0:i+=d[i]+1
-              i+=5;anc=struct.unpack('>H',d[6:8])[0];ips=[]
-              for _ in range(anc):
-                  if d[i]&0xC0==0xC0:i+=2
-                  else:
-                      while d[i]!=0:i+=d[i]+1
-                      i+=1
-                  rt,rc,ttl,rl=struct.unpack('>HHIH',d[i:i+10]);i+=10
-                  if rt==1 and rl==4:ips.append('.'.join(str(b) for b in d[i:i+4]))
-                  i+=rl
-              return ips
-          print(dns('live.kuaishou.com')[0])
-          ")
-          WWW_IP=$(python3 -c "
-          import socket, struct, random
-          def dns(name, srv='223.5.5.5'):
-              txid=random.randint(0,65535)
-              h=struct.pack('>HHHHHH',txid,0x0100,1,0,0,0)
-              q=b''.join(bytes([len(p)])+p.encode() for p in name.split('.'))+b'\x00'+struct.pack('>HH',1,1)
-              s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM);s.settimeout(5)
-              s.sendto(h+q,(srv,53));d=s.recv(512);s.close()
-              i=12
-              while d[i]!=0:i+=d[i]+1
-              i+=5;anc=struct.unpack('>H',d[6:8])[0];ips=[]
-              for _ in range(anc):
-                  if d[i]&0xC0==0xC0:i+=2
-                  else:
-                      while d[i]!=0:i+=d[i]+1
-                      i+=1
-                  rt,rc,ttl,rl=struct.unpack('>HHIH',d[i:i+10]);i+=10
-                  if rt==1 and rl==4:ips.append('.'.join(str(b) for b in d[i:i+4]))
-                  i+=rl
-              return ips
-          print(dns('www.kuaishou.com')[0])
+          import socket,struct,random
+          txid=random.randint(0,65535)
+          h=struct.pack('>HHHHHH',txid,0x0100,1,0,0,0)
+          q=b''.join(bytes([len(p)])+p.encode() for p in 'live.kuaishou.com'.split('.'))+b'\x00'+struct.pack('>HH',1,1)
+          s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM);s.settimeout(5)
+          s.sendto(h+q,('223.5.5.5',53));d=s.recv(512);s.close()
+          i=12
+          while d[i]!=0:i+=d[i]+1
+          i+=5;anc=struct.unpack('>H',d[6:8])[0];ips=[]
+          for _ in range(anc):
+              if d[i]&0xC0==0xC0:i+=2
+              else:
+                  while d[i]!=0:i+=d[i]+1
+                  i+=1
+              rt,rc,ttl,rl=struct.unpack('>HHIH',d[i:i+10]);i+=10
+              if rt==1 and rl==4:ips.append('.'.join(str(b) for b in d[i:i+4]))
+              i+=rl
+          print(ips[0])
           ")
           echo "live.kuaishou.com -> $LIVE_IP"
-          echo "www.kuaishou.com -> $WWW_IP"
           echo "$LIVE_IP live.kuaishou.com" | sudo tee -a /etc/hosts
-          echo "$WWW_IP www.kuaishou.com" | sudo tee -a /etc/hosts
-          echo "--- /etc/hosts tail ---"
-          tail -5 /etc/hosts
-          echo "--- curl verify ---"
-          curl -s -o /dev/null -w "live.kuaishou.com -> %{remote_ip}\n" https://live.kuaishou.com/
-          curl -s -o /dev/null -w "www.kuaishou.com -> %{remote_ip}\n" https://www.kuaishou.com/
+          curl -s -o /dev/null -w "live.kuaishou.com -> %{remote_ip} (%{time_total}s)\n" https://live.kuaishou.com/
 
           python3 << 'PYEOF'
-          import json, logging, urllib.request
-          logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+          import json, time, urllib.request
+          from patchright.sync_api import sync_playwright
+
+          PID = "3xrgxqkqp829xz6"
+          UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+
           ip = urllib.request.urlopen("https://api.ipify.org", timeout=10).read().decode()
           print(f"Runner exit IP: {ip}")
 
-          from patchright.sync_api import sync_playwright
-          from backend.adapters.kuaishou_feed import KuaishouFeedSession
-
-          PID = "3xrgxqkqp829xz6"
           with sync_playwright() as pw:
               browser = pw.chromium.launch(headless=True, args=["--no-sandbox","--disable-dev-shm-usage"])
-              ctx = browser.new_context(viewport={"width":1366,"height":900}, locale="zh-CN",
-                  user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+              ctx = browser.new_context(viewport={"width":1366,"height":900}, locale="zh-CN", user_agent=UA)
               try:
                   cache = json.load(open("kuaishou_guest_visitor.json"))
                   ctx.add_cookies(cache["cookies"])
+                  print(f"Loaded cached DID cookies")
               except: pass
 
-              session = KuaishouFeedSession(ctx, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-              result = session.fetch(PID)
-              print(f"\n=== RESULT ===")
-              print(f"ok={result.get('ok')} result={result.get('result')} items={len(result.get('items',[]))}")
-              for item in result.get("items", [])[:5]:
-                  photo = item.get("photo", item) if isinstance(item, dict) else {}
-                  print(f"  id={photo.get('id')} caption={str(photo.get('caption',''))[:60]}")
-              print(f"seen: {result.get('seen')}")
+              page = ctx.new_page()
+              api_results = []
+              def on_resp(resp):
+                  if "live_api/profile/public" in resp.url:
+                      try:
+                          body = resp.body().decode("utf-8","replace")
+                          d = json.loads(body)
+                          data = d.get("data", {})
+                          result = data.get("result")
+                          lst = data.get("list", [])
+                          print(f"  API: result={result}, list={len(lst)}")
+                          api_results.append(d)
+                      except Exception as e:
+                          print(f"  API parse error: {e}")
+              page.on("response", on_resp)
+
+              # 直接在 live 域预热（不访问 www）
+              print("Warming up on live.kuaishou.com...")
+              page.goto("https://live.kuaishou.com/", wait_until="domcontentloaded", timeout=30000)
+              for w in range(15):
+                  page.wait_for_timeout(1000)
+                  cookies = {c["name"] for c in ctx.cookies()}
+                  ab = cookies & {"kwfv1","kwssectoken","kwscode"}
+                  did_ok = "did" in cookies
+                  print(f"  wait {w+1}s: did={did_ok} antibot={sorted(ab)}")
+                  if did_ok and len(ab) == 3:
+                      break
+
+              # 访问 profile 页
+              print(f"\nNavigating to profile/{PID}...")
+              page.goto(f"https://live.kuaishou.com/profile/{PID}", wait_until="domcontentloaded", timeout=30000)
+              page.wait_for_timeout(15000)
+
+              # 检查结果
+              print(f"\n=== RESULTS ===")
+              print(f"API calls captured: {len(api_results)}")
+              for r in api_results:
+                  data = r.get("data", {})
+                  result = data.get("result")
+                  lst = data.get("list", [])
+                  print(f"result={result}, list={len(lst)}")
+                  for item in lst[:5]:
+                      photo = item.get("photo", {})
+                      print(f"  id={photo.get('id')} caption={str(photo.get('caption',''))[:60]}")
+
+              if not api_results:
+                  print("No API calls captured - checking page content...")
+                  content = page.content()
+                  print(f"Page title: {page.title()}")
+                  print(f"Page length: {len(content)}")
+                  # 检查是否有验证码
+                  if "验证" in content or "captcha" in content.lower():
+                      print("CAPTCHA detected!")
+
               browser.close()
           PYEOF
