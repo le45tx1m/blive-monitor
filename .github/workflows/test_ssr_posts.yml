@@ -14,17 +14,16 @@ jobs:
           python -m pip install --upgrade pip -q
           pip install patchright -q
           patchright install --with-deps chromium
-      - name: GraphQL on Chinese CDN
+      - name: Asian DNS + param tests
         run: |
           python3 << 'PYEOF'
           import json, time, socket, struct, random, subprocess
           from patchright.sync_api import sync_playwright
 
           PID = "3xrgxqkqp829xz6"
-          USER_ID = "2117550"
           UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
-          def dns(name, srv='223.5.5.5'):
+          def dns(name, srv):
               txid=random.randint(0,65535)
               h=struct.pack('>HHHHHH',txid,0x0100,1,0,0,0)
               q=b''.join(bytes([len(p)])+p.encode() for p in name.split('.'))+b'\x00'+struct.pack('>HH',1,1)
@@ -43,9 +42,26 @@ jobs:
                   i+=rl
               return ips
 
-          # 两个域名都映射到中国 CDN
+          # 试多个亚洲 DNS
+          dns_servers = [
+              ("AliDNS", "223.5.5.5"),
+              ("DNSPod", "119.29.29.29"),
+              ("Google", "8.8.8.8"),
+              ("Cloudflare", "1.1.1.1"),
+              ("Japan", "202.238.95.244"),
+              ("Taiwan", "168.95.1.1"),
+              ("HongKong", "203.80.96.10"),
+          ]
+          for name, srv in dns_servers:
+              try:
+                  ips = dns("live.kuaishou.com", srv)
+                  print(f"{name} ({srv}): {ips}")
+              except Exception as e:
+                  print(f"{name} ({srv}): ERROR {e}")
+
+          # 用中国 CDN 映射
           for domain in ['live.kuaishou.com', 'www.kuaishou.com']:
-              ips = dns(domain)
+              ips = dns(domain, "223.5.5.5")
               ip = next((x for x in ips if x.startswith('103.102.202.')), ips[0])
               subprocess.run(['sudo', 'bash', '-c', f'echo "{ip} {domain}" >> /etc/hosts'], check=True)
               print(f"{domain} -> {ip}")
@@ -60,78 +76,55 @@ jobs:
 
               page = ctx.new_page()
 
-              # 拦截所有 API 响应
-              def on_resp(resp):
-                  url = resp.url
-                  if any(x in url for x in ["live_api", "graphql", "/rest/"]):
-                      try:
-                          body = resp.body().decode("utf-8","replace")
-                          if "profile" in url.lower() or "photo" in url.lower() or "vision" in url.lower() or "feed" in url.lower():
-                              print(f"\n=== {resp.request.method} {url[:150]} ===")
-                              try:
-                                  d = json.loads(body)
-                                  print(f"  Keys: {list(d.keys())[:10]}")
-                                  if "data" in d:
-                                      dd = d["data"]
-                                      if isinstance(dd, dict):
-                                          print(f"  data keys: {list(dd.keys())[:10]}")
-                                          if "result" in dd:
-                                              print(f"  result: {dd['result']}, list: {len(dd.get('list',[]))}")
-                                          if "visionProfilePhotoList" in dd:
-                                              vpl = dd["visionProfilePhotoList"]
-                                              print(f"  visionProfilePhotoList: {list(vpl.keys()) if isinstance(vpl, dict) else type(vpl)}")
-                                              if isinstance(vpl, dict):
-                                                  feeds = vpl.get("feeds", [])
-                                                  print(f"  feeds count: {len(feeds)}")
-                                                  for f in feeds[:3]:
-                                                      print(f"    id={f.get('id')} timestamp={f.get('timestamp')}")
-                              except:
-                                  print(f"  Body: {body[:300]}")
-                      except: pass
-              page.on("response", on_resp)
-
               # 预热
-              print("Warming up www...")
-              page.goto("https://www.kuaishou.com/", wait_until="domcontentloaded", timeout=20000)
-              page.wait_for_timeout(8000)
+              print("\nWarming up www...")
+              try:
+                  page.goto("https://www.kuaishou.com/", wait_until="domcontentloaded", timeout=20000)
+                  page.wait_for_timeout(8000)
+              except Exception as e:
+                  print(f"Warmup error: {e}")
               cookies = {c["name"] for c in ctx.cookies()}
               ab = cookies & {"kwfv1","kwssectoken","kwscode"}
-              print(f"  Antibot: {sorted(ab)}, did={'did' in cookies}")
+              print(f"Antibot: {sorted(ab)}, did={'did' in cookies}")
 
-              # 方法1: 直接在浏览器里用 fetch 调 GraphQL
-              print("\n=== GraphQL visionProfilePhotoList via fetch ===")
-              graphql_result = page.evaluate("""async (userId) => {
-                  const resp = await fetch('https://www.kuaishou.com/graphql', {
-                      method: 'POST',
-                      headers: {'Content-Type': 'application/json'},
-                      body: JSON.stringify({
-                          operationName: "visionProfilePhotoList",
-                          variables: {userId: userId, pcursor: "", count: 12},
-                          query: `query visionProfilePhotoList($userId: String, $pcursor: String, $count: Int) {
-                              visionProfilePhotoList(userId: $userId, pcursor: $pcursor, count: $count) {
-                                  feeds { id timestamp caption photoUrl playUrl }
-                                  pcursor
-                              }
-                          }`
-                      })
+              # 先访问 profile 页让它算签名
+              print("\nLoading profile page...")
+              page.goto(f"https://live.kuaishou.com/profile/{PID}", wait_until="domcontentloaded", timeout=30000)
+              page.wait_for_timeout(8000)
+
+              # 直接用 fetch 试不同参数
+              print("\n=== Direct fetch tests ===")
+              tests = [
+                  ("count=12 no hasMore", f"https://live.kuaishou.com/live_api/profile/public?principalId={PID}&count=12&privacy=public&caver=2"),
+                  ("count=24", f"https://live.kuaishou.com/live_api/profile/public?principalId={PID}&count=24&privacy=public&caver=2"),
+                  ("count=12 with pcursor", f"https://live.kuaishou.com/live_api/profile/public?principalId={PID}&count=12&pcursor=&privacy=public&caver=2"),
+              ]
+
+              for label, url in tests:
+                  try:
+                      result = page.evaluate("""async (url) => {
+                          const resp = await fetch(url, {credentials: 'include'});
+                          const data = await resp.json();
+                          const d = data.data || {};
+                          return {result: d.result, count: (d.list||[]).length, pcursor: d.pcursor,
+                                  first_id: d.list && d.list[0] ? d.list[0].id : null};
+                      }""", url)
+                      print(f"  {label}: result={result['result']}, count={result['count']}, pcursor={result['pcursor']}, first={result['first_id']}")
+                  except Exception as e:
+                      print(f"  {label}: ERROR {e}")
+
+              # 试带 en-US Accept-Language
+              print("\n=== With en-US headers ===")
+              result = page.evaluate("""async (pid) => {
+                  const resp = await fetch(`https://live.kuaishou.com/live_api/profile/public?principalId=${pid}&count=12&privacy=public&caver=2`, {
+                      credentials: 'include',
+                      headers: {'Accept-Language': 'en-US,en;q=0.9'}
                   });
-                  return await resp.text();
-              }""", USER_ID)
-              try:
-                  d = json.loads(graphql_result)
-                  print(f"GraphQL response: {json.dumps(d, ensure_ascii=False)[:500]}")
-              except:
-                  print(f"GraphQL raw: {graphql_result[:500]}")
-
-              # 方法2: 访问 www.kuaishou.com/profile 页面
-              print("\n=== www.kuaishou.com profile page ===")
-              page.goto(f"https://www.kuaishou.com/profile/{PID}", wait_until="domcontentloaded", timeout=20000)
-              page.wait_for_timeout(10000)
-
-              # 方法3: 访问 live profile（中国 CDN）
-              print("\n=== live.kuaishou.com profile (Chinese CDN) ===")
-              page.goto(f"https://live.kuaishou.com/profile/{PID}", wait_until="domcontentloaded", timeout=20000)
-              page.wait_for_timeout(10000)
+                  const data = await resp.json();
+                  const d = data.data || {};
+                  return {result: d.result, count: (d.list||[]).length, pcursor: d.pcursor};
+              }""", PID)
+              print(f"  en-US: result={result['result']}, count={result['count']}, pcursor={result['pcursor']}")
 
               browser.close()
           PYEOF
