@@ -9,138 +9,52 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Multi-path kuaishou test
+      - name: Test CORS proxies and translation proxies
         run: |
           python3 << 'PYEOF'
-          import urllib.request, json, re, ssl
+          import urllib.request, json, urllib.parse, ssl
 
+          ctx = ssl.create_default_context()
+          ctx.check_hostname = False
+          ctx.verify_mode = ssl.CERT_NONE
           UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-          MOBILE_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
           PID = "3xrgxqkqp829xz6"
-          NUM_ID = "2117550"
+          TARGET = f"https://live.kuaishou.com/live_api/profile/public?principalId={PID}&count=12&privacy=public"
 
-          def fetch(url, ua=UA, extra_headers=None):
-              hdr = {"User-Agent": ua, "Referer": "https://live.kuaishou.com/"}
-              if extra_headers: hdr.update(extra_headers)
-              req = urllib.request.Request(url, headers=hdr)
-              try:
-                  r = urllib.request.urlopen(req, timeout=10)
-                  return r.status, r.read().decode("utf-8", "replace")
-              except Exception as e:
-                  return None, str(e)
-
-          def extract_state(html):
-              idx = html.find("window.__INITIAL_STATE__")
-              if idx < 0: return None
-              start = html.index("{", idx)
-              depth, end, in_str, esc = 0, start, False, False
-              for i in range(start, min(start+200000, len(html))):
-                  c = html[i]
-                  if esc: esc=False; continue
-                  if c=="\\": esc=True; continue
-                  if c=='"': in_str=not in_str; continue
-                  if in_str: continue
-                  if c=="{": depth+=1
-                  elif c=="}":
-                      depth-=1
-                      if depth==0: return html[start:i+1]
-              return None
-
-          # 1. 直播房间页 SSR (numeric ID)
-          print("=== 1. live.kuaishou.com/u/2117550 (live room SSR) ===")
-          s, b = fetch(f"https://live.kuaishou.com/u/{NUM_ID}")
-          print(f"Status: {s}, length: {len(b) if s else 'N/A'}")
-          if s:
-              state_raw = extract_state(b)
-              if state_raw:
-                  state = json.loads(state_raw)
-                  # 搜索所有 list 字段
-                  def find_lists(obj, path="", d=0):
-                      if d>5: return
-                      if isinstance(obj, dict):
-                          for k,v in obj.items():
-                              if isinstance(v, list) and len(v)>0 and isinstance(v[0], dict):
-                                  print(f"  LIST at {path}.{k}: {len(v)} items, keys={list(v[0].keys())[:10]}")
-                              find_lists(v, f"{path}.{k}", d+1)
-                  find_lists(state)
-
-          # 2. m.kuaishou.com 移动站
-          print("\n=== 2. m.kuaishou.com profile ===")
-          for murl in [f"https://m.kuaishou.com/profile/{PID}", f"https://m.kuaishou.com/u/{NUM_ID}"]:
-              s, b = fetch(murl, MOBILE_UA)
-              print(f"  {murl}: status={s}, len={len(b) if s else 'N/A'}")
-              if s and len(b)>1000:
-                  state_raw = extract_state(b)
-                  if state_raw:
-                      state = json.loads(state_raw)
-                      print(f"  keys: {list(state.keys())[:15]}")
-                      def find_lists2(obj, path="", d=0):
-                          if d>5: return
-                          if isinstance(obj, dict):
-                              for k,v in obj.items():
-                                  if isinstance(v, list) and len(v)>0 and isinstance(v[0], dict):
-                                      print(f"    LIST {path}.{k}: {len(v)}, keys={list(v[0].keys())[:10]}")
-                                  find_lists2(v, f"{path}.{k}", d+1)
-                      find_lists2(state)
-                  elif "captcha" in b.lower():
-                      print("  CAPTCHA redirect")
-
-          # 3. 其他 live_api 端点
-          print("\n=== 3. Other live_api endpoints ===")
-          endpoints = [
-              f"https://live.kuaishou.com/live_api/profile/public?principalId={PID}&count=12&privacy=public",
-              f"https://live.kuaishou.com/live_api/profile/photo?principalId={PID}&count=12",
-              f"https://live.kuaishou.com/live_api/profile/feed?principalId={PID}&count=12",
-              f"https://live.kuaishou.com/live_api/profile/photos?principalId={PID}&count=12",
-              f"https://live.kuaishou.com/live_api/feed/profile?principalId={PID}&count=12",
-              f"https://live.kuaishou.com/live_api/user/photos?principalId={PID}&count=12",
-              f"https://live.kuaishou.com/live_api/profile/public?principalId={PID}&count=12&privacy=public&subBiz=PROFILE",
+          proxies = [
+              ("allorigins", f"https://api.allorigins.win/raw?url={urllib.parse.quote(TARGET)}"),
+              ("corsproxy.io", f"https://corsproxy.io/?{urllib.parse.quote(TARGET)}"),
+              ("thingproxy", f"https://thingproxy.freeboard.io/fetch/{TARGET}"),
+              ("cors.sh", f"https://proxy.cors.sh/{TARGET}"),
+              ("jsonp.afeld", f"https://jsonp.afeld.me/?url={urllib.parse.quote(TARGET)}"),
+              ("translate.google", f"https://translate.google.com/translate?sl=zh&tl=en&u={urllib.parse.quote(TARGET)}"),
+              ("translate.yandex", f"https://translate.yandex.com/proxy?url={urllib.parse.quote(TARGET)}"),
+              ("codetabs", f"https://api.codetabs.com/v1/proxy/?quest={TARGET}"),
+              ("whateverorigin", f"https://api.allorigins.win/get?url={urllib.parse.quote(TARGET)}"),
           ]
-          for ep in endpoints:
-              s, b = fetch(ep)
-              if s:
+
+          for name, purl in proxies:
+              try:
+                  req = urllib.request.Request(purl, headers={"User-Agent": UA, "Accept": "application/json,*/*"})
+                  r = urllib.request.urlopen(req, timeout=15, context=ctx)
+                  body = r.read().decode("utf-8", "replace")
+                  # Try to find JSON in response
                   try:
-                      d = json.loads(b)
+                      d = json.loads(body)
+                      if "contents" in d:  # allorigins get format
+                          d = json.loads(d["contents"])
                       data = d.get("data", d)
-                      r = data.get("result")
+                      result = data.get("result")
                       lst = data.get("list", [])
-                      print(f"  {ep.split('live_api/')[1][:50]}: result={r}, list={len(lst)}")
-                  except:
-                      print(f"  {ep.split('live_api/')[1][:50]}: status={s}, non-JSON: {b[:100]}")
-              else:
-                  print(f"  {ep.split('live_api/')[1][:50]}: {b[:80]}")
-
-          # 4. v.kuaishou.com 短链服务
-          print("\n=== 4. v.kuaishou.com short URL ===")
-          s, b = fetch(f"https://v.kuaishou.com/")
-          print(f"  v.kuaishou.com root: status={s}")
-
-          # 5. 带 cookie 的 SSR profile (did cookie)
-          print("\n=== 5. SSR profile with did cookie ===")
-          s, b = fetch(f"https://live.kuaishou.com/profile/{PID}", 
-              extra_headers={"Cookie": "did=web_d6d698fea12a0722d654539cc323b3f5"})
-          if s:
-              state_raw = extract_state(b)
-              if state_raw:
-                  state = json.loads(state_raw)
-                  pub = state.get("profile", {}).get("publicData", {})
-                  print(f"  publicData.list: {len(pub.get('list', []))} items")
-                  print(f"  publicData.live: {pub.get('live') is not None}")
-
-          # 6. chenzhongtech.com 移动 API (不带验证码)
-          print("\n=== 6. chenzhongtech.com mobile API ===")
-          for ep in [
-              f"https://livev.m.chenzhongtech.com/rest/wd/feed/profile?principalId={PID}&count=12",
-              f"https://livev.m.chenzhongtech.com/m/rest/wd/feed/profile?principalId={PID}&count=12",
-              f"https://livev.m.chenzhongtech.com/rest/k/live/byUser?userId={NUM_ID}",
-          ]:
-              s, b = fetch(ep, MOBILE_UA)
-              if s:
-                  try:
-                      d = json.loads(b)
-                      print(f"  {ep.split('.com/')[1][:50]}: {str(d)[:200]}")
-                  except:
-                      print(f"  {ep.split('.com/')[1][:50]}: {b[:150]}")
-              else:
-                  print(f"  {ep.split('.com/')[1][:50]}: {b[:80]}")
+                      print(f"  {name}: result={result}, list={len(lst)} {'✅' if result==1 else ''}")
+                  except json.JSONDecodeError:
+                      # Check if result=1 or result=2 appears in the body
+                      if '"result":1' in body or '"result": 1' in body:
+                          print(f"  {name}: FOUND result=1 in non-JSON response! ✅")
+                      elif '"result":2' in body or '"result": 2' in body:
+                          print(f"  {name}: result=2 (blocked)")
+                      else:
+                          print(f"  {name}: status={r.status}, non-JSON ({len(body)} bytes): {body[:120]}")
+              except Exception as e:
+                  print(f"  {name}: ERROR {str(e)[:100]}")
           PYEOF
