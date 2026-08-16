@@ -31,7 +31,7 @@ jobs:
               sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
               sock.settimeout(5)
               sock.sendto(packet, (server, port))
-              data, _ = sock.recv(512)
+              data = sock.recv(512)
               sock.close()
               # Parse answer
               # Skip header (12) and question
