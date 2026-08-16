@@ -14,13 +14,14 @@ jobs:
           python -m pip install --upgrade pip -q
           pip install patchright -q
           patchright install --with-deps chromium
-      - name: Mixed DNS test
+      - name: GraphQL on Chinese CDN
         run: |
           python3 << 'PYEOF'
           import json, time, socket, struct, random, subprocess
           from patchright.sync_api import sync_playwright
 
           PID = "3xrgxqkqp829xz6"
+          USER_ID = "2117550"
           UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
           def dns(name, srv='223.5.5.5'):
@@ -42,12 +43,12 @@ jobs:
                   i+=rl
               return ips
 
-          # 只映射 www.kuaishou.com 到中国 CDN
-          www_ips = dns('www.kuaishou.com')
-          www_ip = next((x for x in www_ips if x.startswith('103.102.202.')), www_ips[0])
-          subprocess.run(['sudo', 'bash', '-c', f'echo "{www_ip} www.kuaishou.com" >> /etc/hosts'], check=True)
-          print(f"www.kuaishou.com -> {www_ip} (Chinese CDN for warmup)")
-          print(f"live.kuaishou.com -> normal DNS (US edge for API)")
+          # 两个域名都映射到中国 CDN
+          for domain in ['live.kuaishou.com', 'www.kuaishou.com']:
+              ips = dns(domain)
+              ip = next((x for x in ips if x.startswith('103.102.202.')), ips[0])
+              subprocess.run(['sudo', 'bash', '-c', f'echo "{ip} {domain}" >> /etc/hosts'], check=True)
+              print(f"{domain} -> {ip}")
 
           with sync_playwright() as pw:
               browser = pw.chromium.launch(headless=True, args=["--no-sandbox","--disable-dev-shm-usage"])
@@ -58,49 +59,79 @@ jobs:
               except: pass
 
               page = ctx.new_page()
-              api_results = []
+
+              # 拦截所有 API 响应
               def on_resp(resp):
-                  if "live_api/profile/public" in resp.url:
+                  url = resp.url
+                  if any(x in url for x in ["live_api", "graphql", "/rest/"]):
                       try:
                           body = resp.body().decode("utf-8","replace")
-                          d = json.loads(body)
-                          data = d.get("data", {})
-                          lst = data.get("list", [])
-                          pcursor = data.get("pcursor")
-                          print(f"  API: result={data.get('result')}, list={len(lst)}, pcursor={pcursor}")
-                          for item in lst[:3]:
-                              print(f"    id={item.get('id')} poster={str(item.get('poster',''))[:80]}")
-                          api_results.append(d)
-                      except Exception as e:
-                          print(f"  API error: {e}")
+                          if "profile" in url.lower() or "photo" in url.lower() or "vision" in url.lower() or "feed" in url.lower():
+                              print(f"\n=== {resp.request.method} {url[:150]} ===")
+                              try:
+                                  d = json.loads(body)
+                                  print(f"  Keys: {list(d.keys())[:10]}")
+                                  if "data" in d:
+                                      dd = d["data"]
+                                      if isinstance(dd, dict):
+                                          print(f"  data keys: {list(dd.keys())[:10]}")
+                                          if "result" in dd:
+                                              print(f"  result: {dd['result']}, list: {len(dd.get('list',[]))}")
+                                          if "visionProfilePhotoList" in dd:
+                                              vpl = dd["visionProfilePhotoList"]
+                                              print(f"  visionProfilePhotoList: {list(vpl.keys()) if isinstance(vpl, dict) else type(vpl)}")
+                                              if isinstance(vpl, dict):
+                                                  feeds = vpl.get("feeds", [])
+                                                  print(f"  feeds count: {len(feeds)}")
+                                                  for f in feeds[:3]:
+                                                      print(f"    id={f.get('id')} timestamp={f.get('timestamp')}")
+                              except:
+                                  print(f"  Body: {body[:300]}")
+                      except: pass
               page.on("response", on_resp)
 
-              # 预热 www（中国 CDN）
-              print("Warming up www.kuaishou.com (Chinese CDN)...")
+              # 预热
+              print("Warming up www...")
               page.goto("https://www.kuaishou.com/", wait_until="domcontentloaded", timeout=20000)
-              for w in range(10):
-                  page.wait_for_timeout(1000)
-                  cookies = {c["name"] for c in ctx.cookies()}
-                  ab = cookies & {"kwfv1","kwssectoken","kwscode"}
-                  if len(ab) == 3 and "did" in cookies:
-                      print(f"  Warmup OK after {w+1}s: {sorted(ab)}")
-                      break
-              else:
-                  print(f"  Warmup: {sorted(ab)}")
+              page.wait_for_timeout(8000)
+              cookies = {c["name"] for c in ctx.cookies()}
+              ab = cookies & {"kwfv1","kwssectoken","kwscode"}
+              print(f"  Antibot: {sorted(ab)}, did={'did' in cookies}")
 
-              # 现在访问 live profile（正常 DNS = US edge）
-              print(f"\nNavigating to profile/{PID} (US edge)...")
-              page.goto(f"https://live.kuaishou.com/profile/{PID}", wait_until="domcontentloaded", timeout=30000)
-              page.wait_for_timeout(15000)
+              # 方法1: 直接在浏览器里用 fetch 调 GraphQL
+              print("\n=== GraphQL visionProfilePhotoList via fetch ===")
+              graphql_result = page.evaluate("""async (userId) => {
+                  const resp = await fetch('https://www.kuaishou.com/graphql', {
+                      method: 'POST',
+                      headers: {'Content-Type': 'application/json'},
+                      body: JSON.stringify({
+                          operationName: "visionProfilePhotoList",
+                          variables: {userId: userId, pcursor: "", count: 12},
+                          query: `query visionProfilePhotoList($userId: String, $pcursor: String, $count: Int) {
+                              visionProfilePhotoList(userId: $userId, pcursor: $pcursor, count: $count) {
+                                  feeds { id timestamp caption photoUrl playUrl }
+                                  pcursor
+                              }
+                          }`
+                      })
+                  });
+                  return await resp.text();
+              }""", USER_ID)
+              try:
+                  d = json.loads(graphql_result)
+                  print(f"GraphQL response: {json.dumps(d, ensure_ascii=False)[:500]}")
+              except:
+                  print(f"GraphQL raw: {graphql_result[:500]}")
 
-              # 重试几次
-              for attempt in range(3):
-                  if api_results and api_results[-1].get("data",{}).get("result") == 1:
-                      break
-                  print(f"  Retry {attempt+1}...")
-                  page.goto(f"https://live.kuaishou.com/profile/{PID}", wait_until="domcontentloaded", timeout=30000)
-                  page.wait_for_timeout(10000)
+              # 方法2: 访问 www.kuaishou.com/profile 页面
+              print("\n=== www.kuaishou.com profile page ===")
+              page.goto(f"https://www.kuaishou.com/profile/{PID}", wait_until="domcontentloaded", timeout=20000)
+              page.wait_for_timeout(10000)
 
-              print(f"\n=== FINAL: {len(api_results)} API calls ===")
+              # 方法3: 访问 live profile（中国 CDN）
+              print("\n=== live.kuaishou.com profile (Chinese CDN) ===")
+              page.goto(f"https://live.kuaishou.com/profile/{PID}", wait_until="domcontentloaded", timeout=20000)
+              page.wait_for_timeout(10000)
+
               browser.close()
           PYEOF
