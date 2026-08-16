@@ -51,14 +51,18 @@ jobs:
       # 共用同一 WIN_MIN 可保证二者在同一窗口内同时触发。放在最前，避免被前置步骤耗时拖到下一分钟。
       - name: Compute 15-min window
         run: |
-          # macOS runner 启动比 Ubuntu 慢 1-2 分钟，到本步骤时可能已跨过 15 分钟边界。
-          # 放宽为「边界后 3 分钟内」均算窗口内（0-2/15-17/30-32/45-47），
-          # 避免 macOS 上作品检测被漏跑。
+          # 用 workflow run 的创建时间（而非当前步骤时间）计算窗口，
+          # 避免 macOS runner 启动慢 5-6 分钟导致跨过 15 分钟边界。
+          # 边界后 8 分钟内均算窗口内（0-8/15-23/30-38/45-53），
+          # 覆盖 runner 排队+启动耗时。
+          CREATED_AT=$(gh api repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID} --jq '.created_at')
+          echo "Run created at: $CREATED_AT"
           WINDOW=$(python3 -c "
-          from datetime import datetime, timezone
-          m = datetime.now(timezone.utc).minute
-          print('true' if m % 15 <= 2 else 'false')
-          ")
+          from datetime import datetime
+          import sys
+          t = datetime.fromisoformat(sys.argv[1].replace('Z','+00:00'))
+          print('true' if t.minute % 15 <= 8 else 'false')
+          " "$CREATED_AT")
           echo "IN_POST_WINDOW=$WINDOW" >> "$GITHUB_ENV"
 
       # 用户在前端增删账号会直接提交 post_rooms.json（push 事件）。此时不受 15 分钟闸门限制，
