@@ -9,77 +9,112 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Try header spoofing and JSONP
+      - name: Sitemap + Baiduspider + cache
         run: |
           python3 << 'PYEOF'
-          import urllib.request, json
+          import urllib.request, json, re
 
-          UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
           PID = "3xrgxqkqp829xz6"
-          BASE = f"https://live.kuaishou.com/live_api/profile/public?principalId={PID}&count=12&privacy=public"
+          NUM_ID = "2117550"
+          BAIDU_UA = "Mozilla/5.0 (compatible; Baiduspider/2.0; +http://www.baidu.com/search/spider.html)"
+          GOOGLE_UA = "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
+          NORMAL_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
-          def try_req(label, url, headers=None):
-              hdr = {"User-Agent": UA, "Referer": "https://live.kuaishou.com/"}
+          def fetch(url, ua=NORMAL_UA, headers=None):
+              hdr = {"User-Agent": ua}
               if headers: hdr.update(headers)
               req = urllib.request.Request(url, headers=hdr)
               try:
                   r = urllib.request.urlopen(req, timeout=10)
-                  body = r.read().decode("utf-8", "replace")
-                  try:
-                      d = json.loads(body)
-                      data = d.get("data", d)
-                      print(f"  {label}: result={data.get('result')}, list={len(data.get('list',[]))}")
-                  except:
-                      print(f"  {label}: {body[:150]}")
+                  return r.status, r.read().decode("utf-8", "replace")
               except Exception as e:
-                  print(f"  {label}: ERROR {str(e)[:100]}")
+                  return None, str(e)
 
-          # 1. X-Forwarded-For 欺骗
-          print("=== X-Forwarded-For spoofing ===")
-          for ip in ["1.2.3.4", "114.114.114.114", "223.5.5.5", "180.101.50.1"]:
-              try_req(f"XFF={ip}", BASE, {"X-Forwarded-For": ip, "X-Real-IP": ip})
+          # 1. Sitemap 内容
+          print("=== www.kuaishou.com/sitemap.xml ===")
+          s, b = fetch("https://www.kuaishou.com/sitemap.xml")
+          print(b[:1500] if s else b)
 
-          # 2. JSONP
-          print("\n=== JSONP ===")
-          try_req("JSONP callback", BASE + "&callback=jQuery123")
+          # 2. robots.txt 完整内容
+          print("\n=== live.kuaishou.com/robots.txt ===")
+          s, b = fetch("https://live.kuaishou.com/robots.txt")
+          print(b if s else b)
 
-          # 3. 不同的 Accept 头
-          print("\n=== Different headers ===")
-          try_req("Accept: */*", BASE, {"Accept": "*/*"})
-          try_req("X-Requested-With", BASE, {"X-Requested-With": "XMLHttpRequest"})
+          # 3. 用 Baiduspider UA 访问 profile SSR
+          print("\n=== Baiduspider UA profile SSR ===")
+          s, b = fetch(f"https://live.kuaishou.com/profile/{PID}", BAIDU_UA)
+          print(f"Status: {s}, length: {len(b) if s else 'N/A'}")
+          if s:
+              # 提取 __INITIAL_STATE__
+              idx = b.find("window.__INITIAL_STATE__")
+              if idx >= 0:
+                  start = b.index("{", idx)
+                  depth, end, in_str, esc = 0, start, False, False
+                  for i in range(start, min(start+200000, len(b))):
+                      c = b[i]
+                      if esc: esc=False; continue
+                      if c=="\\": esc=True; continue
+                      if c=='"': in_str=not in_str; continue
+                      if in_str: continue
+                      if c=="{": depth+=1
+                      elif c=="}":
+                          depth-=1
+                          if depth==0: end=i+1; break
+                  state = json.loads(b[start:end])
+                  pub = state.get("profile", {}).get("publicData", {})
+                  print(f"publicData.list: {len(pub.get('list',[]))} items")
+                  aib = state.get("authorInfoById", {})
+                  for k,v in aib.items():
+                      if isinstance(v, dict):
+                          ui = v.get("userInfo", {})
+                          print(f"authorInfoById.{k}.userInfo.name: {ui.get('name')}")
+                          print(f"authorInfoById.{k}.userInfo.originUserId: {ui.get('originUserId')}")
 
-          # 4. POST 方法
-          print("\n=== POST method ===")
-          req = urllib.request.Request(BASE, data=b"", headers={"User-Agent": UA, "Referer": "https://live.kuaishou.com/", "Content-Type": "application/x-www-form-urlencoded"})
-          try:
-              r = urllib.request.urlopen(req, timeout=10)
-              body = r.read().decode()
-              d = json.loads(body)
-              print(f"  POST: result={d.get('data',{}).get('result')}")
-          except Exception as e:
-              print(f"  POST: {str(e)[:100]}")
+          # 4. 用 Googlebot UA
+          print("\n=== Googlebot UA profile SSR ===")
+          s, b = fetch(f"https://live.kuaishou.com/profile/{PID}", GOOGLE_UA)
+          print(f"Status: {s}, length: {len(b) if s else 'N/A'}")
+          if s and len(b) > 1000:
+              idx = b.find("window.__INITIAL_STATE__")
+              if idx >= 0:
+                  start = b.index("{", idx)
+                  depth, end, in_str, esc = 0, start, False, False
+                  for i in range(start, min(start+200000, len(b))):
+                      c = b[i]
+                      if esc: esc=False; continue
+                      if c=="\\": esc=True; continue
+                      if c=='"': in_str=not in_str; continue
+                      if in_str: continue
+                      if c=="{": depth+=1
+                      elif c=="}":
+                          depth-=1
+                          if depth==0: end=i+1; break
+                  state = json.loads(b[start:end])
+                  pub = state.get("profile", {}).get("publicData", {})
+                  print(f"publicData.list: {len(pub.get('list',[]))} items")
 
-          # 5. 带 did cookie 的裸请求
-          print("\n=== With did cookie ===")
-          try_req("did cookie", BASE, {"Cookie": "did=web_d6d698fea12a0722d654539cc323b3f5; kpf=PC_WEB; clientid=3; kpn=GAME_ZONE"})
-
-          # 6. 检查 sitemap
-          print("\n=== Sitemap ===")
-          for sm in ["https://live.kuaishou.com/sitemap.xml", "https://www.kuaishou.com/sitemap.xml", "https://live.kuaishou.com/robots.txt"]:
+          # 5. Baiduspider 访问 live_api
+          print("\n=== Baiduspider UA live_api ===")
+          s, b = fetch(f"https://live.kuaishou.com/live_api/profile/public?principalId={PID}&count=12&privacy=public", BAIDU_UA, {"Referer": "https://live.kuaishou.com/"})
+          if s:
               try:
-                  r = urllib.request.urlopen(urllib.request.Request(sm, headers={"User-Agent": UA}), timeout=10)
-                  body = r.read().decode("utf-8", "replace")
-                  print(f"  {sm}: {r.status} ({len(body)} bytes): {body[:200]}")
-              except Exception as e:
-                  print(f"  {sm}: {str(e)[:100]}")
+                  d = json.loads(b)
+                  data = d.get("data", {})
+                  print(f"result={data.get('result')}, list={len(data.get('list',[]))}")
+              except:
+                  print(f"Non-JSON: {b[:200]}")
+          else:
+              print(f"Error: {b}")
 
-          # 7. 搜索 API
-          print("\n=== Search API ===")
-          for surl in [
-              "https://live.kuaishou.com/live_api/search/user?keyword=Sandy88888&count=12",
-              "https://www.kuaishou.com/rest//search/user?keyword=Sandy88888",
-              "https://live.kuaishou.com/live_api/search/feed?keyword=Sandy88888",
-              "https://live.kuaishou.com/live_api/search?keyword=Sandy88888",
-          ]:
-              try_req(surl.split("/live_api/")[1][:50] if "/live_api/" in surl else surl.split("/")[-1][:50], surl)
+          # 6. 百度快照/缓存
+          print("\n=== Baidu cache search ===")
+          s, b = fetch(f"https://www.baidu.com/s?wd=site%3Alive.kuaishou.com+{PID}", NORMAL_UA)
+          if s:
+              # 找百度快照链接
+              snapshots = re.findall(r'cache\.baidu\.com[^"\']+', b)
+              print(f"Found {len(snapshots)} Baidu cache links")
+              for snap in snapshots[:3]:
+                  print(f"  {snap[:150]}")
+          else:
+              print(f"Baidu search error: {b}")
           PYEOF
