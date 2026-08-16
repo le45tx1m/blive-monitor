@@ -14,10 +14,15 @@ jobs:
           python -m pip install --upgrade pip -q
           pip install patchright -q
           patchright install --with-deps chromium
-      - name: Intercept API URLs
+      - name: Mixed DNS test
         run: |
-          python3 << 'PYINIT'
-          import socket, struct, random, subprocess
+          python3 << 'PYEOF'
+          import json, time, socket, struct, random, subprocess
+          from patchright.sync_api import sync_playwright
+
+          PID = "3xrgxqkqp829xz6"
+          UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+
           def dns(name, srv='223.5.5.5'):
               txid=random.randint(0,65535)
               h=struct.pack('>HHHHHH',txid,0x0100,1,0,0,0)
@@ -36,19 +41,13 @@ jobs:
                   if rt==1 and rl==4:ips.append('.'.join(str(b) for b in d[i:i+4]))
                   i+=rl
               return ips
-          for domain in ['live.kuaishou.com', 'www.kuaishou.com']:
-              ips = dns(domain)
-              ip = next((x for x in ips if x.startswith('103.102.202.')), ips[0])
-              subprocess.run(['sudo', 'bash', '-c', f'echo "{ip} {domain}" >> /etc/hosts'], check=True)
-              print(f"{domain} -> {ip}")
-          PYINIT
 
-          python3 << 'PYEOF'
-          import json, time
-          from patchright.sync_api import sync_playwright
-
-          PID = "3xrgxqkqp829xz6"
-          UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+          # 只映射 www.kuaishou.com 到中国 CDN
+          www_ips = dns('www.kuaishou.com')
+          www_ip = next((x for x in www_ips if x.startswith('103.102.202.')), www_ips[0])
+          subprocess.run(['sudo', 'bash', '-c', f'echo "{www_ip} www.kuaishou.com" >> /etc/hosts'], check=True)
+          print(f"www.kuaishou.com -> {www_ip} (Chinese CDN for warmup)")
+          print(f"live.kuaishou.com -> normal DNS (US edge for API)")
 
           with sync_playwright() as pw:
               browser = pw.chromium.launch(headless=True, args=["--no-sandbox","--disable-dev-shm-usage"])
@@ -59,50 +58,49 @@ jobs:
               except: pass
 
               page = ctx.new_page()
-
-              # 拦截所有 live_api 请求
+              api_results = []
               def on_resp(resp):
-                  url = resp.url
-                  if "live_api" in url or "graphql" in url or "rest/" in url:
+                  if "live_api/profile/public" in resp.url:
                       try:
                           body = resp.body().decode("utf-8","replace")
-                          print(f"\n=== API RESPONSE ===")
-                          print(f"URL: {url}")
-                          print(f"Status: {resp.status}")
-                          try:
-                              d = json.loads(body)
-                              data = d.get("data", d)
-                              print(f"result: {data.get('result')}")
-                              lst = data.get("list", [])
-                              print(f"list count: {len(lst)}")
-                              # 打印所有顶层 key
-                              print(f"data keys: {list(data.keys())}")
-                              # 检查 pcursor / paging
-                              for k in ['pcursor', 'page', 'hasMore', 'next', 'total']:
-                                  if k in data:
-                                      print(f"  {k}: {data[k]}")
-                              if lst:
-                                  print(f"list[0] id: {lst[0].get('id')}")
-                                  print(f"list[0] timestamp from poster: ...")
-                          except:
-                              print(f"Body: {body[:500]}")
-                      except: pass
+                          d = json.loads(body)
+                          data = d.get("data", {})
+                          lst = data.get("list", [])
+                          pcursor = data.get("pcursor")
+                          print(f"  API: result={data.get('result')}, list={len(lst)}, pcursor={pcursor}")
+                          for item in lst[:3]:
+                              print(f"    id={item.get('id')} poster={str(item.get('poster',''))[:80]}")
+                          api_results.append(d)
+                      except Exception as e:
+                          print(f"  API error: {e}")
               page.on("response", on_resp)
 
-              # 预热
-              print("Warming up www...")
+              # 预热 www（中国 CDN）
+              print("Warming up www.kuaishou.com (Chinese CDN)...")
               page.goto("https://www.kuaishou.com/", wait_until="domcontentloaded", timeout=20000)
-              page.wait_for_timeout(5000)
+              for w in range(10):
+                  page.wait_for_timeout(1000)
+                  cookies = {c["name"] for c in ctx.cookies()}
+                  ab = cookies & {"kwfv1","kwssectoken","kwscode"}
+                  if len(ab) == 3 and "did" in cookies:
+                      print(f"  Warmup OK after {w+1}s: {sorted(ab)}")
+                      break
+              else:
+                  print(f"  Warmup: {sorted(ab)}")
 
-              # 访问 profile
-              print(f"\nNavigating to profile/{PID}...")
+              # 现在访问 live profile（正常 DNS = US edge）
+              print(f"\nNavigating to profile/{PID} (US edge)...")
               page.goto(f"https://live.kuaishou.com/profile/{PID}", wait_until="domcontentloaded", timeout=30000)
               page.wait_for_timeout(15000)
 
-              # 也试试滚动页面加载更多
-              print("\nScrolling down...")
-              page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-              page.wait_for_timeout(5000)
+              # 重试几次
+              for attempt in range(3):
+                  if api_results and api_results[-1].get("data",{}).get("result") == 1:
+                      break
+                  print(f"  Retry {attempt+1}...")
+                  page.goto(f"https://live.kuaishou.com/profile/{PID}", wait_until="domcontentloaded", timeout=30000)
+                  page.wait_for_timeout(10000)
 
+              print(f"\n=== FINAL: {len(api_results)} API calls ===")
               browser.close()
           PYEOF
