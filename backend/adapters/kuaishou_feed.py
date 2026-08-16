@@ -271,8 +271,17 @@ class KuaishouFeedSession:
     #: 账号间延迟秒数（降低单 IP 请求密度，避免触发频控）
     INTER_ACCOUNT_DELAY_SEC = 12
     #: 已知被快手硬风控的 GitHub macOS runner IP 段前缀。
-    #: 落在这些段时直接跳过，避免刷新封锁计时，等待分配到其他段的 runner。
+    #: 落在这些段时直接跳过，避免刷新封锁计时，等待封锁解除或分配到其他段的 runner。
+    #: 可通过环境变量 KUAISHOU_BLOCKED_IPS 覆盖（逗号分隔，留空=不封锁任何段）。
     BLOCKED_IP_PREFIXES = ("13.105.117.",)
+
+    @classmethod
+    def _get_blocked_prefixes(cls):
+        import os as _os
+        env = _os.environ.get("KUAISHOU_BLOCKED_IPS")
+        if env is not None:
+            return tuple(p.strip() for p in env.split(",") if p.strip())
+        return cls.BLOCKED_IP_PREFIXES
 
     def __init__(self, browser_context: Any, user_agent: str = "",
                  kuaishou_cookie: str = "") -> None:
@@ -493,7 +502,7 @@ class KuaishouFeedSession:
         try:
             import urllib.request as _ur
             _ip = _ur.urlopen("https://api.ipify.org", timeout=5).read().decode().strip()
-            if any(_ip.startswith(p) for p in self.BLOCKED_IP_PREFIXES):
+            if any(_ip.startswith(p) for p in self._get_blocked_prefixes()):
                 logger.warning("[kuaishou] %s 出口 IP %s 在已知封锁段，跳过本轮", pid, _ip)
                 self._ip_block_suspected = True
                 return {"ok": False, "result": 2, "items": [], "living": None,

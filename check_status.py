@@ -946,12 +946,13 @@ def main() -> None:
                         pass
                 if not _skip and _interval > 0:
                     _skip = (_now_utc.minute % _interval) > 4
-                # 检查出口 IP 是否在已知封锁段
+                # 检查出口 IP 是否在已知封锁段（KUAISHOU_BLOCKED_IPS 环境变量，逗号分隔）
                 if not _skip:
                     try:
                         import urllib.request as _ur
+                        _blocked = [p.strip() for p in _os.environ.get("KUAISHOU_BLOCKED_IPS", "13.105.117.").split(",") if p.strip()]
                         _ip = _ur.urlopen("https://api.ipify.org", timeout=5).read().decode().strip()
-                        if _ip.startswith("13.105.117."):
+                        if any(_ip.startswith(p) for p in _blocked):
                             _skip = True
                             logger.info("  [%s] 出口 IP %s 在快手封锁段，跳过直播检查", name, _ip)
                     except Exception:
