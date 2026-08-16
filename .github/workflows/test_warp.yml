@@ -2,46 +2,75 @@ name: Test WARP Kuaishou Access
 on:
   workflow_dispatch:
 jobs:
-  test-windows:
-    runs-on: windows-latest
+  test-proxy:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Detailed Windows kuaishou test
-        shell: python
+      - name: Auto-find working proxy
         run: |
-          import urllib.request, json
+          python3 << 'PYEOF'
+          import urllib.request, json, time, ssl
 
-          ip = urllib.request.urlopen('https://api.ipify.org', timeout=10).read().decode()
-          print(f'IP: {ip}')
+          ctx = ssl.create_default_context()
+          ctx.check_hostname = False
+          ctx.verify_mode = ssl.CERT_NONE
 
-          url = 'https://live.kuaishou.com/live_api/profile/public?principalId=3xrgxqkqp829xz6&count=12&privacy=public'
-          req = urllib.request.Request(url, headers={
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-              'Referer': 'https://live.kuaishou.com/',
-              'Accept': 'application/json',
-          })
-          try:
-              r = urllib.request.urlopen(req, timeout=15)
-              body = r.read().decode('utf-8', 'replace')
-              print(f'Status: {r.status}')
-              print(f'Body length: {len(body)}')
-              d = json.loads(body)
-              data = d.get('data', {})
-              result = data.get('result')
-              print(f'result: {result}')
-              print(f'keys: {list(data.keys())}')
-              lst = data.get('list', [])
-              print(f'list count: {len(lst)}')
-              for item in lst[:5]:
-                  photo = item.get('photo', {})
-                  pid = photo.get('id', '?')
-                  cap = str(photo.get('caption', ''))[:60]
-                  print(f'  id={pid} caption={cap}')
-              live = data.get('live', {})
-              living = live.get('author', {}).get('living')
-              print(f'living: {living}')
-          except Exception as e:
-              print(f'Error: {e}')
+          # 获取免费代理列表
+          proxy_urls = [
+              "https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=5000&country=all&ssl=all&anonymity=all",
+              "https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/http.txt",
+              "https://raw.githubusercontent.com/ShiftyTR/Proxy-List/master/http.txt",
+          ]
+
+          proxies = set()
+          for purl in proxy_urls:
+              try:
+                  req = urllib.request.Request(purl, headers={"User-Agent": "Mozilla/5.0"})
+                  text = urllib.request.urlopen(req, timeout=10).read().decode()
+                  for line in text.strip().split("\n"):
+                      line = line.strip()
+                      if ":" in line and not line.startswith("#"):
+                          proxies.add(line)
+                  print(f"Got {len(proxies)} proxies from {purl[:50]}")
+              except Exception as e:
+                  print(f"Failed to fetch {purl[:50]}: {e}")
+
+          print(f"\nTotal unique proxies: {len(proxies)}")
+
+          # 测试每个代理是否能访问 kuaishou live_api
+          working = []
+          for i, proxy in enumerate(list(proxies)[:200]):
+              try:
+                  handler = urllib.request.ProxyHandler({"http": f"http://{proxy}", "https": f"http://{proxy}"})
+                  opener = urllib.request.build_opener(handler, urllib.request.HTTPSHandler(context=ctx))
+                  # 先测试 IP
+                  ip = opener.open("https://api.ipify.org", timeout=8).read().decode()
+                  # 再测试 kuaishou API
+                  url = "https://live.kuaishou.com/live_api/profile/public?principalId=3xrgxqkqp829xz6&count=12&privacy=public"
+                  req = urllib.request.Request(url, headers={
+                      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                      "Referer": "https://live.kuaishou.com/",
+                  })
+                  r = opener.open(req, timeout=10)
+                  body = r.read().decode("utf-8", "replace")
+                  d = json.loads(body)
+                  result = d.get("data", {}).get("result")
+                  lst = d.get("data", {}).get("list", [])
+                  print(f"[{i+1}] {proxy} -> IP={ip} result={result} list={len(lst)} {'✅' if result == 1 else ''}")
+                  if result == 1:
+                      working.append(proxy)
+                      print(f"  FOUND WORKING PROXY!")
+                      break
+              except Exception as e:
+                  pass  # 静默跳过失败的代理
+
+              if (i+1) % 20 == 0:
+                  print(f"  Tested {i+1}/200 proxies, {len(working)} working so far...")
+
+          print(f"\n=== RESULT: {len(working)} working proxies found ===")
+          if working:
+              print(f"Working proxy: {working[0]}")
+          PYEOF
