@@ -928,11 +928,27 @@ def main() -> None:
             elif platform == "douyin":
                 result = fetch_douyin(rid)
             elif platform == "kuaishou":
+                # 临时冷却：2026-08-16 19:00 UTC 前完全跳过快手请求，让 IP 封锁冷却解除
+                from datetime import datetime as _dt, timezone as _tz
+                _now_utc = _dt.now(_tz.utc)
+                _cooldown_until = _dt(2026, 8, 16, 19, 0, tzinfo=_tz.utc)
+                if _now_utc < _cooldown_until:
+                    _prev_ks = prev_status_full.get(key, {})
+                    if _prev_ks:
+                        logger.info("  [%s] 快手 IP 冷却中（至 19:00 UTC），沿用上次状态: %s", name, _prev_ks.get("status"))
+                        result = {
+                            "status": _prev_ks.get("status", "unknown"),
+                            "title": _prev_ks.get("title", ""),
+                            "online": _prev_ks.get("online", 0),
+                            "area": _prev_ks.get("area", ""),
+                            "nickname": _prev_ks.get("nickname", ""),
+                            "time": now_str,
+                        }
+                    else:
+                        result = {"status": "unknown", "title": "", "online": 0, "time": now_str}
                 # 降频：快手直播状态每 30 分钟才实际请求一次（UTC 分钟 0-4 / 30-34），
                 # 其余 run 沿用上一次已知状态，避免云 IP 高频请求触发风控封锁。
-                from datetime import datetime as _dt
-                _utc_min = _dt.utcnow().minute
-                if _utc_min <= 4 or 30 <= _utc_min <= 34:
+                elif (_dt.utcnow().minute <= 4 or 30 <= _dt.utcnow().minute <= 34):
                     result = fetch_kuaishou(rid, cfg_all)
                 else:
                     _prev_ks = prev_status_full.get(key, {})

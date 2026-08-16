@@ -1055,6 +1055,11 @@ def main() -> None:
                              detail="账号配置不完整（缺 id），已跳过", now=bjnow())
                 continue
             if platform == "kuaishou":
+                # 临时冷却：19:00 UTC 前跳过快手作品检查，让 IP 封锁冷却解除
+                from datetime import datetime as _dt, timezone as _tz
+                if _dt.now(_tz.utc) < _dt(2026, 8, 16, 19, 0, tzinfo=_tz.utc):
+                    logger.info("  [%s] 快手 IP 冷却中（至 19:00 UTC），跳过作品检查", name)
+                    continue
                 # 快手走 live_api/profile/public（需浏览器上下文）：复用本浏览器，
                 # KuaishouFeedSession 会用 context.browser.new_context() 自建隔离 context，
                 # 避免与抖音 UA/cookie 串味。此前错误地放在浏览器启动前、且不传 context，
