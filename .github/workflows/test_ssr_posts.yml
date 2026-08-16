@@ -12,13 +12,15 @@ jobs:
       - name: Install deps
         run: |
           python -m pip install --upgrade pip -q
-          pip install patchright -q
+          pip install -r requirements.txt -q
           patchright install --with-deps chromium
-      - name: Full Chinese CDN test
+      - name: Full session test with Chinese CDN
+        env:
+          BLIVE_CONFIG: ${{ secrets.BLIVE_CONFIG }}
         run: |
-          # 解析两个域名的中国 IP，优先用 103.102.202.x 段
+          # 写中国 CDN IP 到 hosts
           python3 << 'PYINIT'
-          import socket, struct, random
+          import socket, struct, random, subprocess
           def dns(name, srv='223.5.5.5'):
               txid=random.randint(0,65535)
               h=struct.pack('>HHHHHH',txid,0x0100,1,0,0,0)
@@ -37,103 +39,49 @@ jobs:
                   if rt==1 and rl==4:ips.append('.'.join(str(b) for b in d[i:i+4]))
                   i+=rl
               return ips
-          live_ips = dns('live.kuaishou.com')
-          www_ips = dns('www.kuaishou.com')
-          # 优先选 103.102.202.x 段
-          live_ip = next((ip for ip in live_ips if ip.startswith('103.102.202.')), live_ips[0])
-          www_ip = next((ip for ip in www_ips if ip.startswith('103.102.202.')), www_ips[0])
-          print(f"LIVE_IP={live_ip}")
-          print(f"WWW_IP={www_ip}")
-          with open('/tmp/ks_ips.sh', 'w') as f:
-              f.write(f'export LIVE_IP="{live_ip}"\nexport WWW_IP="{www_ip}"\n')
-          # 写 hosts
-          import subprocess
-          subprocess.run(['sudo', 'bash', '-c', f'echo "{live_ip} live.kuaishou.com" >> /etc/hosts'])
-          subprocess.run(['sudo', 'bash', '-c', f'echo "{www_ip} www.kuaishou.com" >> /etc/hosts'])
+          for domain in ['live.kuaishou.com', 'www.kuaishou.com']:
+              ips = dns(domain)
+              ip = next((x for x in ips if x.startswith('103.102.202.')), ips[0])
+              print(f"{domain} -> {ip} (all: {ips})")
+              subprocess.run(['sudo', 'bash', '-c', f'echo "{ip} {domain}" >> /etc/hosts'], check=True)
           print("Hosts written")
           PYINIT
-          source /tmp/ks_ips.sh
-          echo "live -> $LIVE_IP, www -> $WWW_IP"
-          curl -s -o /dev/null -w "live: %{remote_ip} (%{time_total}s)\n" https://live.kuaishou.com/
-          curl -s -o /dev/null -w "www:  %{remote_ip} (%{time_total}s)\n" https://www.kuaishou.com/
 
           python3 << 'PYEOF'
-          import json, time, urllib.request
-          from patchright.sync_api import sync_playwright
+          import json, logging, urllib.request
+          logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
-          PID = "3xrgxqkqp829xz6"
-          UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+          ip = urllib.request.urlopen("https://api.ipify.org", timeout=10).read().decode()
+          print(f"Runner exit IP: {ip}")
+
+          from patchright.sync_api import sync_playwright
+          from backend.adapters.kuaishou_feed import KuaishouFeedSession
+
+          accounts = [
+              ("3xrgxqkqp829xz6", "Sandy88888"),
+          ]
 
           with sync_playwright() as pw:
               browser = pw.chromium.launch(headless=True, args=["--no-sandbox","--disable-dev-shm-usage"])
-              ctx = browser.new_context(viewport={"width":1366,"height":900}, locale="zh-CN", user_agent=UA)
+              ctx = browser.new_context(viewport={"width":1366,"height":900}, locale="zh-CN",
+                  user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
               try:
                   cache = json.load(open("kuaishou_guest_visitor.json"))
                   ctx.add_cookies(cache["cookies"])
               except: pass
 
-              page = ctx.new_page()
-              api_results = []
-              def on_resp(resp):
-                  if "live_api/profile/public" in resp.url:
-                      try:
-                          body = resp.body().decode("utf-8","replace")
-                          d = json.loads(body)
-                          api_results.append(d)
-                          data = d.get("data", {})
-                          print(f"  API: result={data.get('result')}, list={len(data.get('list',[]))}")
-                      except Exception as e:
-                          print(f"  API error: {e}")
-              page.on("response", on_resp)
+              session = KuaishouFeedSession(ctx, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 
-              # 先预热 www
-              print("Warming up www.kuaishou.com...")
-              try:
-                  page.goto("https://www.kuaishou.com/", wait_until="domcontentloaded", timeout=20000)
-                  for w in range(10):
-                      page.wait_for_timeout(1000)
-                      cookies = {c["name"] for c in ctx.cookies()}
-                      ab = cookies & {"kwfv1","kwssectoken","kwscode"}
-                      if len(ab) == 3 and "did" in cookies:
-                          print(f"  www warmup OK after {w+1}s: antibot={sorted(ab)}")
-                          break
-                  else:
-                      print(f"  www warmup: antibot={sorted(ab)}")
-              except Exception as e:
-                  print(f"  www warmup failed: {e}")
-
-              # 再预热 live
-              print("Warming up live.kuaishou.com...")
-              page.goto("https://live.kuaishou.com/", wait_until="domcontentloaded", timeout=20000)
-              for w in range(10):
-                  page.wait_for_timeout(1000)
-                  cookies = {c["name"] for c in ctx.cookies()}
-                  ab = cookies & {"kwfv1","kwssectoken","kwscode"}
-                  if len(ab) == 3 and "did" in cookies:
-                      print(f"  live warmup OK after {w+1}s: antibot={sorted(ab)}")
-                      break
-              else:
-                  print(f"  live warmup: antibot={sorted(ab)}")
-
-              # 访问 profile
-              print(f"\nNavigating to profile/{PID}...")
-              page.goto(f"https://live.kuaishou.com/profile/{PID}", wait_until="domcontentloaded", timeout=30000)
-              page.wait_for_timeout(15000)
-
-              # 打印完整结果
-              print(f"\n=== FULL RESULTS ===")
-              for r in api_results:
-                  data = r.get("data", {})
-                  result = data.get("result")
-                  lst = data.get("list", [])
-                  live = data.get("live", {})
-                  print(f"result={result}, list={len(lst)}, living={live.get('author',{}).get('living')}")
-                  print(f"list[0] keys: {list(lst[0].keys()) if lst else 'empty'}")
-                  if lst:
-                      print(f"list[0] full: {json.dumps(lst[0], ensure_ascii=False)[:1000]}")
-                  for i, item in enumerate(lst[:5]):
-                      photo = item.get("photo", item)
-                      print(f"  [{i}] id={photo.get('id')} caption={str(photo.get('caption',''))[:80]}")
+              for pid, name in accounts:
+                  print(f"\n{'='*60}")
+                  print(f"Testing {name} (pid={pid})")
+                  result = session.fetch(pid)
+                  print(f"ok={result.get('ok')} result={result.get('result')} items={len(result.get('items',[]))}")
+                  print(f"living={result.get('living')}")
+                  items = result.get("items", [])
+                  for i, item in enumerate(items[:10]):
+                      print(f"  [{i}] photo_id={item.get('photo_id')} ts={item.get('timestamp')} author={item.get('author_name')} is_image={item.get('is_image')}")
+                  print(f"seen: {result.get('seen')}")
 
               browser.close()
           PYEOF
