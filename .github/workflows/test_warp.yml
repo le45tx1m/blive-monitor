@@ -9,94 +9,38 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Check Windows IP and kuaishou access
+      - name: Detailed Windows kuaishou test
         run: |
-          python -c "import urllib.request; print('IP:', urllib.request.urlopen('https://api.ipify.org', timeout=10).read().decode())"
           python -c "
-          import urllib.request
-          req = urllib.request.Request('https://live.kuaishou.com/live_api/profile/public?principalId=3xrgxqkqp829xz6&count=12', headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'})
+          import urllib.request, json
+
+          # 检查 IP
+          ip = urllib.request.urlopen('https://api.ipify.org', timeout=10).read().decode()
+          print(f'IP: {ip}')
+
+          # 直接请求 live_api（不带 cookie，看 result）
+          url = 'https://live.kuaishou.com/live_api/profile/public?principalId=3xrgxqkqp829xz6&count=12&privacy=public'
+          req = urllib.request.Request(url, headers={
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+              'Referer': 'https://live.kuaishou.com/',
+              'Accept': 'application/json',
+          })
           try:
-              r = urllib.request.urlopen(req, timeout=10)
-              print('live_api status:', r.status)
-              print('body:', r.read().decode()[:300])
+              r = urllib.request.urlopen(req, timeout=15)
+              body = r.read().decode('utf-8', 'replace')
+              print(f'Status: {r.status}')
+              print(f'Body length: {len(body)}')
+              d = json.loads(body)
+              data = d.get('data', {})
+              print(f'result: {data.get(\"result\")}')
+              print(f'keys: {list(data.keys())}')
+              lst = data.get('list', [])
+              print(f'list count: {len(lst)}')
+              for item in lst[:5]:
+                  photo = item.get('photo', {})
+                  print(f'  id={photo.get(\"id\")} caption={str(photo.get(\"caption\",\"\"))[:60]}')
+              live = data.get('live', {})
+              print(f'living: {live.get(\"author\",{}).get(\"living\")}')
           except Exception as e:
-              print('live_api error:', e)
+              print(f'Error: {e}')
           "
-  test-macos-mobile:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - name: Install deps
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          patchright install chromium
-      - name: Test mobile UA on macOS
-        env:
-          BLIVE_CONFIG: ${{ secrets.BLIVE_CONFIG }}
-        run: |
-          python3 << 'PYEOF'
-          import json, logging, urllib.request
-          logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
-
-          try:
-              ip = urllib.request.urlopen("https://api.ipify.org", timeout=10).read().decode()
-              print(f"=== EXIT IP: {ip} ===")
-          except Exception as e:
-              print(f"IP check failed: {e}")
-
-          from patchright.sync_api import sync_playwright
-
-          PID = "3xrgxqkqp829xz6"
-          with sync_playwright() as pw:
-              # 用移动端 UA 和 viewport
-              browser = pw.chromium.launch(headless=True, args=["--no-sandbox","--disable-dev-shm-usage"])
-              ctx = browser.new_context(
-                  viewport={"width":390,"height":844},
-                  locale="zh-CN",
-                  user_agent="Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
-                  is_mobile=True,
-                  has_touch=True)
-              cache = json.load(open("kuaishou_guest_visitor.json"))
-              ctx.add_cookies(cache["cookies"])
-              p = ctx.new_page()
-
-              api_responses = []
-              def on_resp(resp):
-                  url = resp.url
-                  if any(k in url for k in ["live_api", "graphql", "/rest/", "/profile", "/feed", "photo"]):
-                      try:
-                          body = resp.body().decode("utf-8","replace")
-                          api_responses.append({"url": url[:150], "status": resp.status, "body": body[:500]})
-                      except: pass
-              p.on("response", on_resp)
-
-              # 试试 m.kuaishou.com
-              for url in [
-                  f"https://m.kuaishou.com/profile/{PID}",
-                  f"https://live.kuaishou.com/profile/{PID}",
-              ]:
-                  print(f"\n--- {url} ---")
-                  api_responses.clear()
-                  try:
-                      p.goto(url, wait_until="domcontentloaded", timeout=30000)
-                      p.wait_for_timeout(10000)
-                      print(f"Final URL: {p.url}")
-                  except Exception as e:
-                      print(f"Error: {e}")
-                  for r in api_responses[:5]:
-                      print(f"  [{r['status']}] {r['url']}")
-                      try:
-                          d = json.loads(r["body"])
-                          data = d.get("data", d)
-                          print(f"  result={data.get('result')} keys={list(data.keys())[:8]}")
-                          lst = data.get("list") or data.get("feeds") or []
-                          if lst: print(f"  list count={len(lst)}")
-                      except:
-                          print(f"  {r['body'][:200]}")
-
-              browser.close()
-          PYEOF
