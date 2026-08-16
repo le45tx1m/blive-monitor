@@ -14,7 +14,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           patchright install chromium
-      - name: Detailed live_api test
+      - name: Test www profile with numeric ID
         env:
           BLIVE_CONFIG: ${{ secrets.BLIVE_CONFIG }}
         run: |
@@ -30,7 +30,10 @@ jobs:
 
           from patchright.sync_api import sync_playwright
 
-          PID = "3xrgxqkqp829xz6"
+          # Sandy88888 的数字 ID
+          NUMERIC_ID = "2117550"
+          PRINCIPAL_ID = "3xrgxqkqp829xz6"
+
           with sync_playwright() as pw:
               browser = pw.chromium.launch(headless=True, args=["--no-sandbox","--disable-dev-shm-usage"])
               ctx = browser.new_context(viewport={"width":1366,"height":900}, locale="zh-CN",
@@ -39,26 +42,14 @@ jobs:
               ctx.add_cookies(cache["cookies"])
               p = ctx.new_page()
 
-              full_response = [None]
+              api_responses = []
               def on_resp(resp):
-                  if "live_api/profile/public" in resp.url:
+                  url = resp.url
+                  if any(k in url for k in ["rest/v", "graphql", "live_api", "/profile", "/feed", "/photo"]):
                       try:
                           body = resp.body().decode("utf-8","replace")
-                          full_response[0] = body
-                          data = json.loads(body)
-                          d = data.get("data", {})
-                          print(f"\n=== LIVE_API {resp.status} ===")
-                          print(f"result: {d.get('result')}")
-                          print(f"keys: {list(d.keys())}")
-                          lst = d.get("list", [])
-                          print(f"list count: {len(lst)}")
-                          for item in lst[:5]:
-                              photo = item.get("photo", {})
-                              print(f"  id={photo.get('id')} caption={str(photo.get('caption',''))[:60]}")
-                          live = d.get("live", {})
-                          print(f"living: {live.get('author',{}).get('living')}")
-                      except Exception as e:
-                          print(f"parse error: {e}")
+                          api_responses.append({"url": url[:200], "status": resp.status, "body": body[:800]})
+                      except: pass
               p.on("response", on_resp)
 
               # 预热
@@ -69,25 +60,38 @@ jobs:
               except Exception as e:
                   print(f"Warmup: {e}")
 
-              cookies = {c["name"]: c["value"][:30] for c in ctx.cookies()}
-              antibot = [k for k in ("kwfv1","kwssectoken","kwscode") if k in cookies]
-              print(f"Antibot cookies: {antibot}")
+              # 尝试不同的 URL 格式
+              for url in [
+                  f"https://www.kuaishou.com/u/{NUMERIC_ID}",
+                  f"https://www.kuaishou.com/profile/{NUMERIC_ID}",
+                  f"https://www.kuaishou.com/u/{PRINCIPAL_ID}",
+              ]:
+                  print(f"\n--- Trying {url} ---")
+                  api_responses.clear()
+                  try:
+                      p.goto(url, wait_until="domcontentloaded", timeout=30000)
+                      p.wait_for_timeout(8000)
+                      print(f"Final URL: {p.url}")
+                      print(f"Title: {p.title()}")
+                  except Exception as e:
+                      print(f"Error: {e}")
 
-              # 直接导航到 live profile
-              print(f"\nNavigating to live profile {PID}...")
-              try:
-                  p.goto(f"https://live.kuaishou.com/profile/{PID}", wait_until="domcontentloaded", timeout=30000)
-                  p.wait_for_timeout(15000)
-              except Exception as e:
-                  print(f"Nav error: {e}")
-
-              if full_response[0]:
-                  print(f"\nFull response length: {len(full_response[0])}")
-                  # 打印前 1000 字符
-                  print(f"Full response (first 1000): {full_response[0][:1000]}")
-              else:
-                  print("\nNo live_api response captured!")
-                  print(f"Final URL: {p.url}")
+                  print(f"Captured {len(api_responses)} API responses:")
+                  for r in api_responses:
+                      print(f"\n  [{r['status']}] {r['url']}")
+                      # 尝试解析 JSON
+                      try:
+                          d = json.loads(r["body"])
+                          data = d.get("data", d)
+                          result = data.get("result", d.get("result"))
+                          feeds = data.get("feeds") or data.get("list") or data.get("photoList") or []
+                          print(f"  result={result} feeds/list={len(feeds) if isinstance(feeds, list) else 'N/A'}")
+                          if feeds and isinstance(feeds, list):
+                              for f in feeds[:3]:
+                                  photo = f.get("photo", f) if isinstance(f, dict) else {}
+                                  print(f"    id={photo.get('id')} caption={str(photo.get('caption',''))[:50]}")
+                      except:
+                          print(f"  body: {r['body'][:200]}")
 
               browser.close()
           PYEOF
