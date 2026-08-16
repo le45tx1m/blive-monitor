@@ -39,8 +39,6 @@ jobs:
       ENABLE_POST_CHECK: "true"
       # 快手降频：直播状态每 30 分钟实际请求一次，其余 run 沿用上次状态
       KUAISHOU_LIVE_INTERVAL_MIN: "30"
-      # 快手临时冷却：2026-08-16 19:00 UTC 前完全跳过快手请求，让 IP 封锁解除
-      KUAISHOU_COOLDOWN_UNTIL: "2026-08-16T19:00:00+00:00"
     steps:
       - uses: actions/checkout@v4
 
