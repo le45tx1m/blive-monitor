@@ -14,13 +14,12 @@ jobs:
           python -m pip install --upgrade pip -q
           pip install patchright -q
           patchright install --with-deps chromium
-      - name: Reverse engineer signature
+      - name: Multi-account + cache bust test
         run: |
           python3 << 'PYEOF'
           import json, time, socket, struct, random, subprocess, re
           from patchright.sync_api import sync_playwright
 
-          PID = "3xrgxqkqp829xz6"
           UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
           def dns(name, srv='223.5.5.5'):
@@ -48,6 +47,25 @@ jobs:
               subprocess.run(['sudo', 'bash', '-c', f'echo "{ip} {domain}" >> /etc/hosts'], check=True)
               print(f"{domain} -> {ip}")
 
+          # 先从配置中获取所有快手账号
+          import os
+          config_path = os.environ.get("BLIVE_CONFIG", "")
+          accounts = []
+          if config_path:
+              try:
+                  cfg = json.loads(config_path)
+                  for room in cfg.get("rooms", []):
+                      if room.get("platform") == "kuaishou":
+                          pid = room.get("principal_id", "")
+                          name = room.get("name", room.get("id", ""))
+                          if pid:
+                              accounts.append((pid, name))
+              except: pass
+          
+          if not accounts:
+              accounts = [("3xrgxqkqp829xz6", "Sandy88888")]
+          print(f"Testing {len(accounts)} accounts: {[a[1] for a in accounts]}")
+
           with sync_playwright() as pw:
               browser = pw.chromium.launch(headless=True, args=["--no-sandbox","--disable-dev-shm-usage"])
               ctx = browser.new_context(viewport={"width":1366,"height":900}, locale="zh-CN", user_agent=UA)
@@ -58,75 +76,46 @@ jobs:
 
               page = ctx.new_page()
 
-              # 收集所有 JS 文件 URL
-              js_urls = []
-              def on_request(req):
-                  if req.resource_type == "script" and "kuaishou" in req.url:
-                      js_urls.append(req.url)
-              page.on("request", on_request)
-
               # 预热
-              print("Loading www.kuaishou.com...")
+              print("\nWarming up www...")
               try:
                   page.goto("https://www.kuaishou.com/", wait_until="domcontentloaded", timeout=20000)
                   page.wait_for_timeout(8000)
               except Exception as e:
-                  print(f"Warmup: {e}")
+                  print(f"Warmup error: {e}")
+              cookies = {c["name"] for c in ctx.cookies()}
+              ab = cookies & {"kwfv1","kwssectoken","kwscode"}
+              print(f"Antibot: {sorted(ab)}, did={'did' in cookies}")
 
-              # 搜索页面 JS 中的 hxfalcon 签名函数
-              print(f"\nFound {len(js_urls)} JS files")
-              
-              # 在页面中搜索签名相关函数
-              sig_info = page.evaluate("""() => {
-                  const results = [];
-                  // 搜索全局函数
-                  for (const key of Object.keys(window)) {
-                      if (key.toLowerCase().includes('falcon') || key.toLowerCase().includes('sign') || key.toLowerCase().includes('ns_')) {
-                          results.push({key, type: typeof window[key]});
-                      }
-                  }
-                  // 搜索 __NS 相关
-                  for (const key of Object.keys(window)) {
-                      if (key.startsWith('__NS')) {
-                          results.push({key, type: typeof window[key], value: String(window[key]).substring(0, 200)});
-                      }
-                  }
-                  return results;
-              }""")
-              print(f"\nGlobal signature-related vars: {json.dumps(sig_info, indent=2)}")
-
-              # 拦截 profile API 请求，看签名是怎么生成的
-              api_urls = []
-              def on_resp(resp):
-                  if "live_api/profile/public" in resp.url:
-                      api_urls.append(resp.url)
-                      print(f"\nAPI URL captured: {resp.url[:200]}")
-              page.on("response", on_resp)
-
-              # 访问 profile
-              print("\nNavigating to profile...")
-              page.goto(f"https://live.kuaishou.com/profile/{PID}", wait_until="domcontentloaded", timeout=20000)
-              page.wait_for_timeout(10000)
-
-              # 尝试在页面中找签名函数
-              if api_urls:
-                  sig_param = re.search(r'__NS_hxfalcon=([^&]+)', api_urls[0])
-                  if sig_param:
-                      print(f"\nSignature value: {sig_param.group(1)[:100]}...")
-
-              # 搜索所有 JS 文件内容中的 hxfalcon
-              print("\nSearching JS files for hxfalcon...")
-              for js_url in js_urls[:20]:
-                  try:
-                      resp = page.request.fetch(js_url, timeout=10000)
-                      body = resp.text()
-                      if "hxfalcon" in body.lower() or "__NS_hxfalcon" in body:
-                          # 找到签名函数周围的代码
-                          for match in re.finditer(r'.{0,200}hxfalcon.{0,200}', body, re.IGNORECASE):
-                              print(f"\n  Found in {js_url[-60:]}:")
-                              print(f"  ...{match.group()}...")
-                  except:
-                      pass
+              for pid, name in accounts:
+                  print(f"\n{'='*50}")
+                  print(f"Account: {name} (pid={pid})")
+                  api_results = []
+                  def make_handler(results):
+                      def on_resp(resp):
+                          if "live_api/profile/public" in resp.url:
+                              try:
+                                  d = json.loads(resp.body().decode("utf-8","replace"))
+                                  data = d.get("data", {})
+                                  lst = data.get("list", [])
+                                  items_info = []
+                                  for item in lst:
+                                      poster = item.get("poster", "")
+                                      dm = re.search(r'/(\d{4}/\d{2}/\d{2})/', poster)
+                                      items_info.append(f"{item.get('id')}({dm.group(1) if dm else '?'})")
+                                  print(f"  API: result={data.get('result')}, list={len(lst)}, pcursor={data.get('pcursor')}, items={items_info}")
+                                  results.append(data)
+                              except: pass
+                      return on_resp
+                  
+                  handler = make_handler(api_results)
+                  page.on("response", handler)
+                  
+                  page.goto(f"https://live.kuaishou.com/profile/{pid}", wait_until="domcontentloaded", timeout=20000)
+                  page.wait_for_timeout(10000)
+                  
+                  page.remove_listener("response", handler)
+                  time.sleep(2)
 
               browser.close()
           PYEOF
