@@ -9,59 +9,124 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Test RSSHub and other approaches
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip -q
+          pip install patchright -q
+          patchright install --with-deps chromium
+      - name: Reverse engineer signature
         run: |
           python3 << 'PYEOF'
-          import urllib.request, json, re
+          import json, time, socket, struct, random, subprocess, re
+          from patchright.sync_api import sync_playwright
 
-          UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
           PID = "3xrgxqkqp829xz6"
-          USER_ID = "2117550"
+          UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
-          # 公共 RSSHub 实例列表
-          rsshub_instances = [
-              "https://rsshub.app",
-              "https://rsshub.rssforever.com",
-              "https://rsshub.feeded.xyz",
-              "https://hub.slarker.me",
-              "https://rsshub.pseudoyu.com",
-              "https://rsshub.invert.cloud",
-          ]
+          def dns(name, srv='223.5.5.5'):
+              txid=random.randint(0,65535)
+              h=struct.pack('>HHHHHH',txid,0x0100,1,0,0,0)
+              q=b''.join(bytes([len(p)])+p.encode() for p in name.split('.'))+b'\x00'+struct.pack('>HH',1,1)
+              s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM);s.settimeout(5)
+              s.sendto(h+q,(srv,53));d=s.recv(512);s.close()
+              i=12
+              while d[i]!=0:i+=d[i]+1
+              i+=5;anc=struct.unpack('>H',d[6:8])[0];ips=[]
+              for _ in range(anc):
+                  if d[i]&0xC0==0xC0:i+=2
+                  else:
+                      while d[i]!=0:i+=d[i]+1
+                      i+=1
+                  rt,rc,ttl,rl=struct.unpack('>HHIH',d[i:i+10]);i+=10
+                  if rt==1 and rl==4:ips.append('.'.join(str(b) for b in d[i:i+4]))
+                  i+=rl
+              return ips
 
-          print("=== Testing RSSHub instances ===")
-          for base in rsshub_instances:
-              for path in [f"/kuaishou/user/{USER_ID}", f"/kuaishou/profile/{PID}", f"/kuaishou/user/{PID}"]:
-                  url = base + path
-                  try:
-                      req = urllib.request.Request(url, headers={"User-Agent": UA})
-                      r = urllib.request.urlopen(req, timeout=10)
-                      body = r.read().decode("utf-8", "replace")
-                      # 检查是否是有效的 RSS/Atom feed
-                      if "<item>" in body or "<entry>" in body:
-                          items = body.count("<item>") + body.count("<entry>")
-                          titles = re.findall(r"<title>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?</title>", body)
-                          print(f"  ✅ {url}: {r.status}, {items} items")
-                          for t in titles[1:4]:
-                              print(f"     - {t[:80]}")
-                      else:
-                          print(f"  ❌ {url}: {r.status}, not a feed ({len(body)} bytes): {body[:100]}")
-                  except Exception as e:
-                      print(f"  ❌ {url}: {str(e)[:80]}")
+          for domain in ['live.kuaishou.com', 'www.kuaishou.com']:
+              ips = dns(domain)
+              ip = next((x for x in ips if x.startswith('103.102.202.')), ips[0])
+              subprocess.run(['sudo', 'bash', '-c', f'echo "{ip} {domain}" >> /etc/hosts'], check=True)
+              print(f"{domain} -> {ip}")
 
-          # 也试一些其他第三方服务
-          print("\n=== Other services ===")
-          other_urls = [
-              # 快手开放平台
-              f"https://open.kuaishou.com/openapi/user/info?app_id=test&user_id={USER_ID}",
-              # 第三方 API
-              f"https://www.douyin.com/aweme/v1/web/user/profile/other/?sec_user_id={PID}",
-          ]
-          for url in other_urls:
+          with sync_playwright() as pw:
+              browser = pw.chromium.launch(headless=True, args=["--no-sandbox","--disable-dev-shm-usage"])
+              ctx = browser.new_context(viewport={"width":1366,"height":900}, locale="zh-CN", user_agent=UA)
               try:
-                  req = urllib.request.Request(url, headers={"User-Agent": UA})
-                  r = urllib.request.urlopen(req, timeout=10)
-                  body = r.read().decode("utf-8", "replace")
-                  print(f"  {url[:80]}: {r.status} ({len(body)} bytes): {body[:150]}")
+                  cache = json.load(open("kuaishou_guest_visitor.json"))
+                  ctx.add_cookies(cache["cookies"])
+              except: pass
+
+              page = ctx.new_page()
+
+              # 收集所有 JS 文件 URL
+              js_urls = []
+              def on_request(req):
+                  if req.resource_type == "script" and "kuaishou" in req.url:
+                      js_urls.append(req.url)
+              page.on("request", on_request)
+
+              # 预热
+              print("Loading www.kuaishou.com...")
+              try:
+                  page.goto("https://www.kuaishou.com/", wait_until="domcontentloaded", timeout=20000)
+                  page.wait_for_timeout(8000)
               except Exception as e:
-                  print(f"  {url[:80]}: {str(e)[:80]}")
+                  print(f"Warmup: {e}")
+
+              # 搜索页面 JS 中的 hxfalcon 签名函数
+              print(f"\nFound {len(js_urls)} JS files")
+              
+              # 在页面中搜索签名相关函数
+              sig_info = page.evaluate("""() => {
+                  const results = [];
+                  // 搜索全局函数
+                  for (const key of Object.keys(window)) {
+                      if (key.toLowerCase().includes('falcon') || key.toLowerCase().includes('sign') || key.toLowerCase().includes('ns_')) {
+                          results.push({key, type: typeof window[key]});
+                      }
+                  }
+                  // 搜索 __NS 相关
+                  for (const key of Object.keys(window)) {
+                      if (key.startsWith('__NS')) {
+                          results.push({key, type: typeof window[key], value: String(window[key]).substring(0, 200)});
+                      }
+                  }
+                  return results;
+              }""")
+              print(f"\nGlobal signature-related vars: {json.dumps(sig_info, indent=2)}")
+
+              # 拦截 profile API 请求，看签名是怎么生成的
+              api_urls = []
+              def on_resp(resp):
+                  if "live_api/profile/public" in resp.url:
+                      api_urls.append(resp.url)
+                      print(f"\nAPI URL captured: {resp.url[:200]}")
+              page.on("response", on_resp)
+
+              # 访问 profile
+              print("\nNavigating to profile...")
+              page.goto(f"https://live.kuaishou.com/profile/{PID}", wait_until="domcontentloaded", timeout=20000)
+              page.wait_for_timeout(10000)
+
+              # 尝试在页面中找签名函数
+              if api_urls:
+                  sig_param = re.search(r'__NS_hxfalcon=([^&]+)', api_urls[0])
+                  if sig_param:
+                      print(f"\nSignature value: {sig_param.group(1)[:100]}...")
+
+              # 搜索所有 JS 文件内容中的 hxfalcon
+              print("\nSearching JS files for hxfalcon...")
+              for js_url in js_urls[:20]:
+                  try:
+                      resp = page.request.fetch(js_url, timeout=10000)
+                      body = resp.text()
+                      if "hxfalcon" in body.lower() or "__NS_hxfalcon" in body:
+                          # 找到签名函数周围的代码
+                          for match in re.finditer(r'.{0,200}hxfalcon.{0,200}', body, re.IGNORECASE):
+                              print(f"\n  Found in {js_url[-60:]}:")
+                              print(f"  ...{match.group()}...")
+                  except:
+                      pass
+
+              browser.close()
           PYEOF
