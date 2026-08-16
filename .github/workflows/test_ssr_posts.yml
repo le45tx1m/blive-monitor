@@ -3,58 +3,83 @@ on:
   workflow_dispatch:
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Test CORS proxies and translation proxies
+      - name: Install Firefox
+        run: |
+          python -m pip install --upgrade pip -q
+          pip install playwright -q
+          playwright install firefox
+      - name: Test kuaishou with Firefox
+        env:
+          BLIVE_CONFIG: ${{ secrets.BLIVE_CONFIG }}
         run: |
           python3 << 'PYEOF'
-          import urllib.request, json, urllib.parse, ssl
+          import json, logging, urllib.request
+          logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+          ip = urllib.request.urlopen("https://api.ipify.org", timeout=10).read().decode()
+          print(f"=== EXIT IP: {ip} ===")
 
-          ctx = ssl.create_default_context()
-          ctx.check_hostname = False
-          ctx.verify_mode = ssl.CERT_NONE
-          UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+          from playwright.sync_api import sync_playwright
+
           PID = "3xrgxqkqp829xz6"
-          TARGET = f"https://live.kuaishou.com/live_api/profile/public?principalId={PID}&count=12&privacy=public"
-
-          proxies = [
-              ("allorigins", f"https://api.allorigins.win/raw?url={urllib.parse.quote(TARGET)}"),
-              ("corsproxy.io", f"https://corsproxy.io/?{urllib.parse.quote(TARGET)}"),
-              ("thingproxy", f"https://thingproxy.freeboard.io/fetch/{TARGET}"),
-              ("cors.sh", f"https://proxy.cors.sh/{TARGET}"),
-              ("jsonp.afeld", f"https://jsonp.afeld.me/?url={urllib.parse.quote(TARGET)}"),
-              ("translate.google", f"https://translate.google.com/translate?sl=zh&tl=en&u={urllib.parse.quote(TARGET)}"),
-              ("translate.yandex", f"https://translate.yandex.com/proxy?url={urllib.parse.quote(TARGET)}"),
-              ("codetabs", f"https://api.codetabs.com/v1/proxy/?quest={TARGET}"),
-              ("whateverorigin", f"https://api.allorigins.win/get?url={urllib.parse.quote(TARGET)}"),
-          ]
-
-          for name, purl in proxies:
+          with sync_playwright() as pw:
+              # 用 Firefox 而不是 Chromium
+              browser = pw.firefox.launch(headless=True)
+              ctx = browser.new_context(
+                  viewport={"width":1366,"height":900},
+                  locale="zh-CN",
+                  user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:120.0) Gecko/20100101 Firefox/120.0")
               try:
-                  req = urllib.request.Request(purl, headers={"User-Agent": UA, "Accept": "application/json,*/*"})
-                  r = urllib.request.urlopen(req, timeout=15, context=ctx)
-                  body = r.read().decode("utf-8", "replace")
-                  # Try to find JSON in response
-                  try:
-                      d = json.loads(body)
-                      if "contents" in d:  # allorigins get format
-                          d = json.loads(d["contents"])
-                      data = d.get("data", d)
-                      result = data.get("result")
-                      lst = data.get("list", [])
-                      print(f"  {name}: result={result}, list={len(lst)} {'✅' if result==1 else ''}")
-                  except json.JSONDecodeError:
-                      # Check if result=1 or result=2 appears in the body
-                      if '"result":1' in body or '"result": 1' in body:
-                          print(f"  {name}: FOUND result=1 in non-JSON response! ✅")
-                      elif '"result":2' in body or '"result": 2' in body:
-                          print(f"  {name}: result=2 (blocked)")
-                      else:
-                          print(f"  {name}: status={r.status}, non-JSON ({len(body)} bytes): {body[:120]}")
+                  cache = json.load(open("kuaishou_guest_visitor.json"))
+                  ctx.add_cookies(cache["cookies"])
+              except: pass
+
+              page = ctx.new_page()
+              api_results = []
+              def on_resp(resp):
+                  if "live_api/profile/public" in resp.url:
+                      try:
+                          body = resp.body().decode("utf-8","replace")
+                          api_results.append(json.loads(body))
+                          print(f"API response: {body[:300]}")
+                      except: pass
+              page.on("response", on_resp)
+
+              # 预热
+              print("Warming up www.kuaishou.com...")
+              try:
+                  page.goto("https://www.kuaishou.com/", wait_until="domcontentloaded", timeout=30000)
+                  page.wait_for_timeout(8000)
+                  cookies = [c["name"] for c in ctx.cookies()]
+                  antibot = [c for c in ["kwfv1","kwssectoken","kwscode"] if c in cookies]
+                  print(f"Antibot cookies: {antibot}")
               except Exception as e:
-                  print(f"  {name}: ERROR {str(e)[:100]}")
+                  print(f"Warmup error: {e}")
+
+              # 访问 profile 页
+              print(f"Navigating to profile/{PID}...")
+              try:
+                  page.goto(f"https://live.kuaishou.com/profile/{PID}", wait_until="domcontentloaded", timeout=30000)
+                  page.wait_for_timeout(10000)
+              except Exception as e:
+                  print(f"Profile error: {e}")
+
+              for r in api_results:
+                  data = r.get("data", {})
+                  result = data.get("result")
+                  lst = data.get("list", [])
+                  print(f"\nresult={result}, list count={len(lst)}")
+                  for item in lst[:3]:
+                      photo = item.get("photo", {})
+                      print(f"  id={photo.get('id')} caption={str(photo.get('caption',''))[:60]}")
+
+              if not api_results:
+                  print("No API responses captured")
+
+              browser.close()
           PYEOF
