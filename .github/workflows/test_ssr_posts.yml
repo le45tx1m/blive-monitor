@@ -9,7 +9,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Deep SSR analysis
+      - name: Dump profile.publicData
         run: |
           python3 << 'PYEOF'
           import urllib.request, json, re, sys
@@ -17,95 +17,68 @@ jobs:
           PID = "3xrgxqkqp829xz6"
           UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
-          ip = urllib.request.urlopen("https://api.ipify.org", timeout=10).read().decode()
-          print(f"=== EXIT IP: {ip} ===")
-
-          # 抓取 profile SSR 页面
           url = f"https://live.kuaishou.com/profile/{PID}"
           req = urllib.request.Request(url, headers={"User-Agent": UA, "Referer": "https://live.kuaishou.com/"})
           html = urllib.request.urlopen(req, timeout=15).read().decode("utf-8", "replace")
-          print(f"Profile page: {len(html)} bytes")
 
-          # 更健壮的 __INITIAL_STATE__ 提取：找到 script 标签内容，用括号匹配
           idx = html.find("window.__INITIAL_STATE__")
-          if idx < 0:
-              print("__INITIAL_STATE__ not found!")
-              sys.exit(1)
-          
-          # 找到 JSON 开始的 {
           start = html.index("{", idx)
-          # 用括号计数找到匹配的 }
-          depth = 0
-          end = start
-          in_str = False
-          escape = False
+          depth, end, in_str, escape = 0, start, False, False
           for i in range(start, len(html)):
               c = html[i]
-              if escape:
-                  escape = False
-                  continue
-              if c == "\\":
-                  escape = True
-                  continue
-              if c == '"':
-                  in_str = not in_str
-                  continue
-              if in_str:
-                  continue
-              if c == "{":
-                  depth += 1
+              if escape: escape = False; continue
+              if c == "\\": escape = True; continue
+              if c == '"': in_str = not in_str; continue
+              if in_str: continue
+              if c == "{": depth += 1
               elif c == "}":
                   depth -= 1
-                  if depth == 0:
-                      end = i + 1
-                      break
+                  if depth == 0: end = i + 1; break
+
+          state = json.loads(html[start:end])
+          profile = state.get("profile", {})
           
-          raw = html[start:end]
-          print(f"__INITIAL_STATE__ raw length: {len(raw)}")
-          
-          try:
-              state = json.loads(raw)
-          except json.JSONDecodeError as e:
-              print(f"JSON parse error: {e}")
-              # 尝试找到问题位置
-              print(f"Around error: ...{raw[max(0,e.pos-100):e.pos+100]}...")
-              sys.exit(1)
+          print("=== profile keys ===")
+          for k, v in profile.items():
+              if isinstance(v, dict):
+                  print(f"  {k}: dict keys={list(v.keys())[:15]}")
+              elif isinstance(v, list):
+                 (f"  {k}: list len={len(v)}")
+              else:
+                  print(f"  {k}: {str(v)[:100]}")
 
-          print(f"\nTop-level keys: {list(state.keys())}")
-
-          # 递归搜索所有包含作品数据的字段
-          def search(obj, path="", depth=0):
-              if depth > 6: return
-              if isinstance(obj, dict):
-                  for k, v in obj.items():
-                      p = f"{path}.{k}" if path else k
-                      if isinstance(v, list) and len(v) > 0:
-                          if isinstance(v[0], dict):
-                              # 检查是否像作品（有 id/photoId/caption/timestamp 等字段）
-                              first_keys = set(v[0].keys())
-                              post_indicators = {"id", "photoId", "photo_id", "caption", "timestamp", "coverUrl", "photoUrl", "duration", "likeCount"}
-                              if first_keys & post_indicators:
-                                  print(f"\n*** FOUND POST-LIKE LIST at {p}: {len(v)} items ***")
-                                  print(f"    Keys: {list(v[0].keys())[:20]}")
-                                  item = v[0]
-                                  for ik in ["id", "photoId", "caption", "timestamp", "coverUrl", "photoUrl", "duration", "likeCount", "viewCount", "time"]:
-                                      if ik in item:
-                                          print(f"    {ik}: {str(item[ik])[:100]}")
-                      search(v, p, depth+1)
-              elif isinstance(obj, list):
-                  for i, v in enumerate(obj[:3]):
-                      search(v, f"{path}[{i}]", depth+1)
-
-          search(state)
-
-          # 特别检查常见的快手 SSR 字段
-          for key in ["profile", "user", "liveroom", "feed", "photo", "list", "works", "videos", "timeline", "pcProfile"]:
-              if key in state:
-                  v = state[key]
-                  if isinstance(v, dict):
-                      print(f"\n{key} sub-keys: {list(v.keys())[:20]}")
-                  elif isinstance(v, list):
-                      print(f"\n{key}: list of {len(v)}")
+          pub = profile.get("publicData", {})
+          print(f"\n=== publicData type: {type(pub).__name__} ===")
+          if isinstance(pub, dict):
+              print(f"publicData keys: {list(pub.keys())}")
+              for k, v in pub.items():
+                  if isinstance(v, list):
+                      print(f"\n  {k}: list of {len(v)}")
+                      if v and isinstance(v[0], dict):
+                          print(f"    first item keys: {list(v[0].keys())[:20]}")
+                          item = v[0]
+                          for ik in ["id", "photoId", "caption", "timestamp", "coverUrl", "photoUrl", "duration", "likeCount", "viewCount", "time", "type", "momentId"]:
+                              if ik in item:
+                                  print(f"    {ik}: {str(item[ik])[:120]}")
+                          # 也打印完整第一个 item
+                          print(f"\n    FULL FIRST ITEM:")
+                          print(json.dumps(item, ensure_ascii=False, indent=2)[:2000])
+                  elif isinstance(v, dict):
+                      print(f"  {k}: {list(v.keys())[:15]}")
                   else:
-                      print(f"\n{key}: {str(v)[:200]}")
+                      print(f"  {k}: {str(v)[:100]}")
+          elif isinstance(pub, list):
+              print(f"publicData list of {len(pub)}")
+              if pub:
+                  print(json.dumps(pub[0], ensure_ascii=False, indent=2)[:2000])
+          else:
+              print(f"publicData: {str(pub)[:500]}")
+
+          # 也看看 authorInfoById
+          aib = state.get("authorInfoById", {})
+          print(f"\n=== authorInfoById keys: {list(aib.keys())[:10]} ===")
+          for k, v in list(aib.items())[:2]:
+              if isinstance(v, dict):
+                  print(f"  {k}: {list(v.keys())[:15]}")
+                  print(json.dumps(v, ensure_ascii=False, indent=2)[:1000])
           PYEOF
