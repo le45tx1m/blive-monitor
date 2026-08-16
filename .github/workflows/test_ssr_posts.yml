@@ -4,9 +4,6 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        ip_suffix: ["57", "69", "119", "177"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -17,28 +14,53 @@ jobs:
           python -m pip install --upgrade pip -q
           pip install patchright -q
           patchright install --with-deps chromium
-      - name: Test IP 103.102.202.${{ matrix.ip_suffix }}
+      - name: Fresh DID + mobile UA test
         run: |
-          echo "103.102.202.${{ matrix.ip_suffix }} live.kuaishou.com" | sudo tee -a /etc/hosts
-          # www 也用中国 CDN
-          echo "103.102.202.106 www.kuaishou.com" | sudo tee -a /etc/hosts
-          curl -s -o /dev/null -w "live -> %{remote_ip} (%{time_total}s)\n" https://live.kuaishou.com/
-
+          # 等 3 分钟让中国 CDN IP 冷却
+          echo "Waiting 180s for cooldown..."
+          sleep 180
+          
           python3 << 'PYEOF'
-          import json, time
+          import json, time, socket, struct, random, subprocess
           from patchright.sync_api import sync_playwright
 
           PID = "3xrgxqkqp829xz6"
-          UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+          # 移动端 UA
+          MOBILE_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+          DESKTOP_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+
+          def dns(name, srv='223.5.5.5'):
+              txid=random.randint(0,65535)
+              h=struct.pack('>HHHHHH',txid,0x0100,1,0,0,0)
+              q=b''.join(bytes([len(p)])+p.encode() for p in name.split('.'))+b'\x00'+struct.pack('>HH',1,1)
+              s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM);s.settimeout(5)
+              s.sendto(h+q,(srv,53));d=s.recv(512);s.close()
+              i=12
+              while d[i]!=0:i+=d[i]+1
+              i+=5;anc=struct.unpack('>H',d[6:8])[0];ips=[]
+              for _ in range(anc):
+                  if d[i]&0xC0==0xC0:i+=2
+                  else:
+                      while d[i]!=0:i+=d[i]+1
+                      i+=1
+                  rt,rc,ttl,rl=struct.unpack('>HHIH',d[i:i+10]);i+=10
+                  if rt==1 and rl==4:ips.append('.'.join(str(b) for b in d[i:i+4]))
+                  i+=rl
+              return ips
+
+          for domain in ['live.kuaishou.com', 'www.kuaishou.com']:
+              ips = dns(domain)
+              ip = next((x for x in ips if x.startswith('103.102.202.')), ips[0])
+              subprocess.run(['sudo', 'bash', '-c', f'echo "{ip} {domain}" >> /etc/hosts'], check=True)
+              print(f"{domain} -> {ip}")
 
           with sync_playwright() as pw:
               browser = pw.chromium.launch(headless=True, args=["--no-sandbox","--disable-dev-shm-usage"])
-              ctx = browser.new_context(viewport={"width":1366,"height":900}, locale="zh-CN", user_agent=UA)
-              try:
-                  cache = json.load(open("kuaishou_guest_visitor.json"))
-                  ctx.add_cookies(cache["cookies"])
-              except: pass
 
+              # 测试 1: 全新 DID + 桌面 UA
+              print("\n=== Test 1: Fresh DID + Desktop UA ===")
+              ctx = browser.new_context(viewport={"width":1366,"height":900}, locale="zh-CN", user_agent=DESKTOP_UA)
+              # 不加载缓存的 DID cookie —— 全新身份
               page = ctx.new_page()
               api_results = []
               def on_resp(resp):
@@ -48,31 +70,78 @@ jobs:
                           data = d.get("data", {})
                           lst = data.get("list", [])
                           print(f"  API: result={data.get('result')}, list={len(lst)}, pcursor={data.get('pcursor')}")
-                          if lst:
+                          for item in lst[:5]:
+                              poster = item.get("poster", "")
                               # 从 poster URL 提取日期
-                              poster = lst[0].get("poster", "")
-                              print(f"  first poster: {poster[:100]}")
+                              import re
+                              date_match = re.search(r'/(\d{4}/\d{2}/\d{2})/', poster)
+                              date_str = date_match.group(1) if date_match else "unknown"
+                              print(f"    id={item.get('id')} date={date_str}")
                           api_results.append(data)
                       except: pass
               page.on("response", on_resp)
 
-              # 预热
-              print("Warming up...")
+              print("Warming up www (fresh identity)...")
+              page.goto("https://www.kuaishou.com/", wait_until="domcontentloaded", timeout=20000)
+              page.wait_for_timeout(10000)
+              cookies = {c["name"] for c in ctx.cookies()}
+              ab = cookies & {"kwfv1","kwssectoken","kwscode"}
+              new_did = next((c["value"] for c in ctx.cookies() if c["name"]=="did"), None)
+              print(f"  New DID: {new_did}")
+              print(f"  Antibot: {sorted(ab)}")
+
+              print(f"Navigating to profile/{PID}...")
+              page.goto(f"https://live.kuaishou.com/profile/{PID}", wait_until="domcontentloaded", timeout=30000)
+              page.wait_for_timeout(15000)
+              ctx.close()
+
+              # 测试 2: 全新 DID + 移动 UA
+              print("\n=== Test 2: Fresh DID + Mobile UA ===")
+              ctx2 = browser.new_context(viewport={"width":390,"height":844}, locale="zh-CN", user_agent=MOBILE_UA,
+                  device_scale_factor=3, is_mobile=True, has_touch=True)
+              page2 = ctx2.new_page()
+              api_results2 = []
+              def on_resp2(resp):
+                  if "live_api" in resp.url or "graphql" in resp.url or "/rest/" in resp.url:
+                      try:
+                          body = resp.body().decode("utf-8","replace")
+                          if any(x in resp.url for x in ["profile", "photo", "feed", "vision"]):
+                              print(f"  URL: {resp.url[:120]}")
+                              try:
+                                  d = json.loads(body)
+                                  data = d.get("data", d)
+                                  if isinstance(data, dict):
+                                      result = data.get("result")
+                                      lst = data.get("list", [])
+                                      feeds = None
+                                      if "visionProfilePhotoList" in data:
+                                          vpl = data["visionProfilePhotoList"]
+                                          if isinstance(vpl, dict):
+                                              feeds = vpl.get("feeds", [])
+                                      print(f"    result={result}, list={len(lst) if lst else 0}, feeds={len(feeds) if feeds else 0}")
+                              except:
+                                  print(f"    Body: {body[:200]}")
+                      except: pass
+              page2.on("response", on_resp2)
+
+              print("Warming up www (mobile)...")
+              page2.goto("https://www.kuaishou.com/", wait_until="domcontentloaded", timeout=20000)
+              page2.wait_for_timeout(8000)
+
+              print(f"Navigating to profile/{PID} (mobile)...")
+              page2.goto(f"https://live.kuaishou.com/profile/{PID}", wait_until="domcontentloaded", timeout=30000)
+              page2.wait_for_timeout(15000)
+
+              # 也试 m.kuaishou.com
+              print("\nTrying m.kuaishou.com...")
               try:
-                  page.goto("https://www.kuaishou.com/", wait_until="domcontentloaded", timeout=15000)
-                  page.wait_for_timeout(6000)
-              except: pass
+                  page2.goto(f"https://m.kuaishou.com/profile/{PID}", wait_until="domcontentloaded", timeout=15000)
+                  page2.wait_for_timeout(8000)
+                  print(f"  m.kuaishou.com URL after load: {page2.url}")
+                  print(f"  Title: {page2.title()}")
+              except Exception as e:
+                  print(f"  m.kuaishou.com error: {e}")
 
-              # 多次导航测试
-              for nav in range(3):
-                  print(f"\nNavigation {nav+1}:")
-                  page.goto(f"https://live.kuaishou.com/profile/{PID}", wait_until="domcontentloaded", timeout=20000)
-                  page.wait_for_timeout(8000)
-
-              # 汇总
-              print(f"\n=== SUMMARY ===")
-              for i, r in enumerate(api_results):
-                  print(f"  Call {i+1}: result={r.get('result')}, list={len(r.get('list',[]))}, pcursor={r.get('pcursor')}")
-
+              ctx2.close()
               browser.close()
           PYEOF
