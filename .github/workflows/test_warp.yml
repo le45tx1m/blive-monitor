@@ -10,15 +10,13 @@ jobs:
         with:
           python-version: '3.12'
       - name: Detailed Windows kuaishou test
+        shell: python
         run: |
-          python -c "
           import urllib.request, json
 
-          # 检查 IP
           ip = urllib.request.urlopen('https://api.ipify.org', timeout=10).read().decode()
           print(f'IP: {ip}')
 
-          # 直接请求 live_api（不带 cookie，看 result）
           url = 'https://live.kuaishou.com/live_api/profile/public?principalId=3xrgxqkqp829xz6&count=12&privacy=public'
           req = urllib.request.Request(url, headers={
               'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -32,15 +30,18 @@ jobs:
               print(f'Body length: {len(body)}')
               d = json.loads(body)
               data = d.get('data', {})
-              print(f'result: {data.get(\"result\")}')
+              result = data.get('result')
+              print(f'result: {result}')
               print(f'keys: {list(data.keys())}')
               lst = data.get('list', [])
               print(f'list count: {len(lst)}')
               for item in lst[:5]:
                   photo = item.get('photo', {})
-                  print(f'  id={photo.get(\"id\")} caption={str(photo.get(\"caption\",\"\"))[:60]}')
+                  pid = photo.get('id', '?')
+                  cap = str(photo.get('caption', ''))[:60]
+                  print(f'  id={pid} caption={cap}')
               live = data.get('live', {})
-              print(f'living: {live.get(\"author\",{}).get(\"living\")}')
+              living = live.get('author', {}).get('living')
+              print(f'living: {living}')
           except Exception as e:
               print(f'Error: {e}')
-          "
