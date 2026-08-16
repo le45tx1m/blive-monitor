@@ -928,14 +928,28 @@ def main() -> None:
             elif platform == "douyin":
                 result = fetch_douyin(rid)
             elif platform == "kuaishou":
-                # 临时冷却：2026-08-16 19:00 UTC 前完全跳过快手请求，让 IP 封锁冷却解除
+                # 快手降频/冷却控制（通过环境变量配置，默认不限制）：
+                # - KUAISHOU_COOLDOWN_UNTIL: ISO 时间戳，在此之前完全跳过快手请求
+                # - KUAISHOU_LIVE_INTERVAL_MIN: 直播检查间隔分钟数（默认 0=每轮检查）
+                import os as _os
                 from datetime import datetime as _dt, timezone as _tz
                 _now_utc = _dt.now(_tz.utc)
-                _cooldown_until = _dt(2026, 8, 16, 19, 0, tzinfo=_tz.utc)
-                if _now_utc < _cooldown_until:
+                _cooldown = _os.environ.get("KUAISHOU_COOLDOWN_UNTIL", "").strip()
+                _interval = int(_os.environ.get("KUAISHOU_LIVE_INTERVAL_MIN", "0") or "0")
+                _skip = False
+                if _cooldown:
+                    try:
+                        _until = _dt.fromisoformat(_cooldown.replace("Z", "+00:00"))
+                        if _now_utc < _until:
+                            _skip = True
+                    except Exception:
+                        pass
+                if not _skip and _interval > 0:
+                    _skip = (_now_utc.minute % _interval) > 4
+                if _skip:
                     _prev_ks = prev_status_full.get(key, {})
                     if _prev_ks:
-                        logger.info("  [%s] 快手 IP 冷却中（至 19:00 UTC），沿用上次状态: %s", name, _prev_ks.get("status"))
+                        logger.info("  [%s] 快手降频窗口外，沿用上次状态: %s", name, _prev_ks.get("status"))
                         result = {
                             "status": _prev_ks.get("status", "unknown"),
                             "title": _prev_ks.get("title", ""),
@@ -946,24 +960,8 @@ def main() -> None:
                         }
                     else:
                         result = {"status": "unknown", "title": "", "online": 0, "time": now_str}
-                # 降频：快手直播状态每 30 分钟才实际请求一次（UTC 分钟 0-4 / 30-34），
-                # 其余 run 沿用上一次已知状态，避免云 IP 高频请求触发风控封锁。
-                elif (_dt.utcnow().minute <= 4 or 30 <= _dt.utcnow().minute <= 34):
-                    result = fetch_kuaishou(rid, cfg_all)
                 else:
-                    _prev_ks = prev_status_full.get(key, {})
-                    if _prev_ks:
-                        logger.info("  [%s] 快手直播检查降频窗口外，沿用上次状态: %s", name, _prev_ks.get("status"))
-                        result = {
-                            "status": _prev_ks.get("status", "unknown"),
-                            "title": _prev_ks.get("title", ""),
-                            "online": _prev_ks.get("online", 0),
-                            "area": _prev_ks.get("area", ""),
-                            "nickname": _prev_ks.get("nickname", ""),
-                            "time": now_str,
-                        }
-                    else:
-                        result = fetch_kuaishou(rid, cfg_all)
+                    result = fetch_kuaishou(rid, cfg_all)
             else:
                 logger.warning("[%s] 未知平台，跳过检测: %s", name, platform)
                 result = {"status": "offline", "title": "", "online": 0, "time": now_str}
