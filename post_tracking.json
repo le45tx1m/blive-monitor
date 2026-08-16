@@ -170,16 +170,16 @@
   "douyin_70782856945": {
     "sec_uid": "MS4wLjABAAAAXWPkodA6DTIsuuegT8zdKRrPnFVVebMe0G1ist71jDtOKzEhGsB5VeHLA5uWu4IK",
     "latest_cover": "https://raw.githubusercontent.com/racheko-lab/blive-monitor/master/assets/covers/douyin_70782856945.jpg",
-    "latest_cover_cdn": "https://p11-sign.douyinpic.com/tos-cn-i-0813c001/o0DCO3yABjyBdzzUAAAeclfjACAi0ci1gE8IWs~tplv-dy-cropcenter:300:400.png?lk3s=2aa63f9f&x-expires=1786881600&x-signature=UgS970qwtRMWxh3c99auitbQEzQ%3D&from=715538335&s=PackSourceEnum_DOUYIN_REFLOW&se=true&sh=300_400&sc=cover&biz_tag=aweme_video&l=202608161451423252EBECEFBDF8BE8EB1",
+    "latest_cover_cdn": "https://p3-pc-sign.douyinpic.com/tos-cn-p-0015/owuPKBjIDbijAlkfAg90aD1gcNenOAZ9iIHBBb~noop.jpeg?lk3s=138a59ce&x-expires=1788069600&x-signature=UC0SPQYoWx11rv5ShnMGOUHN%2FIw%3D&from=327834062&s=PackSourceEnum_PUBLISH&se=false&biz_tag=pcweb_cover&l=202608161435307B17C0E43EDABB9CFF30",
     "latest_aweme_id": "7670881423683139290",
-    "latest_ct": 0,
+    "latest_ct": 1786016260,
     "mode": "api",
-    "latest_count": 0,
+    "latest_count": 1786016260,
     "nickname": "米多多",
     "avatar": "https://p3-pc.douyinpic.com/aweme/720x720/aweme-avatar/tos-cn-i-0813c001_oMMXB5P7iI3mAhbAvtBxiAjAgobgAIvEwaBA4.jpeg?from=2956013662",
-    "latest_desc": "幸福有很多种收到大闺闺送的奶茶花是一种@ 微醺，#霸王茶姬 #秋天的第一杯奶茶",
-    "latest_type": "视频",
-    "latest_url": "https://www.douyin.com/video/7670881423683139290"
+    "latest_desc": "幸福有很多种收到大闺闺送的奶茶花是一种@\n微醺，#霸王茶姬 #秋天的第一杯奶茶",
+    "latest_type": "图文",
+    "latest_url": "https://www.douyin.com/note/7670881423683139290"
   },
   "douyin_32062056217": {
     "sec_uid": "MS4wLjABAAAASbtZpohJd3E4CMctcy5mTwdLJYq1wQt27I5muIshIxlT11i88tVEyQgMs34lIlDO",
@@ -297,7 +297,7 @@
   "douyin_hanyitongshiwoya": {
     "sec_uid": "MS4wLjABAAAAZ5AsYinQNfJdUSkxT6UB4Wfc3SEn_KeKMc1iVjVoDhZ-2kf3o8svKNjtSlfWchb-",
     "latest_cover": "https://raw.githubusercontent.com/racheko-lab/blive-monitor/master/assets/covers/douyin_hanyitongshiwoya.jpg",
-    "latest_cover_cdn": "https://p11-sign.douyinpic.com/tos-cn-i-0813c000-ce/osfUlD7DBxDfDeDEV4FKFIAoJ0AkQgFuusAOpA~tplv-dy-cropcenter:300:400.png?lk3s=2aa63f9f&x-expires=1786881600&x-signature=odrTiaftmHnGKeEwp%2BR4pvOKNds%3D&from=715538335&s=PackSourceEnum_DOUYIN_REFLOW&se=true&sh=300_400&sc=cover&biz_tag=aweme_video&l=20260816145244276A84A16A3D7CB16BE5",
+    "latest_cover_cdn": "https://p3-pc-sign.douyinpic.com/tos-cn-p-0015c000-ce/o48Ufe7iByMXE9lQGeXcrgxKJ4RHggDhvqGOSA~tplv-dy-360p.jpeg?lk3s=138a59ce&x-expires=1788069600&x-signature=sr6MfWj05%2FrYtcfSW9XaNLjFJlw%3D&from=327834062&s=PackSourceEnum_PUBLISH&se=false&sc=origin_cover&biz_tag=pcweb_cover&l=20260816143634602D4442C13189870746",
     "latest_aweme_id": "7673819892215482097",
     "latest_ct": 0,
     "mode": "api",
@@ -311,7 +311,7 @@
   "douyin_MS4wLjABAAAASMZtyFokppaU8Iyatpar3jIhPyYJC7r3ID5ptw4DROI": {
     "sec_uid": "MS4wLjABAAAASMZtyFokppaU8Iyatpar3jIhPyYJC7r3ID5ptw4DROI",
     "latest_cover": "https://raw.githubusercontent.com/racheko-lab/blive-monitor/master/assets/covers/douyin_MS4wLjABAAAASMZtyFokppaU8Iyatpar3jIhPyYJC7r3ID5ptw4DROI.jpg",
-    "latest_cover_cdn": "https://p3-sign.douyinpic.com/tos-cn-i-0813c000-ce/ogo8JKfD8EoF7eUBVXOEBf0V9ElAKE5AFAAaIg~tplv-dy-cropcenter:300:400.png?lk3s=2aa63f9f&x-expires=1786881600&x-signature=WhCfuX5vddmktj%2FBjPXuf1gCRCg%3D&from=715538335&s=PackSourceEnum_DOUYIN_REFLOW&se=true&sh=300_400&sc=cover&biz_tag=aweme_video&l=20260816145158CD81D75F985BD8BA73C5",
+    "latest_cover_cdn": "https://p3-sign.douyinpic.com/tos-cn-i-0813c000-ce/ogo8JKfD8EoF7eUBVXOEBf0V9ElAKE5AFAAaIg~tplv-dy-cropcenter:300:400.png?lk3s=2aa63f9f&x-expires=1786881600&x-signature=WhCfuX5vddmktj%2FBjPXuf1gCRCg%3D&from=715538335&s=PackSourceEnum_DOUYIN_REFLOW&se=true&sh=300_400&sc=cover&biz_tag=aweme_video&l=202608161435388FAFF4A6A58B38B7DE04",
     "latest_aweme_id": "7673393086533982715",
     "latest_ct": 0,
     "mode": "api",
