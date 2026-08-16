@@ -946,6 +946,16 @@ def main() -> None:
                         pass
                 if not _skip and _interval > 0:
                     _skip = (_now_utc.minute % _interval) > 4
+                # 检查出口 IP 是否在已知封锁段
+                if not _skip:
+                    try:
+                        import urllib.request as _ur
+                        _ip = _ur.urlopen("https://api.ipify.org", timeout=5).read().decode().strip()
+                        if _ip.startswith("13.105.117."):
+                            _skip = True
+                            logger.info("  [%s] 出口 IP %s 在快手封锁段，跳过直播检查", name, _ip)
+                    except Exception:
+                        pass
                 if _skip:
                     _prev_ks = prev_status_full.get(key, {})
                     if _prev_ks:

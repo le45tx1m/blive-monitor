@@ -270,6 +270,9 @@ class KuaishouFeedSession:
     MAX_USES_PER_TOKEN = 3
     #: 账号间延迟秒数（降低单 IP 请求密度，避免触发频控）
     INTER_ACCOUNT_DELAY_SEC = 12
+    #: 已知被快手硬风控的 GitHub macOS runner IP 段前缀。
+    #: 落在这些段时直接跳过，避免刷新封锁计时，等待分配到其他段的 runner。
+    BLOCKED_IP_PREFIXES = ("13.105.117.",)
 
     def __init__(self, browser_context: Any, user_agent: str = "",
                  kuaishou_cookie: str = "") -> None:
@@ -485,6 +488,18 @@ class KuaishouFeedSession:
         供上层判断是否要退化自愈（强制重预热）。
         """
         import json as _json
+
+        # 快速检查出口 IP：落在已知封锁段则直接返回，不发任何请求
+        try:
+            import urllib.request as _ur
+            _ip = _ur.urlopen("https://api.ipify.org", timeout=5).read().decode().strip()
+            if any(_ip.startswith(p) for p in self.BLOCKED_IP_PREFIXES):
+                logger.warning("[kuaishou] %s 出口 IP %s 在已知封锁段，跳过本轮", pid, _ip)
+                return {"ok": False, "result": 2, "items": [], "living": None,
+                        "author_name": "", "author_id": "",
+                        "detail": f"出口 IP {_ip} 在封锁段"}, [2]
+        except Exception:
+            pass
 
         page = ctx.new_page()
         best: Dict[str, Any] = {}
