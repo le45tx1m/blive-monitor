@@ -14,70 +14,118 @@ jobs:
           python -m pip install --upgrade pip -q
           pip install patchright -q
           patchright install --with-deps chromium
-      - name: Test alternative IPs
+      - name: Creative approaches
         run: |
-          # 先测 v.kuaishou.com 的 IP
-          echo "124.156.126.37 live.kuaishou.com" | sudo tee -a /etc/hosts
-          echo "103.102.202.144 www.kuaishou.com" | sudo tee -a /etc/hosts
-          curl -s -o /dev/null -w "live via 124.156.126.37: %{http_code} (%{time_total}s)\n" https://live.kuaishou.com/ 2>&1
-
           python3 << 'PYEOF'
-          import json, time, re
-          from patchright.sync_api import sync_playwright
+          import json, re, ssl, socket, struct, random, subprocess
+          import urllib.request, urllib.error
 
           PID = "3xrgxqkqp829xz6"
           UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
-          with sync_playwright() as pw:
-              browser = pw.chromium.launch(headless=True, args=["--no-sandbox","--disable-dev-shm-usage","--ignore-certificate-errors"])
-              ctx = browser.new_context(viewport={"width":1366,"height":900}, locale="zh-CN",
-                  timezone_id="Asia/Shanghai", user_agent=UA, ignore_https_errors=True)
-              page = ctx.new_page()
-
-              api_results = []
-              def on_resp(resp):
-                  if "live_api/profile/public" in resp.url:
-                      try:
-                          d = json.loads(resp.body().decode("utf-8","replace"))
-                          data = d.get("data", {})
-                          lst = data.get("list", [])
-                          items = []
-                          for item in lst[:12]:
-                              poster = item.get("poster", "")
-                              dm = re.search(r'/(\d{4}/\d{2}/\d{2})/', poster)
-                              items.append(f"{item.get('id')}({dm.group(1) if dm else '?'})")
-                          print(f"  API: result={data.get('result')}, list={len(lst)}, pcursor={data.get('pcursor')}")
-                          print(f"  items: {items}")
-                          api_results.append(data)
-                      except: pass
-              page.on("response", on_resp)
-
-              # 预热
-              print("Warming up www...")
+          def fetch(url, timeout=15):
               try:
-                  page.goto("https://www.kuaishou.com/", wait_until="domcontentloaded", timeout=20000)
-                  page.wait_for_timeout(8000)
+                  req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "text/html,application/json,*/*"})
+                  ctx = ssl.create_default_context()
+                  ctx.check_hostname = False
+                  ctx.verify_mode = ssl.CERT_NONE
+                  resp = urllib.request.urlopen(req, timeout=timeout, context=ctx)
+                  return resp.status, resp.read().decode("utf-8", "replace")
+              except urllib.error.HTTPError as e:
+                  return e.code, e.read().decode("utf-8", "replace")[:500]
               except Exception as e:
-                  print(f"Warmup: {e}")
-              cookies = {c["name"] for c in ctx.cookies()}
-              ab = cookies & {"kwfv1","kwssectoken","kwscode"}
-              print(f"Antibot: {sorted(ab)}, did={'did' in cookies}")
+                  return None, str(e)[:200]
 
-              # 访问 profile (via 124.156.126.37)
-              print(f"\nNavigating to profile via 124.156.126.37...")
+          # 1. RSS feed
+          print("=== RSS feeds ===")
+          for url in [
+              f"https://live.kuaishou.com/rss/{PID}",
+              f"https://www.kuaishou.com/rss/{PID}",
+              f"https://live.kuaishou.com/feed/{PID}",
+              f"https://live.kuaishou.com/atom/{PID}",
+          ]:
+              status, body = fetch(url)
+              print(f"  {url}: {status} {body[:100] if body else ''}")
+
+          # 2. Baidu cache
+          print("\n=== Baidu/Sogou cache ===")
+          for name, url in [
+              ("Baidu", f"https://cache.baidu.com/c?url=https%3A%2F%2Flive.kuaishou.com%2Fprofile%2F{PID}"),
+              ("Sogou", f"https://snapshot.sogoucdn.com/websnapshot?ie=utf8&url=https%3A%2F%2Flive.kuaishou.com%2Fprofile%2F{PID}"),
+          ]:
+              status, body = fetch(url)
+              print(f"  {name}: {status}, len={len(body) if body else 0}")
+              if body and ("photo" in body.lower() or "3x6zh" in body or "poster" in body.lower()):
+                  print(f"    Contains video data!")
+                  # 找作品 ID
+                  ids = re.findall(r'3x[0-9a-z]{13,}', body)
+                  print(f"    Found IDs: {ids[:5]}")
+
+          # 3. 用中国 CDN 试不同的 API 路径
+          print("\n=== Chinese CDN: alternative API paths ===")
+          def dns(name, srv='223.5.5.5'):
+              txid=random.randint(0,65535)
+              h=struct.pack('>HHHHHH',txid,0x0100,1,0,0,0)
+              q=b''.join(bytes([len(p)])+p.encode() for p in name.split('.'))+b'\x00'+struct.pack('>HH',1,1)
+              s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM);s.settimeout(5)
+              s.sendto(h+q,(srv,53));d=s.recv(512);s.close()
+              i=12
+              while d[i]!=0:i+=d[i]+1
+              i+=5;anc=struct.unpack('>H',d[6:8])[0];ips=[]
+              for _ in range(anc):
+                  if d[i]&0xC0==0xC0:i+=2
+                  else:
+                      while d[i]!=0:i+=d[i]+1
+                      i+=1
+                  rt,rc,ttl,rl=struct.unpack('>HHIH',d[i:i+10]);i+=10
+                  if rt==1 and rl==4:ips.append('.'.join(str(b) for b in d[i:i+4]))
+                  i+=rl
+              return ips
+
+          for domain in ['live.kuaishou.com', 'www.kuaishou.com']:
+              ips = dns(domain)
+              ip = next((x for x in ips if x.startswith('103.102.202.')), ips[0])
+              subprocess.run(['sudo', 'bash', '-c', f'echo "{ip} {domain}" >> /etc/hosts'], check=True)
+
+          # 试不同 API 路径
+          paths = [
+              f"/live_api/profile/public?principalId={PID}&count=12&privacy=public&caver=2",
+              f"/live_api/profile/photo?principalId={PID}&count=12",
+              f"/live_api/profile/feed?principalId={PID}&count=12",
+              f"/live_api/profile/posts?principalId={PID}&count=12",
+              f"/live_api/profile/videos?principalId={PID}&count=12",
+              f"/live_api/profile/works?principalId={PID}&count=12",
+              f"/live_api/user/photos?principalId={PID}&count=12",
+              f"/live_api/user/posts?principalId={PID}&count=12",
+              f"/rest/v/profile/feed?principalId={PID}&count=12",
+              f"/rest/v/profile/photo?principalId={PID}&count=12",
+              f"/rest/v/profile/public?principalId={PID}&count=12",
+          ]
+          for path in paths:
+              status, body = fetch(f"https://live.kuaishou.com{path}")
               try:
-                  page.goto(f"https://live.kuaishou.com/profile/{PID}", wait_until="domcontentloaded", timeout=30000)
-                  page.wait_for_timeout(15000)
-              except Exception as e:
-                  print(f"Navigation error: {e}")
+                  d = json.loads(body)
+                  data = d.get("data", d)
+                  lst = data.get("list", data.get("feeds", []))
+                  print(f"  {path[:60]}: status={status} result={data.get('result')} list={len(lst) if isinstance(lst,list) else 'N/A'}")
+              except:
+                  print(f"  {path[:60]}: status={status} body={body[:80] if body else ''}")
 
-              if not api_results:
-                  print("No API response, checking page content...")
-                  try:
-                      title = page.title()
-                      url = page.url
-                      print(f"Title: {title}, URL: {url}")
-                  except: pass
-
-              browser.close()
+          # 4. 试不同用户的 principalId（看是否是账号特定问题）
+          print("\n=== Chinese CDN: different users ===")
+          # 用一些知名快手用户的 ID（从公开资料获取）
+          test_pids = [
+              ("3xrgxqkqp829xz6", "Sandy88888"),
+              ("3xrfjvrm56bk3rq", "test-user-1"),
+              ("3xrgxqkqp829xz7", "test-user-2"),
+          ]
+          for pid, name in test_pids:
+              status, body = fetch(f"https://live.kuaishou.com/live_api/profile/public?principalId={pid}&count=12&privacy=public&caver=2")
+              try:
+                  d = json.loads(body)
+                  data = d.get("data", d)
+                  lst = data.get("list", [])
+                  print(f"  {name} ({pid}): result={data.get('result')} list={len(lst)}")
+              except:
+                  print(f"  {name}: status={status}")
           PYEOF
