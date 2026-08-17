@@ -123,6 +123,8 @@
   {
     "platform": "douyin",
     "id": "652889688304",
-    "name": "小洲"
+    "name": "小洲",
+    "tags": [],
+    "enabled": true
   }
 ]
