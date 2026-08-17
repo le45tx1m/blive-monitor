@@ -3,7 +3,7 @@
     "last_live": "2026-08-16 23:38:36",
     "live_start": "2026-08-17 18:31:08",
     "last_duration": "2h56min",
-    "live_duration": "2h46min"
+    "live_duration": "4min"
   },
   "douyin_83134194400": {
     "last_live": "",
@@ -120,5 +120,10 @@
     "last_live": "",
     "live_start": "",
     "sec_uid": "MS4wLjABAAAAZ5AsYinQNfJdUSkxT6UB4Wfc3SEn_KeKMc1iVjVoDhZ-2kf3o8svKNjtSlfWchb-"
+  },
+  "douyin_652889688304": {
+    "last_live": "",
+    "live_start": "",
+    "sec_uid": "MS4wLjABAAAAy6l62GPFrula4vgmswC7c1W_s0Yia1fvqMg3PluuEzA"
   }
 }
