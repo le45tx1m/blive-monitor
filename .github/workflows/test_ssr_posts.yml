@@ -14,7 +14,7 @@ jobs:
           python -m pip install --upgrade pip -q
           pip install patchright -q
           patchright install --with-deps chromium
-      - name: Cache bust + feed structure
+      - name: Cache bypass tests
         run: |
           python3 << 'PYEOF'
           import json, time, socket, struct, random, subprocess, re
@@ -48,6 +48,16 @@ jobs:
               subprocess.run(['sudo', 'bash', '-c', f'echo "{ip} {domain}" >> /etc/hosts'], check=True)
               print(f"{domain} -> {ip}")
 
+          def log_result(label, data):
+              lst = data.get("list", [])
+              items = []
+              for item in lst[:12]:
+                  poster = item.get("poster", "")
+                  dm = re.search(r'/(\d{4}/\d{2}/\d{2})/', poster)
+                  items.append(f"{item.get('id')}({dm.group(1) if dm else '?'})")
+              print(f"  [{label}] result={data.get('result')}, list={len(lst)}, pcursor={data.get('pcursor')}")
+              print(f"  items: {items}")
+
           with sync_playwright() as pw:
               browser = pw.chromium.launch(headless=True, args=["--no-sandbox","--disable-dev-shm-usage"])
               ctx = browser.new_context(viewport={"width":1366,"height":900}, locale="zh-CN",
@@ -65,57 +75,59 @@ jobs:
               ab = cookies & {"kwfv1","kwssectoken","kwscode"}
               print(f"Antibot: {sorted(ab)}, did={'did' in cookies}")
 
-              # 拦截 API 并加缓存破坏参数，同时改 hasMore=false
-              def bust_cache(route, request):
-                  url = request.url
-                  if "live_api/profile/public" in url:
-                      url = url.replace("hasMore=true", "hasMore=false")
-                      url += f"&_t={int(time.time()*1000)}"
-                      print(f"  [BUST] {url[-100:]}")
-                  route.continue_(url=url)
-              page.route("**/live_api/profile/public*", bust_cache)
-
-              api_results = []
+              # 测试 1: Cache-Control: no-cache
+              print("\n=== Test: Cache-Control no-cache ===")
+              def add_nocache(route, request):
+                  headers = request.headers.copy()
+                  headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+                  headers["Pragma"] = "no-cache"
+                  url = request.url.replace("hasMore=true", "hasMore=false")
+                  route.continue_(url=url, headers=headers)
+              page.route("**/live_api/profile/public*", add_nocache)
+              results = []
               def on_resp(resp):
                   if "live_api/profile/public" in resp.url:
-                      try:
-                          d = json.loads(resp.body().decode("utf-8","replace"))
-                          data = d.get("data", {})
-                          lst = data.get("list", [])
-                          items = []
-                          for item in lst[:12]:
-                              poster = item.get("poster", "")
-                              dm = re.search(r'/(\d{4}/\d{2}/\d{2})/', poster)
-                              items.append(f"{item.get('id')}({dm.group(1) if dm else '?'})")
-                          print(f"  API: result={data.get('result')}, list={len(lst)}, pcursor={data.get('pcursor')}")
-                          print(f"  items: {items}")
-                          api_results.append(data)
+                      try: results.append(json.loads(resp.body().decode())["data"])
                       except: pass
               page.on("response", on_resp)
-
-              # 多次导航测试
-              for i in range(3):
-                  print(f"\n=== Navigation {i+1} ===")
-                  page.goto(f"https://live.kuaishou.com/profile/{PID}?_t={int(time.time()*1000)}",
-                           wait_until="domcontentloaded", timeout=30000)
-                  page.wait_for_timeout(10000)
-
-              # 也试直接在浏览器里 fetch（带签名由页面 JS 处理）
-              print("\n=== Direct fetch from page context ===")
-              # 先访问 profile 页让 JS 加载
+              page.goto(f"https://live.kuaishou.com/profile/{PID}", wait_until="domcontentloaded", timeout=30000)
+              page.wait_for_timeout(12000)
+              page.remove_listener("response", on_resp)
               page.unroute("**/live_api/profile/public*")
-              fetch_result = page.evaluate("""async (pid) => {
-                  // 尝试找到签名函数并直接调用 API
-                  const results = [];
-                  // 方法1: 直接 fetch（不带签名，看错误）
+              for r in results: log_result("no-cache", r)
+
+              # 测试 2: 用 page.evaluate 发 POST 请求
+              print("\n=== Test: POST request ===")
+              post_result = page.evaluate("""async (pid) => {
                   try {
-                      const r1 = await fetch(`/live_api/profile/public?principalId=${pid}&count=12&privacy=public&caver=2&hasMore=false`, {credentials: 'include'});
-                      const d1 = await r1.json();
-                      results.push({method: 'no-sig', result: d1.data?.result, count: d1.data?.list?.length});
-                  } catch(e) { results.push({method: 'no-sig', error: e.message}); }
-                  return results;
+                      const resp = await fetch(`/live_api/profile/public?principalId=${pid}&count=12&privacy=public&caver=2&hasMore=false`, {
+                          method: 'POST',
+                          credentials: 'include',
+                          headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                          body: ''
+                      });
+                      const d = await resp.json();
+                      const data = d.data || {};
+                      return {result: data.result, count: (data.list||[]).length, pcursor: data.pcursor,
+                              items: (data.list||[]).slice(0,5).map(i => i.id)};
+                  } catch(e) { return {error: e.message}; }
               }""", PID)
-              print(f"  Direct fetch: {fetch_result}")
+              print(f"  POST: {post_result}")
+
+              # 测试 3: 用不同的省份 DNS 解析，试不同 CDN 边缘
+              print("\n=== Test: Different provincial DNS ===")
+              dns_servers = [
+                  ("Beijing", "202.106.0.20"),
+                  ("Shanghai", "202.96.209.133"),
+                  ("Guangdong", "202.96.128.86"),
+                  ("Sichuan", "202.98.96.68"),
+              ]
+              for name, srv in dns_servers:
+                  try:
+                      ips = dns("live.kuaishou.com", srv)
+                      print(f"  {name} ({srv}): {ips}")
+                  except Exception as e:
+                      print(f"  {name}: {e}")
 
               browser.close()
           PYEOF
