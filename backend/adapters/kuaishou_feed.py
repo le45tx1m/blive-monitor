@@ -128,13 +128,37 @@ _CN_HOSTS_BACKUP: Optional[str] = None
 
 
 def _resolve_china_cdn(domain: str, dns_server: str = _CN_DNS_SERVER) -> List[str]:
-    """用自定义 UDP DNS 查询解析域名 A 记录（绕过本地 DNS 返回的海外边缘 IP）。
+    """用 DNS over HTTPS (AliDNS) 解析域名 A 记录，拿到中国 CDN 边缘 IP。
+
+    走 HTTPS（443 端口）而非 UDP 53，避免云 runner 对自定义 DNS 的限制。
+    备用：UDP 53 直查（某些环境 DoH 被限时）。
 
     Returns:
         IP 地址列表；查询失败返回空列表。
     """
     if domain in _CN_DNS_CACHE:
         return _CN_DNS_CACHE[domain]
+    # 方法 1：DNS over HTTPS（AliDNS，走 443，最可靠）
+    try:
+        import urllib.request
+        import urllib.parse
+        url = f"https://dns.alidns.com/resolve?name={urllib.parse.quote(domain)}&type=A"
+        req = urllib.request.Request(url, headers={
+            "Accept": "application/dns-json",
+            "User-Agent": "Mozilla/5.0",
+        })
+        ctx = __import__("ssl").create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = __import__("ssl").CERT_NONE
+        resp = urllib.request.urlopen(req, timeout=8, context=ctx)
+        data = json.loads(resp.read().decode("utf-8", "replace"))
+        ips = [a["data"] for a in data.get("Answer", []) if a.get("type") == 1]
+        if ips:
+            _CN_DNS_CACHE[domain] = ips
+            return ips
+    except Exception as e:  # noqa: BLE001
+        logger.debug("[kuaishou] DoH 解析 %s 失败: %s，尝试 UDP", domain, e)
+    # 方法 2：UDP 53 直查（备用）
     try:
         txid = random.randint(0, 65535)
         header = struct.pack(">HHHHHH", txid, 0x0100, 1, 0, 0, 0)
@@ -147,13 +171,12 @@ def _resolve_china_cdn(domain: str, dns_server: str = _CN_DNS_SERVER) -> List[st
         sock.sendto(header + question, (dns_server, 53))
         data, _ = sock.recvfrom(512)
         sock.close()
-        # 跳过 header(12) + question section
         i = 12
         while data[i] != 0:
             i += data[i] + 1
-        i += 5  # null byte + qtype(2) + qclass(2)
+        i += 5
         ancount = struct.unpack(">H", data[6:8])[0]
-        ips: List[str] = []
+        ips = []
         for _ in range(ancount):
             if data[i] & 0xC0 == 0xC0:
                 i += 2
@@ -170,7 +193,7 @@ def _resolve_china_cdn(domain: str, dns_server: str = _CN_DNS_SERVER) -> List[st
             _CN_DNS_CACHE[domain] = ips
         return ips
     except Exception as e:  # noqa: BLE001
-        logger.debug("[kuaishou] 中国 DNS 解析 %s 失败: %s", domain, e)
+        logger.debug("[kuaishou] UDP DNS 解析 %s 失败: %s", domain, e)
         return []
 
 
@@ -648,18 +671,20 @@ class KuaishouFeedSession:
         """
         import json as _json
 
-        # 快速检查出口 IP：落在已知封锁段则直接返回，不发任何请求
-        try:
-            import urllib.request as _ur
-            _ip = _ur.urlopen("https://api.ipify.org", timeout=5).read().decode().strip()
-            if any(_ip.startswith(p) for p in self._get_blocked_prefixes()):
-                logger.warning("[kuaishou] %s 出口 IP %s 在已知封锁段，跳过本轮", pid, _ip)
-                self._ip_block_suspected = True
-                return {"ok": False, "result": 2, "items": [], "living": None,
-                        "author_name": "", "author_id": "",
-                        "detail": f"出口 IP {_ip} 在封锁段"}, [2]
-        except Exception:
-            pass
+        # 快速检查出口 IP：落在已知封锁段则直接返回，不发任何请求。
+        # 中国 CDN 降级已激活时跳过此检查（流量走 CDN 边缘 IP，本机出口 IP 无关）。
+        if not _CN_HOSTS_SETUP_DONE:
+            try:
+                import urllib.request as _ur
+                _ip = _ur.urlopen("https://api.ipify.org", timeout=5).read().decode().strip()
+                if any(_ip.startswith(p) for p in self._get_blocked_prefixes()):
+                    logger.warning("[kuaishou] %s 出口 IP %s 在已知封锁段，跳过本轮", pid, _ip)
+                    self._ip_block_suspected = True
+                    return {"ok": False, "result": 2, "items": [], "living": None,
+                            "author_name": "", "author_id": "",
+                            "detail": f"出口 IP {_ip} 在封锁段"}, [2]
+            except Exception:
+                pass
 
         page = ctx.new_page()
         best: Dict[str, Any] = {}
