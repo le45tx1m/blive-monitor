@@ -78,6 +78,10 @@ kpfdrx3x/c.kuaishou/v.m.chenzhongtech 三子域、两个账号，结论一致）
 
 import json
 import os
+import random
+import socket
+import struct
+import subprocess
 import threading
 import time
 from typing import Any, Dict, List, Optional
@@ -101,6 +105,150 @@ from backend.adapters.kuaishou_feed_core import (  # noqa: F401
 )
 
 logger = __import__("logging").getLogger(__name__)
+
+
+# ==================== 中国 CDN 降级（云 IP 被封时的兜底通道） ====================
+#
+# 背景：2026-08-14 起快手对所有云数据中心 IP 段（Azure/AWS/GitHub runner）实施
+# 硬封锁，live_api/profile/public 恒返回 result=2。但用中国 DNS（223.5.5.5）
+# 解析快手域名会得到中国 CDN 边缘节点（103.102.202.x，北京电信），这些节点
+# 对海外云 IP 不做 IP 封锁，能返回 result=1。
+#
+# 限制：中国 CDN 边缘对海外客户端返回缓存内容（通常 1 条旧作品，pcursor=no_more），
+# 但当作者发布新作品、CDN 缓存刷新后即可检测到新作。这是云 IP 上唯一能拿到
+# result=1 的通道，作为自托管 runner（住宅 IP）不可用时的降级方案。
+#
+# 自托管 runner（用户西安住宅 IP）直连即可拿全量数据，不会触发此降级。
+
+_CN_DNS_SERVER = "223.5.5.5"  # AliDNS，返回中国 CDN 边缘 IP
+_CN_CDN_PREFIX = "103.102.202."
+_CN_DNS_CACHE: Dict[str, List[str]] = {}
+_CN_HOSTS_SETUP_DONE = False
+_CN_HOSTS_BACKUP: Optional[str] = None
+
+
+def _resolve_china_cdn(domain: str, dns_server: str = _CN_DNS_SERVER) -> List[str]:
+    """用自定义 UDP DNS 查询解析域名 A 记录（绕过本地 DNS 返回的海外边缘 IP）。
+
+    Returns:
+        IP 地址列表；查询失败返回空列表。
+    """
+    if domain in _CN_DNS_CACHE:
+        return _CN_DNS_CACHE[domain]
+    try:
+        txid = random.randint(0, 65535)
+        header = struct.pack(">HHHHHH", txid, 0x0100, 1, 0, 0, 0)
+        question = b"".join(
+            bytes([len(part)]) + part.encode()
+            for part in domain.split(".")
+        ) + b"\x00" + struct.pack(">HH", 1, 1)  # A, IN
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.settimeout(5)
+        sock.sendto(header + question, (dns_server, 53))
+        data, _ = sock.recvfrom(512)
+        sock.close()
+        # 跳过 header(12) + question section
+        i = 12
+        while data[i] != 0:
+            i += data[i] + 1
+        i += 5  # null byte + qtype(2) + qclass(2)
+        ancount = struct.unpack(">H", data[6:8])[0]
+        ips: List[str] = []
+        for _ in range(ancount):
+            if data[i] & 0xC0 == 0xC0:
+                i += 2
+            else:
+                while data[i] != 0:
+                    i += data[i] + 1
+                i += 1
+            rtype, _rclass, _ttl, rdlen = struct.unpack(">HHIH", data[i:i + 10])
+            i += 10
+            if rtype == 1 and rdlen == 4:
+                ips.append(".".join(str(b) for b in data[i:i + 4]))
+            i += rdlen
+        if ips:
+            _CN_DNS_CACHE[domain] = ips
+        return ips
+    except Exception as e:  # noqa: BLE001
+        logger.debug("[kuaishou] 中国 DNS 解析 %s 失败: %s", domain, e)
+        return []
+
+
+def setup_china_cdn_hosts() -> bool:
+    """把 live.kuaishou.com / www.kuaishou.com 指向中国 CDN 边缘 IP。
+
+    通过写入 /etc/hosts 实现（需要 sudo 权限，GitHub runner 上免密）。
+    只在首次调用时执行，后续调用直接返回。浏览器需要在 hosts 修改后
+    **新建** context 才能生效（已有 context 的 DNS 缓存不会刷新）。
+
+    Returns:
+        True 如果 hosts 已配置（或之前已配置），False 如果失败。
+    """
+    global _CN_HOSTS_SETUP_DONE, _CN_HOSTS_BACKUP
+    if _CN_HOSTS_SETUP_DONE:
+        return True
+    # 允许通过环境变量禁用中国 CDN 降级
+    if os.environ.get("KUAISHOU_NO_CN_CDN", "").strip() in ("1", "true", "yes"):
+        logger.info("[kuaishou] 中国 CDN 降级已通过 KUAISHOU_NO_CN_CDN 禁用")
+        return False
+    domains = ["live.kuaishou.com", "www.kuaishou.com"]
+    entries = []
+    for domain in domains:
+        ips = _resolve_china_cdn(domain)
+        cn_ip = next((ip for ip in ips if ip.startswith(_CN_CDN_PREFIX)), None)
+        if not cn_ip:
+            logger.warning("[kuaishou] 中国 DNS 未返回 %s 的 CDN IP（得到 %s），降级不可用",
+                           domain, ips)
+            return False
+        entries.append(f"{cn_ip} {domain}")
+        logger.info("[kuaishou] 中国 CDN 降级: %s -> %s", domain, cn_ip)
+    try:
+        # 备份原 hosts 文件（用于自托管 runner 恢复）
+        hosts_path = "/etc/hosts"
+        if os.path.exists(hosts_path):
+            with open(hosts_path, "r") as f:
+                _CN_HOSTS_BACKUP = f.read()
+        # 写入（sudo，GitHub runner 免密；自托管 runner 可能需要密码）
+        entry_str = "\n".join(entries) + "\n"
+        proc = subprocess.run(
+            ["sudo", "bash", "-c", f"cat >> {hosts_path}"],
+            input=entry_str, capture_output=True, text=True, timeout=10,
+        )
+        if proc.returncode != 0:
+            # 无 sudo 权限时尝试直接写（root 环境）
+            try:
+                with open(hosts_path, "a") as f:
+                    f.write(entry_str)
+            except PermissionError:
+                logger.warning("[kuaishou] 无法写入 %s（需要 sudo 权限），中国 CDN 降级不可用",
+                               hosts_path)
+                return False
+        _CN_HOSTS_SETUP_DONE = True
+        logger.info("[kuaishou] 中国 CDN hosts 已配置（新建浏览器 context 后生效）")
+        return True
+    except Exception as e:  # noqa: BLE001
+        logger.warning("[kuaishou] 配置中国 CDN hosts 失败: %s", e)
+        return False
+
+
+def restore_hosts() -> None:
+    """恢复 /etc/hosts 到中国 CDN 修改前的状态（自托管 runner 清理用）。"""
+    global _CN_HOSTS_SETUP_DONE, _CN_HOSTS_BACKUP
+    if not _CN_HOSTS_SETUP_DONE or _CN_HOSTS_BACKUP is None:
+        return
+    try:
+        hosts_path = "/etc/hosts"
+        proc = subprocess.run(
+            ["sudo", "bash", "-c", f"cat > {hosts_path}"],
+            input=_CN_HOSTS_BACKUP, capture_output=True, text=True, timeout=10,
+        )
+        if proc.returncode != 0:
+            with open(hosts_path, "w") as f:
+                f.write(_CN_HOSTS_BACKUP)
+        logger.info("[kuaishou] /etc/hosts 已恢复")
+    except Exception:  # noqa: BLE001
+        pass
+    _CN_HOSTS_SETUP_DONE = False
 
 
 # ==================== 稳定游客身份缓存（跨 context / 跨运行复用 did） ====================
@@ -292,6 +440,8 @@ class KuaishouFeedSession:
         self._uses = 0
         # 本轮疑似出口 IP 被硬风控（全套 token 在但持续 result=2），供 fetch 跳过无意义重预热
         self._ip_block_suspected = False
+        # 中国 CDN 降级是否已尝试过（每会话只试一次，避免重复写 hosts/重建 context）
+        self._cn_cdn_tried = False
         # 可选：登录 Cookie（KUAISHOU_COOKIE），注入自建隔离 context 以突破匿名风控。
         # 空串 = 走免 Cookie 匿名通道（live_api/profile/public + 预热种 token）。
         self._kuaishou_cookie = kuaishou_cookie or ""
@@ -652,6 +802,39 @@ class KuaishouFeedSession:
             parsed = parsed2
         if only_blocked and self._ip_block_suspected:
             logger.warning("[kuaishou] %s 疑似 IP 硬风控，跳过重预热重试（token 已齐，重试无效）", pid)
+
+        # 中国 CDN 降级：IP 被硬风控时，把快手域名指向中国 CDN 边缘节点（103.102.202.x），
+        # 重建浏览器 context 让 DNS 重新解析，再试一轮。中国 CDN 对海外云 IP 不做
+        # IP 封锁，能返回 result=1（可能是缓存的少量作品，但优于完全失败）。
+        # 自托管 runner（住宅 IP）直连即可成功，不会走到这里。
+        if not parsed.get("ok") and not self._cn_cdn_tried:
+            self._cn_cdn_tried = True
+            if setup_china_cdn_hosts():
+                logger.info("[kuaishou] %s 切换中国 CDN 降级通道，重建浏览器 context 重试", pid)
+                # 关闭旧 context（其 DNS 缓存仍指向被封 IP），新建 context 重新解析
+                if self._ctx is not None and self._ctx is not self._src:
+                    try:
+                        self._ctx.close()
+                    except Exception:  # noqa: BLE001
+                        pass
+                self._ctx = None
+                self._warmed = False
+                self._uses = 0
+                self._ip_block_suspected = False
+                ctx = self._ensure_ctx()
+                parsed3, seen3 = self._cycle(ctx, pid)
+                seen = seen + seen3
+                if parsed3.get("ok"):
+                    self._uses += 1
+                    parsed3["nav_count"] = len(seen)
+                    parsed3["seen"] = seen
+                    parsed3["cn_cdn"] = True
+                    logger.info("[kuaishou] %s 中国 CDN 降级成功（result=1, %d 条作品）",
+                                pid, len(parsed3.get("items", [])))
+                    return parsed3
+                parsed = parsed3
+                logger.warning("[kuaishou] %s 中国 CDN 降级也未成功（%s）",
+                               pid, parsed3.get("detail", ""))
 
         parsed["nav_count"] = len(seen)
         parsed["seen"] = seen

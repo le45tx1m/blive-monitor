@@ -30,9 +30,11 @@ permissions:
 
 jobs:
   check:
-    # macOS runner：GitHub 自有 IP（13.105.x.x），不被快手风控；
-    # Ubuntu/Azure IP 自 2026-08-14 起被快手硬封（live_api 恒返回 result=2）。
-    runs-on: macos-latest
+    # Runner 选择：通过仓库变量 RUNNER_LABEL 控制（Settings → Secrets and variables → Actions → Variables）。
+    # - 不设置（默认）：macos-latest（GitHub 托管，快手云 IP 被封时自动降级到中国 CDN）
+    # - 设为 "self-hosted"：自托管 runner（用户电脑/服务器，住宅 IP 直连快手，拿全量数据）
+    # - 设为 "self-hosted,linux"：指定 Linux 自托管 runner
+    runs-on: ${{ vars.RUNNER_LABEL || 'macos-latest' }}
     timeout-minutes: 30
     # 作品监控总开关：设为 "true" 启用；列表（post_rooms.json）为空时整段跳过，不浪费资源
     env:
