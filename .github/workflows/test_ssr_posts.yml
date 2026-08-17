@@ -14,10 +14,10 @@ jobs:
           python -m pip install --upgrade pip -q
           pip install patchright -q
           patchright install --with-deps chromium
-      - name: Cache bypass tests
+      - name: Alternative subdomain/host test
         run: |
           python3 << 'PYEOF'
-          import json, time, socket, struct, random, subprocess, re
+          import json, time, socket, struct, random, subprocess, re, ssl, urllib.request
           from patchright.sync_api import sync_playwright
 
           PID = "3xrgxqkqp829xz6"
@@ -42,26 +42,71 @@ jobs:
                   i+=rl
               return ips
 
+          # 解析各种快手子域名
+          print("=== Kuaishou subdomain resolution ===")
+          subdomains = ["live.kuaishou.com", "www.kuaishou.com", "api.kuaishou.com",
+                       "cp.kuaishou.com", "v.kuaishou.com", "m.kuaishou.com",
+                       "open.kuaishou.com", "static.kuaishou.com", "js.kuaishou.com"]
+          cn_ips = {}
+          for sub in subdomains:
+              try:
+                  ips = dns(sub)
+                  cn_ips[sub] = ips
+                  print(f"  {sub}: {ips[:3]}")
+              except Exception as e:
+                  print(f"  {sub}: ERROR {e}")
+
+          # 用中国 CDN IP 映射 live 和 www
           for domain in ['live.kuaishou.com', 'www.kuaishou.com']:
               ips = dns(domain)
               ip = next((x for x in ips if x.startswith('103.102.202.')), ips[0])
               subprocess.run(['sudo', 'bash', '-c', f'echo "{ip} {domain}" >> /etc/hosts'], check=True)
-              print(f"{domain} -> {ip}")
 
-          def log_result(label, data):
-              lst = data.get("list", [])
-              items = []
-              for item in lst[:12]:
-                  poster = item.get("poster", "")
-                  dm = re.search(r'/(\d{4}/\d{2}/\d{2})/', poster)
-                  items.append(f"{item.get('id')}({dm.group(1) if dm else '?'})")
-              print(f"  [{label}] result={data.get('result')}, list={len(lst)}, pcursor={data.get('pcursor')}")
-              print(f"  items: {items}")
+          # 直接用 urllib 测试不同 Host 头
+          print("\n=== Direct HTTP with different Host headers ===")
+          cn_ip = dns("live.kuaishou.com")[0]
+          paths = [
+              f"/live_api/profile/public?principalId={PID}&count=12&privacy=public&caver=2&hasMore=false",
+              f"/live_api/profile/public?principalId={PID}&count=12&privacy=public&caver=2",
+          ]
+          hosts = ["live.kuaishou.com", "www.kuaishou.com", "api.kuaishou.com"]
+          for host in hosts:
+              for path in paths[:1]:
+                  try:
+                      ctx = ssl.create_default_context()
+                      ctx.check_hostname = False
+                      ctx.verify_mode = ssl.CERT_NONE
+                      sock = socket.create_connection((cn_ip, 443), timeout=10)
+                      ssock = ctx.wrap_socket(sock, server_hostname="live.kuaishou.com")
+                      req = f"GET {path} HTTP/1.1\r\nHost: {host}\r\nUser-Agent: {UA}\r\nReferer: https://live.kuaishou.com/\r\nAccept: application/json\r\nConnection: close\r\n\r\n"
+                      ssock.sendall(req.encode())
+                      resp = b""
+                      while True:
+                          try:
+                              chunk = ssock.recv(4096)
+                              if not chunk: break
+                              resp += chunk
+                          except: break
+                      ssock.close()
+                      text = resp.decode("utf-8", "replace")
+                      if "\r\n\r\n" in text:
+                          headers, body = text.split("\r\n\r\n", 1)
+                          status = headers.split("\r\n")[0]
+                          try:
+                              d = json.loads(body)
+                              data = d.get("data", d)
+                              print(f"  Host={host}: {status} result={data.get('result')} list={len(data.get('list',[]))}")
+                          except:
+                              print(f"  Host={host}: {status} body={body[:100]}")
+                  except Exception as e:
+                      print(f"  Host={host}: ERROR {str(e)[:80]}")
 
+          # 用浏览器测试：route 到不同子域名
+          print("\n=== Browser: route API to different subdomains ===")
           with sync_playwright() as pw:
-              browser = pw.chromium.launch(headless=True, args=["--no-sandbox","--disable-dev-shm-usage"])
+              browser = pw.chromium.launch(headless=True, args=["--no-sandbox","--disable-dev-shm-usage","--ignore-certificate-errors"])
               ctx = browser.new_context(viewport={"width":1366,"height":900}, locale="zh-CN",
-                  timezone_id="Asia/Shanghai", user_agent=UA)
+                  timezone_id="Asia/Shanghai", user_agent=UA, ignore_https_errors=True)
               page = ctx.new_page()
 
               # 预热
@@ -75,59 +120,37 @@ jobs:
               ab = cookies & {"kwfv1","kwssectoken","kwscode"}
               print(f"Antibot: {sorted(ab)}, did={'did' in cookies}")
 
-              # 测试 1: Cache-Control: no-cache
-              print("\n=== Test: Cache-Control no-cache ===")
-              def add_nocache(route, request):
-                  headers = request.headers.copy()
-                  headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-                  headers["Pragma"] = "no-cache"
-                  url = request.url.replace("hasMore=true", "hasMore=false")
-                  route.continue_(url=url, headers=headers)
-              page.route("**/live_api/profile/public*", add_nocache)
-              results = []
-              def on_resp(resp):
-                  if "live_api/profile/public" in resp.url:
-                      try: results.append(json.loads(resp.body().decode())["data"])
-                      except: pass
-              page.on("response", on_resp)
-              page.goto(f"https://live.kuaishou.com/profile/{PID}", wait_until="domcontentloaded", timeout=30000)
-              page.wait_for_timeout(12000)
-              page.remove_listener("response", on_resp)
-              page.unroute("**/live_api/profile/public*")
-              for r in results: log_result("no-cache", r)
-
-              # 测试 2: 用 page.evaluate 发 POST 请求
-              print("\n=== Test: POST request ===")
-              post_result = page.evaluate("""async (pid) => {
-                  try {
-                      const resp = await fetch(`/live_api/profile/public?principalId=${pid}&count=12&privacy=public&caver=2&hasMore=false`, {
-                          method: 'POST',
-                          credentials: 'include',
-                          headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                          body: ''
-                      });
-                      const d = await resp.json();
-                      const data = d.data || {};
-                      return {result: data.result, count: (data.list||[]).length, pcursor: data.pcursor,
-                              items: (data.list||[]).slice(0,5).map(i => i.id)};
-                  } catch(e) { return {error: e.message}; }
-              }""", PID)
-              print(f"  POST: {post_result}")
-
-              # 测试 3: 用不同的省份 DNS 解析，试不同 CDN 边缘
-              print("\n=== Test: Different provincial DNS ===")
-              dns_servers = [
-                  ("Beijing", "202.106.0.20"),
-                  ("Shanghai", "202.96.209.133"),
-                  ("Guangdong", "202.96.128.86"),
-                  ("Sichuan", "202.98.96.68"),
-              ]
-              for name, srv in dns_servers:
-                  try:
-                      ips = dns("live.kuaishou.com", srv)
-                      print(f"  {name} ({srv}): {ips}")
-                  except Exception as e:
-                      print(f"  {name}: {e}")
+              # 拦截 API 请求，转发到不同 host
+              for alt_host in ["www.kuaishou.com"]:
+                  print(f"\n--- Routing live_api to {alt_host} ---")
+                  def make_router(host):
+                      def router(route, request):
+                          if "live_api/profile/public" in request.url:
+                              new_url = request.url.replace("https://live.kuaishou.com/", f"https://{host}/")
+                              print(f"  Route: {request.url[:80]} -> {new_url[:80]}")
+                              route.continue_(url=new_url)
+                          else:
+                              route.continue_()
+                      return router
+                  page.route("**/live_api/profile/public*", make_router(alt_host))
+                  
+                  results = []
+                  def on_resp(resp):
+                      if "profile/public" in resp.url or "profile/feed" in resp.url:
+                          try:
+                              d = json.loads(resp.body().decode("utf-8","replace"))
+                              data = d.get("data", d)
+                              lst = data.get("list", data.get("feeds", []))
+                              print(f"  {resp.url[:80]}: result={data.get('result')} list={len(lst) if isinstance(lst, list) else 'N/A'}")
+                              results.append(data)
+                          except: pass
+                  page.on("response", on_resp)
+                  
+                  page.goto(f"https://live.kuaishou.com/profile/{PID}", wait_until="domcontentloaded", timeout=30000)
+                  page.wait_for_timeout(12000)
+                  
+                  page.remove_listener("response", on_resp)
+                  page.unroute("**/live_api/profile/public*")
 
               browser.close()
           PYEOF
