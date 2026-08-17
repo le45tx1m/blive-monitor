@@ -14,14 +14,13 @@ jobs:
           python -m pip install --upgrade pip -q
           pip install patchright -q
           patchright install --with-deps chromium
-      - name: Test /rest/v/profile/feed
+      - name: Cache bust + feed structure
         run: |
           python3 << 'PYEOF'
           import json, time, socket, struct, random, subprocess, re
           from patchright.sync_api import sync_playwright
 
           PID = "3xrgxqkqp829xz6"
-          USER_ID = "2117550"
           UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
           def dns(name, srv='223.5.5.5'):
@@ -51,49 +50,9 @@ jobs:
 
           with sync_playwright() as pw:
               browser = pw.chromium.launch(headless=True, args=["--no-sandbox","--disable-dev-shm-usage"])
-              ctx = browser.new_context(
-                  viewport={"width":1366,"height":900}, locale="zh-CN",
-                  timezone_id="Asia/Shanghai",
-                  user_agent=UA)
+              ctx = browser.new_context(viewport={"width":1366,"height":900}, locale="zh-CN",
+                  timezone_id="Asia/Shanghai", user_agent=UA)
               page = ctx.new_page()
-
-              # 拦截所有 www/rest/ 请求
-              def on_resp(resp):
-                  url = resp.url
-                  if "/rest/" in url and ("profile" in url or "feed" in url or "photo" in url):
-                      try:
-                          body = resp.body().decode("utf-8","replace")
-                          print(f"\n=== {resp.request.method} {url[:150]} ===")
-                          try:
-                              d = json.loads(body)
-                              print(f"  Top keys: {list(d.keys())[:10]}")
-                              data = d.get("data", d)
-                              if isinstance(data, dict):
-                                  print(f"  data keys: {list(data.keys())[:15]}")
-                                  # 找作品列表
-                                  for key in ["feeds", "list", "photos", "works", "items", "records", "data"]:
-                                      if key in data and isinstance(data[key], list):
-                                          items = data[key]
-                                          print(f"  {key}: {len(items)} items")
-                                          for item in items[:5]:
-                                              if isinstance(item, dict):
-                                                  pid = item.get("id") or item.get("photoId") or item.get("photo_id")
-                                                  ts = item.get("timestamp") or item.get("createTime") or item.get("date")
-                                                  print(f"    id={pid} ts={ts}")
-                                                  # 找封面图中的日期
-                                                  for v in item.values():
-                                                      if isinstance(v, str) and re.search(r'/(\d{4}/\d{2}/\d{2})/', v):
-                                                          dm = re.search(r'/(\d{4}/\d{2}/\d{2})/', v)
-                                                          print(f"      date from URL: {dm.group(1)}")
-                                                          break
-                                  if "result" in data:
-                                      print(f"  result: {data['result']}")
-                                  if "pcursor" in data:
-                                      print(f"  pcursor: {data['pcursor']}")
-                          except:
-                              print(f"  Body: {body[:500]}")
-                      except: pass
-              page.on("response", on_resp)
 
               # 预热
               print("Warming up www...")
@@ -106,19 +65,57 @@ jobs:
               ab = cookies & {"kwfv1","kwssectoken","kwscode"}
               print(f"Antibot: {sorted(ab)}, did={'did' in cookies}")
 
-              # 访问 www profile 页
-              print(f"\nNavigating to www.kuaishou.com/profile/{PID}...")
-              try:
-                  page.goto(f"https://www.kuaishou.com/profile/{PID}", wait_until="domcontentloaded", timeout=30000)
-                  page.wait_for_timeout(15000)
-              except Exception as e:
-                  print(f"Profile error: {e}")
+              # 拦截 API 并加缓存破坏参数，同时改 hasMore=false
+              def bust_cache(route, request):
+                  url = request.url
+                  if "live_api/profile/public" in url:
+                      url = url.replace("hasMore=true", "hasMore=false")
+                      url += f"&_t={int(time.time()*1000)}"
+                      print(f"  [BUST] {url[-100:]}")
+                  route.continue_(url=url)
+              page.route("**/live_api/profile/public*", bust_cache)
 
-              # 滚动加载更多
-              print("\nScrolling...")
-              for _ in range(3):
-                  page.evaluate("window.scrollBy(0, 1000)")
-                  page.wait_for_timeout(3000)
+              api_results = []
+              def on_resp(resp):
+                  if "live_api/profile/public" in resp.url:
+                      try:
+                          d = json.loads(resp.body().decode("utf-8","replace"))
+                          data = d.get("data", {})
+                          lst = data.get("list", [])
+                          items = []
+                          for item in lst[:12]:
+                              poster = item.get("poster", "")
+                              dm = re.search(r'/(\d{4}/\d{2}/\d{2})/', poster)
+                              items.append(f"{item.get('id')}({dm.group(1) if dm else '?'})")
+                          print(f"  API: result={data.get('result')}, list={len(lst)}, pcursor={data.get('pcursor')}")
+                          print(f"  items: {items}")
+                          api_results.append(data)
+                      except: pass
+              page.on("response", on_resp)
+
+              # 多次导航测试
+              for i in range(3):
+                  print(f"\n=== Navigation {i+1} ===")
+                  page.goto(f"https://live.kuaishou.com/profile/{PID}?_t={int(time.time()*1000)}",
+                           wait_until="domcontentloaded", timeout=30000)
+                  page.wait_for_timeout(10000)
+
+              # 也试直接在浏览器里 fetch（带签名由页面 JS 处理）
+              print("\n=== Direct fetch from page context ===")
+              # 先访问 profile 页让 JS 加载
+              page.unroute("**/live_api/profile/public*")
+              fetch_result = page.evaluate("""async (pid) => {
+                  // 尝试找到签名函数并直接调用 API
+                  const results = [];
+                  // 方法1: 直接 fetch（不带签名，看错误）
+                  try {
+                      const r1 = await fetch(`/live_api/profile/public?principalId=${pid}&count=12&privacy=public&caver=2&hasMore=false`, {credentials: 'include'});
+                      const d1 = await r1.json();
+                      results.push({method: 'no-sig', result: d1.data?.result, count: d1.data?.list?.length});
+                  } catch(e) { results.push({method: 'no-sig', error: e.message}); }
+                  return results;
+              }""", PID)
+              print(f"  Direct fetch: {fetch_result}")
 
               browser.close()
           PYEOF
