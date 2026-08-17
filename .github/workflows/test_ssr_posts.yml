@@ -14,13 +14,14 @@ jobs:
           python -m pip install --upgrade pip -q
           pip install patchright -q
           patchright install --with-deps chromium
-      - name: Comprehensive Chinese CDN test
+      - name: Test /rest/v/profile/feed
         run: |
           python3 << 'PYEOF'
           import json, time, socket, struct, random, subprocess, re
           from patchright.sync_api import sync_playwright
 
           PID = "3xrgxqkqp829xz6"
+          USER_ID = "2117550"
           UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
           def dns(name, srv='223.5.5.5'):
@@ -48,113 +49,76 @@ jobs:
               subprocess.run(['sudo', 'bash', '-c', f'echo "{ip} {domain}" >> /etc/hosts'], check=True)
               print(f"{domain} -> {ip}")
 
-          def log_api(label, data):
-              lst = data.get("list", [])
-              items = []
-              for item in lst[:12]:
-                  poster = item.get("poster", "")
-                  dm = re.search(r'/(\d{4}/\d{2}/\d{2})/', poster)
-                  items.append(f"{item.get('id')}({dm.group(1) if dm else '?'})")
-              print(f"  [{label}] result={data.get('result')}, list={len(lst)}, pcursor={data.get('pcursor')}")
-              print(f"  items: {items}")
-
           with sync_playwright() as pw:
               browser = pw.chromium.launch(headless=True, args=["--no-sandbox","--disable-dev-shm-usage"])
               ctx = browser.new_context(
                   viewport={"width":1366,"height":900}, locale="zh-CN",
                   timezone_id="Asia/Shanghai",
-                  geolocation={"latitude": 39.9075, "longitude": 116.3972},  # 北京
-                  permissions=["geolocation"],
                   user_agent=UA)
-              # 全新身份
               page = ctx.new_page()
+
+              # 拦截所有 www/rest/ 请求
+              def on_resp(resp):
+                  url = resp.url
+                  if "/rest/" in url and ("profile" in url or "feed" in url or "photo" in url):
+                      try:
+                          body = resp.body().decode("utf-8","replace")
+                          print(f"\n=== {resp.request.method} {url[:150]} ===")
+                          try:
+                              d = json.loads(body)
+                              print(f"  Top keys: {list(d.keys())[:10]}")
+                              data = d.get("data", d)
+                              if isinstance(data, dict):
+                                  print(f"  data keys: {list(data.keys())[:15]}")
+                                  # 找作品列表
+                                  for key in ["feeds", "list", "photos", "works", "items", "records", "data"]:
+                                      if key in data and isinstance(data[key], list):
+                                          items = data[key]
+                                          print(f"  {key}: {len(items)} items")
+                                          for item in items[:5]:
+                                              if isinstance(item, dict):
+                                                  pid = item.get("id") or item.get("photoId") or item.get("photo_id")
+                                                  ts = item.get("timestamp") or item.get("createTime") or item.get("date")
+                                                  print(f"    id={pid} ts={ts}")
+                                                  # 找封面图中的日期
+                                                  for v in item.values():
+                                                      if isinstance(v, str) and re.search(r'/(\d{4}/\d{2}/\d{2})/', v):
+                                                          dm = re.search(r'/(\d{4}/\d{2}/\d{2})/', v)
+                                                          print(f"      date from URL: {dm.group(1)}")
+                                                          break
+                                  if "result" in data:
+                                      print(f"  result: {data['result']}")
+                                  if "pcursor" in data:
+                                      print(f"  pcursor: {data['pcursor']}")
+                          except:
+                              print(f"  Body: {body[:500]}")
+                      except: pass
+              page.on("response", on_resp)
 
               # 预热
               print("Warming up www...")
               try:
                   page.goto("https://www.kuaishou.com/", wait_until="domcontentloaded", timeout=20000)
-                  page.wait_for_timeout(10000)
+                  page.wait_for_timeout(8000)
               except Exception as e:
                   print(f"Warmup: {e}")
               cookies = {c["name"] for c in ctx.cookies()}
               ab = cookies & {"kwfv1","kwssectoken","kwscode"}
               print(f"Antibot: {sorted(ab)}, did={'did' in cookies}")
 
-              # 测试 1: 原始请求（hasMore=true）
-              print("\n=== Test 1: Original (hasMore=true) ===")
-              results1 = []
-              def on_resp1(resp):
-                  if "live_api/profile/public" in resp.url:
-                      try: results1.append(json.loads(resp.body().decode())["data"])
-                      except: pass
-              page.on("response", on_resp1)
-              page.goto(f"https://live.kuaishou.com/profile/{PID}", wait_until="domcontentloaded", timeout=30000)
-              page.wait_for_timeout(12000)
-              page.remove_listener("response", on_resp1)
-              for r in results1: log_api("original", r)
-
-              # 测试 2: 修改 hasMore=true -> false
-              print("\n=== Test 2: hasMore=false ===")
-              def modify_hasmore(route, request):
-                  new_url = request.url.replace("hasMore=true", "hasMore=false")
-                  route.continue_(url=new_url)
-              page.route("**/live_api/profile/public*", modify_hasmore)
-              results2 = []
-              def on_resp2(resp):
-                  if "live_api/profile/public" in resp.url:
-                      try: results2.append(json.loads(resp.body().decode())["data"])
-                      except: pass
-              page.on("response", on_resp2)
-              page.goto(f"https://live.kuaishou.com/profile/{PID}", wait_until="domcontentloaded", timeout=30000)
-              page.wait_for_timeout(12000)
-              page.remove_listener("response", on_resp2)
-              page.unroute("**/live_api/profile/public*")
-              for r in results2: log_api("hasMore=false", r)
-
-              # 测试 3: 移除 hasMore 参数
-              print("\n=== Test 3: Remove hasMore ===")
-              def remove_hasmore(route, request):
-                  new_url = request.url.replace("&hasMore=true", "").replace("hasMore=true&", "")
-                  route.continue_(url=new_url)
-              page.route("**/live_api/profile/public*", remove_hasmore)
-              results3 = []
-              def on_resp3(resp):
-                  if "live_api/profile/public" in resp.url:
-                      try: results3.append(json.loads(resp.body().decode())["data"])
-                      except: pass
-              page.on("response", on_resp3)
-              page.goto(f"https://live.kuaishou.com/profile/{PID}", wait_until="domcontentloaded", timeout=30000)
-              page.wait_for_timeout(12000)
-              page.remove_listener("response", on_resp3)
-              page.unroute("**/live_api/profile/public*")
-              for r in results3: log_api("no-hasMore", r)
-
-              # 测试 4: www.kuaishou.com/profile 页面
-              print("\n=== Test 4: www.kuaishou.com profile ===")
-              results4 = []
-              def on_resp4(resp):
-                  if "profile" in resp.url and ("graphql" in resp.url or "rest/" in resp.url or "live_api" in resp.url):
-                      try:
-                          body = resp.body().decode("utf-8","replace")
-                          print(f"  URL: {resp.url[:120]}")
-                          d = json.loads(body)
-                          data = d.get("data", d)
-                          if isinstance(data, dict):
-                              if "result" in data:
-                                  log_api("www-profile", data)
-                              elif "visionProfilePhotoList" in data:
-                                  vpl = data["visionProfilePhotoList"]
-                                  if isinstance(vpl, dict):
-                                      feeds = vpl.get("feeds", [])
-                                      print(f"  visionProfilePhotoList feeds: {len(feeds)}")
-                      except: pass
-              page.on("response", on_resp4)
+              # 访问 www profile 页
+              print(f"\nNavigating to www.kuaishou.com/profile/{PID}...")
               try:
-                  page.goto(f"https://www.kuaishou.com/profile/{PID}", wait_until="domcontentloaded", timeout=20000)
-                  page.wait_for_timeout(10000)
+                  page.goto(f"https://www.kuaishou.com/profile/{PID}", wait_until="domcontentloaded", timeout=30000)
+                  page.wait_for_timeout(15000)
               except Exception as e:
-                  print(f"  www profile error: {e}")
-              page.remove_listener("response", on_resp4)
+                  print(f"Profile error: {e}")
+
+              # 滚动加载更多
+              print("\nScrolling...")
+              for _ in range(3):
+                  page.evaluate("window.scrollBy(0, 1000)")
+                  page.wait_for_timeout(3000)
 
               browser.close()
           PYEOF
